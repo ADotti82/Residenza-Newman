@@ -578,6 +578,162 @@ function toRomanNumerals(num) {
   return res || "I";
 }
 
+// ----------------------------------------------------------------------------
+// CALENDARIO ROMANO GENERALE (general-it) & FASTI LITURGICI
+// ----------------------------------------------------------------------------
+
+// Database feste e memorie del Calendario Romano Generale per l'Italia (general-it)
+const CALENDARIO_ROMANO_IT = {
+  "01-01": { titolo: "Maria Santissima Madre di Dio", grado: "Solennità", colore: "Bianco / Oro", hex: "#d97706" },
+  "01-02": { titolo: "Santi Basilio Magno e Gregorio Nazianzeno, vescovi e dottori", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "01-03": { titolo: "Santissimo Nome di Gesù", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "01-06": { titolo: "Epifania del Signore", grado: "Solennità", colore: "Bianco / Oro", hex: "#d97706" },
+  "01-17": { titolo: "Sant'Antonio, abate", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "01-20": { titolo: "San Fabiano, papa e martire; San Sebastiano, martire", grado: "Memoria facoltativa", colore: "Rosso", hex: "#dc2626" },
+  "01-21": { titolo: "Sant'Agnese, vergine e martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "01-22": { titolo: "San Vincenzo, diacono e martire", grado: "Memoria facoltativa", colore: "Rosso", hex: "#dc2626" },
+  "01-24": { titolo: "San Francesco di Sales, vescovo e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "01-25": { titolo: "Conversione di San Paolo, apostolo", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "01-26": { titolo: "Santi Timoteo e Tito, vescovi", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "01-28": { titolo: "San Tommaso d'Aquino, presbitero e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "01-31": { titolo: "San Giovanni Bosco, presbitero", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "02-02": { titolo: "Presentazione del Signore al Tempio", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "02-03": { titolo: "San Biagio, vescovo e martire", grado: "Memoria facoltativa", colore: "Rosso", hex: "#dc2626" },
+  "02-05": { titolo: "Sant'Agata, vergine e martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "02-06": { titolo: "Santi Paolo Miki e compagni, martiri", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "02-10": { titolo: "Santa Scolastica, vergine", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "02-11": { titolo: "Beata Vergine Maria di Lourdes", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "02-14": { titolo: "Santi Cirillo, monaco, e Metodio, vescovo, compatroni d'Europa", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "02-21": { titolo: "San Pier Damiani, vescovo e dottore", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "02-22": { titolo: "Cattedra di San Pietro, apostolo", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "02-23": { titolo: "San Policarpo, vescovo e martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "03-07": { titolo: "Sante Perpetua e Felicita, martiri", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "03-08": { titolo: "San Giovanni di Dio, religioso", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "03-09": { titolo: "Santa Francesca Romana, religiosa", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "03-17": { titolo: "San Patrizio, vescovo", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "03-19": { titolo: "San Giuseppe, sposo della Beata Vergine Maria", grado: "Solennità", colore: "Bianco / Oro", hex: "#d97706" },
+  "03-25": { titolo: "Annunciazione del Signore", grado: "Solennità", colore: "Bianco / Oro", hex: "#d97706" },
+  "04-07": { titolo: "San Giovanni Battista de La Salle, presbitero", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "04-21": { titolo: "Sant'Anselmo, vescovo e dottore", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "04-23": { titolo: "San Giorgio, martire", grado: "Memoria facoltativa", colore: "Rosso", hex: "#dc2626" },
+  "04-25": { titolo: "San Marco, evangelista", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "04-29": { titolo: "Santa Caterina da Siena, vergine e dottore, patrona d'Italia e d'Europa", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "05-01": { titolo: "San Giuseppe Lavoratore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "05-02": { titolo: "Sant'Atanasio, vescovo e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "05-03": { titolo: "Santi Filippo e Giacomo, apostoli", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "05-13": { titolo: "Beata Vergine Maria di Fatima", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "05-14": { titolo: "San Mattia, apostolo", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "05-24": { titolo: "Beata Vergine Maria Aiuto dei Cristiani", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "05-26": { titolo: "San Filippo Neri, presbitero", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "05-31": { titolo: "Visitazione della Beata Vergine Maria", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "06-01": { titolo: "San Giustino, martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "06-02": { titolo: "Santi Marcellino e Pietro, martiri", grado: "Memoria facoltativa", colore: "Rosso", hex: "#dc2626" },
+  "06-03": { titolo: "Santi Carlo Lwanga e compagni, martiri", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "06-05": { titolo: "San Bonifacio, vescovo e martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "06-11": { titolo: "San Barnaba, apostolo", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "06-13": { titolo: "Sant'Antonio di Padova, presbitero e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "06-21": { titolo: "San Luigi Gonzaga, religioso", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "06-24": { titolo: "Natività di San Giovanni Battista", grado: "Solennità", colore: "Bianco / Oro", hex: "#d97706" },
+  "06-28": { titolo: "Sant'Ireneo, vescovo e martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "06-29": { titolo: "Santi Pietro e Paolo, apostoli", grado: "Solennità", colore: "Rosso", hex: "#dc2626" },
+  "06-30": { titolo: "Primi Santi Martiri della Chiesa Romana", grado: "Memoria facoltativa", colore: "Rosso", hex: "#dc2626" },
+  "07-03": { titolo: "San Tommaso, apostolo", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "07-11": { titolo: "San Benedetto, abate, patrono d'Europa", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "07-15": { titolo: "San Bonaventura, vescovo e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "07-22": { titolo: "Santa Maria Maddalena", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "07-23": { titolo: "Santa Brigida, religiosa, compatrona d'Europa", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "07-25": { titolo: "San Giacomo, apostolo", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "07-26": { titolo: "Santi Gioacchino e Anna, genitori della Beata Vergine Maria", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "07-29": { titolo: "Santi Marta, Maria e Lazzaro", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "07-31": { titolo: "Sant'Ignazio di Loyola, presbitero", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "08-01": { titolo: "Sant'Alfonso Maria de' Liguori, vescovo e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "08-04": { titolo: "San Giovanni Maria Vianney, presbitero (Curato d'Ars)", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "08-06": { titolo: "Trasfigurazione del Signore", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "08-08": { titolo: "San Domenico, presbitero", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "08-09": { titolo: "Santa Teresa Benedetta della Croce (Edith Stein), vergine e martire, compatrona d'Europa", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "08-10": { titolo: "San Lorenzo, diacono e martire", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "08-11": { titolo: "Santa Chiara, vergine", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "08-14": { titolo: "San Massimiliano Maria Kolbe, presbitero e martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "08-15": { titolo: "Assunzione della Beata Vergine Maria", grado: "Solennità", colore: "Bianco / Oro", hex: "#d97706" },
+  "08-20": { titolo: "San Bernardo, abate e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "08-21": { titolo: "San Pio X, papa", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "08-22": { titolo: "Beata Vergine Maria Regina", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "08-24": { titolo: "San Bartolomeo, apostolo", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "08-27": { titolo: "Santa Monica", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "08-28": { titolo: "Sant'Agostino, vescovo e dottore della Chiesa", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "08-29": { titolo: "Martirio di San Giovanni Battista", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "09-03": { titolo: "San Gregorio Magno, papa e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "09-08": { titolo: "Natività della Beata Vergine Maria", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "09-12": { titolo: "Santissimo Nome di Maria", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "09-13": { titolo: "San Giovanni Crisostomo, vescovo e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "09-14": { titolo: "Esaltazione della Santa Croce", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "09-15": { titolo: "Beata Vergine Maria Addolorata", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "09-16": { titolo: "Santi Cornelio papa e Cipriano vescovo, martiri", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "09-17": { titolo: "San Roberto Bellarmino, vescovo e dottore della Chiesa", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "09-19": { titolo: "San Gennaro, vescovo e martire", grado: "Memoria facoltativa", colore: "Rosso", hex: "#dc2626" },
+  "09-20": { titolo: "Santi Andrea Kim Taegon, presbitero, e Paolo Chong Hasang e compagni, martiri", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "09-21": { titolo: "San Matteo, apostolo ed evangelista", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "09-23": { titolo: "San Pio da Pietrelcina, presbitero", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "09-26": { titolo: "Santi Cosma e Damiano, martiri", grado: "Memoria facoltativa", colore: "Rosso", hex: "#dc2626" },
+  "09-27": { titolo: "San Vincenzo de' Paoli, presbitero", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "09-28": { titolo: "San Venceslao, martire", grado: "Memoria facoltativa", colore: "Rosso", hex: "#dc2626" },
+  "09-29": { titolo: "Santi Michele, Gabriele e Raffaele, arcangeli", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "09-30": { titolo: "San Girolamo, presbitero e dottore della Chiesa", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "10-01": { titolo: "Santa Teresa di Gesù Bambino, vergine e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "10-02": { titolo: "Santi Angeli Custodi", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "10-04": { titolo: "San Francesco d'Assisi, patrono d'Italia", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "10-07": { titolo: "Beata Vergine Maria del Rosario", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "10-09": { titolo: "San John Henry Newman, presbitero e cardinale, titolare della Residenza", grado: "Solennità", colore: "Bianco / Oro", hex: "#d97706" },
+  "10-15": { titolo: "Santa Teresa di Gesù (d'Avila), vergine e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "10-17": { titolo: "Sant'Ignazio d'Antiochia, vescovo e martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "10-18": { titolo: "San Luca, evangelista", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "10-19": { titolo: "Santi Giovanni de Brébeuf e Isacco Jogues, presbiteri, e compagni, martiri", grado: "Memoria facoltativa", colore: "Rosso", hex: "#dc2626" },
+  "10-22": { titolo: "San Giovanni Paolo II, papa", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "10-28": { titolo: "Santi Simone e Giuda, apostoli", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "11-01": { titolo: "Tutti i Santi", grado: "Solennità", colore: "Bianco / Oro", hex: "#d97706" },
+  "11-02": { titolo: "Commemorazione di tutti i fedeli defunti", grado: "Celebrazione", colore: "Viola", hex: "#7c3aed" },
+  "11-04": { titolo: "San Carlo Borromeo, vescovo", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "11-09": { titolo: "Dedicazione della Basilica Lateranense", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "11-10": { titolo: "San Leone Magno, papa e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "11-11": { titolo: "San Martino di Tours, vescovo", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "11-12": { titolo: "San Giosafat, vescovo e martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "11-17": { titolo: "Sant'Elisabetta d'Ungheria, religiosa", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "11-21": { titolo: "Presentazione della Beata Vergine Maria", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "11-22": { titolo: "Santa Cecilia, vergine e martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "11-24": { titolo: "Santi Andrea Dung-Lac, presbitero, e compagni, martiri", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "11-30": { titolo: "Sant'Andrea, apostolo", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "12-03": { titolo: "San Francesco Saverio, presbitero", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "12-06": { titolo: "San Nicola, vescovo", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "12-07": { titolo: "Sant'Ambrogio, vescovo e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "12-08": { titolo: "Immacolata Concezione della Beata Vergine Maria", grado: "Solennità", colore: "Bianco / Oro", hex: "#d97706" },
+  "12-12": { titolo: "Beata Vergine Maria di Guadalupe", grado: "Memoria facoltativa", colore: "Bianco", hex: "#d97706" },
+  "12-13": { titolo: "Santa Lucia, vergine e martire", grado: "Memoria", colore: "Rosso", hex: "#dc2626" },
+  "12-14": { titolo: "San Giovanni della Croce, presbitero e dottore", grado: "Memoria", colore: "Bianco", hex: "#d97706" },
+  "12-25": { titolo: "Natale del Signore", grado: "Solennità", colore: "Bianco / Oro", hex: "#d97706" },
+  "12-26": { titolo: "Santo Stefano, primo martire", grado: "Festa", colore: "Rosso", hex: "#dc2626" },
+  "12-27": { titolo: "San Giovanni, apostolo ed evangelista", grado: "Festa", colore: "Bianco", hex: "#d97706" },
+  "12-28": { titolo: "Santi Innocenti, martiri", grado: "Festa", colore: "Rosso", hex: "#dc2626" }
+};
+
+// Algoritmo Computus per la data di Pasqua
+function calcolaDomenicaPasqua(anno) {
+  const a = anno % 19;
+  const b = Math.floor(anno / 100);
+  const c = anno % 100;
+  const d = Math.floor(b / 4);
+  const e = b % 4;
+  const f = Math.floor((b + 8) / 25);
+  const g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30;
+  const i = Math.floor(c / 4);
+  const k = c % 4;
+  const l = (32 + 2 * e + 2 * i - h - k) % 7;
+  const m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31);
+  const day = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(anno, month - 1, day);
+}
+
 function calcolaCalendarioRomano(date) {
   const giorniSettimanaLatino = [
     "Dies Solis", "Dies Lunae", "Dies Martis", "Dies Mercurii", 
@@ -592,134 +748,90 @@ function calcolaCalendarioRomano(date) {
     "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
   ];
 
-  // Mesi latini in accusativo (per Ante Diem e Pridie) e ablativo (per Kalendis, Nonis, Idibus)
-  const mesiLatinoAcc = [
-    "Ianuarias", "Februarias", "Martias", "Apriles", "Maias", "Iunias",
-    "Iulias", "Augustas", "Septembres", "Octobres", "Novembres", "Decembres"
-  ];
-  const mesiLatinoAbl = [
-    "Ianuariis", "Februariis", "Martiis", "Aprilibus", "Maiis", "Iuniis",
-    "Iuliis", "Augustis", "Septembribus", "Octobribus", "Novembribus", "Decembribus"
-  ];
-
   const y = date.getFullYear();
   const m = date.getMonth(); // 0-11
   const d = date.getDate();  // 1-31
   const dayOfWeek = date.getDay(); // 0-6
 
-  // Nonae cadono il 7 in Marzo, Maggio, Luglio, Ottobre; il 5 negli altri
-  // Idus cadono il 15 in Marzo, Maggio, Luglio, Ottobre; il 13 negli altri
-  const isMesiLunghi = (m === 2 || m === 4 || m === 6 || m === 9); // Mar, Mai, Iul, Oct
-  const nonae = isMesiLunghi ? 7 : 5;
-  const idus = isMesiLunghi ? 15 : 13;
-
-  // Giorni nel mese corrente
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-
-  let stringaRomana = "";
-
-  if (d === 1) {
-    stringaRomana = `KALENDIS ${mesiLatinoAbl[m].toUpperCase()}`;
-  } else if (d < nonae) {
-    const diff = nonae - d;
-    if (diff === 1) {
-      stringaRomana = `PRIDIE NONAS ${mesiLatinoAcc[m].toUpperCase()}`;
-    } else {
-      const numRom = toRomanNumerals(diff + 1);
-      stringaRomana = `ANTE DIEM ${numRom} NONAS ${mesiLatinoAcc[m].toUpperCase()}`;
-    }
-  } else if (d === nonae) {
-    stringaRomana = `NONIS ${mesiLatinoAbl[m].toUpperCase()}`;
-  } else if (d < idus) {
-    const diff = idus - d;
-    if (diff === 1) {
-      stringaRomana = `PRIDIE IDUS ${mesiLatinoAcc[m].toUpperCase()}`;
-    } else {
-      const numRom = toRomanNumerals(diff + 1);
-      stringaRomana = `ANTE DIEM ${numRom} IDUS ${mesiLatinoAcc[m].toUpperCase()}`;
-    }
-  } else if (d === idus) {
-    stringaRomana = `IDIBUS ${mesiLatinoAbl[m].toUpperCase()}`;
-  } else {
-    // Dopo le idi: conto alla rovescia alle calende del mese successivo
-    const nextMonth = (m + 1) % 12;
-    const diff = daysInMonth - d;
-    if (diff === 0) {
-      stringaRomana = `PRIDIE KALENDAS ${mesiLatinoAcc[nextMonth].toUpperCase()}`;
-    } else {
-      const numRom = toRomanNumerals(diff + 2);
-      stringaRomana = `ANTE DIEM ${numRom} KALENDAS ${mesiLatinoAcc[nextMonth].toUpperCase()}`;
-    }
-  }
-
   const annoRomano = `ANNO DOMINI ${toRomanNumerals(y)}`;
   const dataItaliana = `${giorniSettimanaIt[dayOfWeek]} ${d} ${mesiIt[m]} ${y}`;
   const giornoRomano = giorniSettimanaLatino[dayOfWeek];
 
-  // Santo / Memoria liturgica del giorno nel calendario romano
-  const santiTradizionali = {
-    "01-01": "Maria Santissima Madre di Dio (Solennità)",
-    "01-06": "Epifania del Signore (Solennità)",
-    "03-19": "San Giuseppe, sposo della Beata Vergine Maria (Solennità)",
-    "03-25": "Annunciazione del Signore (Solennità)",
-    "04-25": "San Marco, evangelista (Festa)",
-    "05-01": "San Giuseppe Lavoratore (Memoria)",
-    "05-02": "Sant'Atanasio, vescovo e dottore della Chiesa",
-    "05-24": "Beata Vergine Maria Aiuto dei Cristiani",
-    "06-24": "Natività di San Giovanni Battista (Solennità)",
-    "06-29": "Santi Pietro e Paolo, apostoli (Solennità)",
-    "07-03": "San Tommaso, apostolo (Festa)",
-    "07-11": "San Benedetto, abate, patrono d'Europa (Festa)",
-    "07-25": "San Giacomo, apostolo (Festa)",
-    "08-06": "Trasfigurazione del Signore (Festa)",
-    "08-10": "San Lorenzo, diacono e martire (Festa)",
-    "08-15": "Assunzione della Beata Vergine Maria (Solennità)",
-    "08-28": "Sant'Agostino, vescovo e dottore della Chiesa (Memoria)",
-    "09-08": "Natività della Beata Vergine Maria (Festa)",
-    "09-14": "Esaltazione della Santa Croce (Festa)",
-    "09-15": "Beata Vergine Maria Addolorata (Memoria)",
-    "09-16": "Santi Cornelio papa e Cipriano vescovo, martiri (Memoria)",
-    "09-17": "San Roberto Bellarmino, vescovo e dottore della Chiesa",
-    "09-21": "San Matteo, apostolo ed evangelista (Festa)",
-    "09-23": "San Pio da Pietrelcina, presbitero (Memoria)",
-    "09-29": "Santi Michele, Gabriele e Raffaele, arcangeli (Festa)",
-    "09-30": "San Girolamo, presbitero e dottore della Chiesa (Memoria)",
-    "10-01": "Santa Teresa di Gesù Bambino, vergine e dottore (Memoria)",
-    "10-02": "Santi Angeli Custodi (Memoria)",
-    "10-04": "San Francesco d'Assisi, patrono d'Italia (Festa)",
-    "10-09": "San John Henry Newman, presbitero e cardinale, titolare della Residenza (Solennità)",
-    "10-15": "Santa Teresa di Gesù, vergine e dottore (Memoria)",
-    "10-18": "San Luca, evangelista (Festa)",
-    "10-28": "Santi Simone e Giuda, apostoli (Festa)",
-    "11-01": "Tutti i Santi (Solennità)",
-    "11-02": "Commemorazione di tutti i fedeli defunti",
-    "11-04": "San Carlo Borromeo, vescovo (Memoria)",
-    "11-21": "Presentazione della Beata Vergine Maria (Memoria)",
-    "11-30": "Sant'Andrea, apostolo (Festa)",
-    "12-08": "Immacolata Concezione della Beata Vergine Maria (Solennità)",
-    "12-25": "Natale del Signore (Solennità)",
-    "12-26": "Santo Stefano, primo martire (Festa)",
-    "12-27": "San Giovanni, apostolo ed evangelista (Festa)"
-  };
-
   const keyMeseGiorno = `${String(m + 1).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
-  const santo = santiTradizionali[keyMeseGiorno] || "Feria del Tempo Ordinario";
 
-  // Colore liturgico
-  let coloreLiturgico = "Verde";
-  let coloreHex = "#15803d";
+  // Determinazione del Tempo Liturgico
+  const pasqua = calcolaDomenicaPasqua(y);
+  const pasquaMs = pasqua.getTime();
+  const currMs = new Date(y, m, d).getTime();
+  const diffGiorniPasqua = Math.round((currMs - pasquaMs) / 86400000);
+
+  // Prima domenica d'Avvento (4 domeniche prima di Natale)
+  const natale = new Date(y, 11, 25);
+  const giornoNatale = natale.getDay();
+  const offsetAvvento = (giornoNatale === 0 ? 7 : giornoNatale) + 21;
+  const primaDomenicaAvvento = new Date(y, 11, 25 - offsetAvvento);
+
   let tempoLiturgico = "Tempo Ordinario";
+  let coloreTempo = "Verde";
+  let hexTempo = "#16a34a";
+  let settimanaNum = 1;
 
-  if (santo.includes("Solennità") || santo.includes("Festa") || santo.includes("Vergine") || santo.includes("Signore") || santo.includes("Newman")) {
-    coloreLiturgico = "Bianco / Oro";
-    coloreHex = "#b45309";
-  } else if (santo.includes("martire") || santo.includes("Apostoli") || santo.includes("apostolo")) {
-    coloreLiturgico = "Rosso";
-    coloreHex = "#b91c1c";
+  if (currMs >= primaDomenicaAvvento.getTime() && (m === 11 && d <= 24)) {
+    tempoLiturgico = "Tempo di Avvento";
+    coloreTempo = "Viola";
+    hexTempo = "#7c3aed";
+  } else if ((m === 11 && d >= 25) || (m === 0 && d <= 12)) {
+    tempoLiturgico = "Tempo di Natale";
+    coloreTempo = "Bianco";
+    hexTempo = "#d97706";
+  } else if (diffGiorniPasqua >= -46 && diffGiorniPasqua < 0) {
+    tempoLiturgico = "Tempo di Quaresima";
+    coloreTempo = "Viola";
+    hexTempo = "#7c3aed";
+  } else if (diffGiorniPasqua >= 0 && diffGiorniPasqua <= 49) {
+    tempoLiturgico = "Tempo Pasquale";
+    coloreTempo = "Bianco";
+    hexTempo = "#d97706";
+  } else {
+    tempoLiturgico = "Tempo Ordinario";
+    coloreTempo = "Verde";
+    hexTempo = "#16a34a";
+    // Stima della settimana del Tempo Ordinario
+    // A metà settembre (settimana del 16) corrisponde tipicamente alla 24ª settimana
+    if (m >= 5) {
+      settimanaNum = Math.min(34, Math.max(8, Math.floor((currMs - new Date(y, 4, 25).getTime()) / (7 * 86400000)) + 9));
+    }
+  }
+
+  // Celebrazione del giorno da general-it
+  const eventoFisso = CALENDARIO_ROMANO_IT[keyMeseGiorno];
+  let santo = "";
+  let coloreLiturgico = coloreTempo;
+  let coloreHex = hexTempo;
+
+  if (eventoFisso) {
+    santo = `${eventoFisso.titolo} (${eventoFisso.grado})`;
+    coloreLiturgico = eventoFisso.colore;
+    coloreHex = eventoFisso.hex;
+  } else {
+    // Feria ordinaria o della stagione
+    if (dayOfWeek === 0) {
+      santo = `${toRomanNumerals(settimanaNum)}ª Domenica del ${tempoLiturgico}`;
+    } else {
+      santo = `Feria della ${toRomanNumerals(settimanaNum)}ª settimana del ${tempoLiturgico}`;
+    }
+  }
+
+  // Regola di salvaguardia per santi martiri: sempre Rosso
+  const santoLower = santo.toLowerCase();
+  if (santoLower.includes("martir") || santoLower.includes("apostol") || santoLower.includes("croce")) {
+    if (!santoLower.includes("giovanni, apostolo")) {
+      coloreLiturgico = "Rosso";
+      coloreHex = "#dc2626";
+    }
   }
 
   return {
-    stringaRomana,
     annoRomano,
     dataItaliana,
     giornoRomano,
@@ -768,44 +880,34 @@ function renderBachecaView() {
   let html = `
     <!-- CARD CALENDARIO ROMANO ISTITUZIONALE -->
     <div class="card roman-calendar-card">
-      <div class="roman-header">
-        <div class="roman-medallion">
-          <img src="/icon-newman.png" alt="Stemma" class="roman-medallion-img">
+      <div class="roman-header-clean">
+        <div class="roman-latin-date-highlight">${escapeHtml(cal.annoRomano)} • ${escapeHtml(cal.giornoRomano)}</div>
+        <div class="roman-italian-date-large">${escapeHtml(cal.dataItaliana)}</div>
+      </div>
+
+      <div class="roman-liturgy-badge" style="border-left: 4px solid ${cal.coloreHex};">
+        <div class="liturgy-row">
+          <span class="liturgy-dot" style="background-color: ${cal.coloreHex};"></span>
+          <strong>${escapeHtml(cal.tempoLiturgico)}</strong>
+          <span style="font-weight: 700; color: #f8fafc; font-size: 13px;">(${escapeHtml(cal.coloreLiturgico)})</span>
         </div>
-        <div class="roman-titles">
-          <span class="roman-sub">Fasti Romani & Liturgici</span>
-          <h2 class="roman-title">${escapeHtml(cal.stringaRomana)}</h2>
+        <div class="liturgy-saint">
+          ⛪ ${escapeHtml(cal.santo)}
         </div>
       </div>
 
-      <div class="roman-content">
-        <div class="roman-latin-date">${escapeHtml(cal.annoRomano)} • ${escapeHtml(cal.giornoRomano)}</div>
-        <div class="roman-italian-date">${escapeHtml(cal.dataItaliana)}</div>
-
-        <div class="roman-liturgy-badge" style="border-left: 3px solid ${cal.coloreHex};">
-          <div class="liturgy-row">
-            <span class="liturgy-dot" style="background-color: ${cal.coloreHex};"></span>
-            <strong>${escapeHtml(cal.tempoLiturgico)}</strong>
-            <span class="text-xs text-muted">(${escapeHtml(cal.coloreLiturgico)})</span>
-          </div>
-          <div class="liturgy-saint">
-            ⛪ ${escapeHtml(cal.santo)}
-          </div>
-        </div>
-
-        <!-- NAVIGAZIONE RAPIDA GIORNI -->
-        <div class="roman-nav-bar">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="cambiaGiornoBacheca(-1)">
-            ◀ Ieri
-          </button>
-          <button type="button" class="btn ${isOggi ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="vaiAOggiBacheca()">
-            📅 ${isOggi ? 'Oggi' : 'Torna a Oggi'}
-          </button>
-          <button type="button" class="btn btn-secondary btn-sm" onclick="cambiaGiornoBacheca(1)">
-            Domani ▶
-          </button>
-          <input type="date" class="input-date-small" value="${dataYMD}" onchange="selezionaDataBacheca(this.value)" title="Scegli data">
-        </div>
+      <!-- NAVIGAZIONE RAPIDA GIORNI -->
+      <div class="roman-nav-bar">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="cambiaGiornoBacheca(-1)">
+          ◀ Ieri
+        </button>
+        <button type="button" class="btn ${isOggi ? 'btn-primary' : 'btn-outline'} btn-sm" onclick="vaiAOggiBacheca()">
+          📅 ${isOggi ? 'Oggi' : 'Torna a Oggi'}
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="cambiaGiornoBacheca(1)">
+          Domani ▶
+        </button>
+        <input type="date" class="input-date-small" value="${dataYMD}" onchange="selezionaDataBacheca(this.value)" title="Scegli data">
       </div>
     </div>
 
@@ -1154,6 +1256,9 @@ window.handleSalvaAvvisoBacheca = async function(e) {
 
       chiudiModalBacheca();
       renderBachecaView();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
     } else {
       mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
     }
@@ -1176,6 +1281,9 @@ window.eliminaAvvisoBacheca = async function(id) {
       mostraToast("Elemento rimosso dalla bacheca", "info");
       appState.bacheca = (appState.bacheca || []).filter(b => String(b.id) !== String(id));
       renderBachecaView();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
     } else {
       mostraToast("Errore: " + (res.error || "Impossibile eliminare"), "error");
     }
@@ -2773,6 +2881,122 @@ function renderMasterSection() {
           </form>
         </div>
       </div>
+
+      <!-- GESTIONE BACHECA & APPUNTAMENTI MASTER -->
+      <div class="master-block card">
+        <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
+          <div class="flex-align">
+            <span class="master-tag" style="background:#0284c7; color:#fff;">MASTER BACHECA</span>
+            <h3 class="card-title" style="margin: 0;">Gestione Appuntamenti, Ricorrenze & Avvisi</h3>
+          </div>
+          <span class="badge" style="background:#f1f5f9; font-weight:700;">${(appState.bacheca || []).length} appuntamenti attivi</span>
+        </div>
+        <p class="card-desc" style="margin-top: 4px; font-size: 13px;">
+          Da questa sezione puoi pubblicare direttamente in Bacheca nuovi appuntamenti comunitari, compleanni sacerdotali o di residenti, ricorrenze e ritiri spirituali, oppure consultare ed eliminare quelli esistenti.
+        </p>
+
+        <!-- FORM RAPIDO INSERIMENTO MASTER -->
+        <div class="card-inner" style="background: #f8fafc; border: 1px solid #e2e8f0; margin-bottom: 18px; border-radius: 8px; padding: 14px;">
+          <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #0f172a; display: flex; align-items: center; gap: 6px;">
+            <span>➕</span> <strong>Nuovo Appuntamento / Avviso per la Bacheca</strong>
+          </h4>
+          <form onsubmit="handleMasterAggiungiAppuntamento(event)">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 10px;">
+              <div class="form-group" style="margin: 0;">
+                <label for="master-bacheca-tipo" style="font-size: 12px; font-weight: 600;">Tipologia</label>
+                <select id="master-bacheca-tipo" class="input-select" style="padding: 7px 10px; font-size: 13px;">
+                  <option value="avviso">📢 Avviso Comunitario / Direzione</option>
+                  <option value="compleanno">🎂 Compleanno</option>
+                  <option value="anniversario">🔔 Anniversario Sacerdotale / Professione</option>
+                  <option value="evento">📆 Incontro / Serata Comunitaria</option>
+                  <option value="speciale">⛪ Celebrazione Speciale / Ritiro</option>
+                </select>
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label for="master-bacheca-data" style="font-size: 12px; font-weight: 600;">Data dell'Evento</label>
+                <input type="date" id="master-bacheca-data" class="input-date" style="padding: 6px 10px; font-size: 13px;" value="${formatYMD(new Date())}" required>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label for="master-bacheca-titolo" style="font-size: 12px; font-weight: 600;">Titolo dell'Appuntamento</label>
+              <input type="text" id="master-bacheca-titolo" class="input-text" style="padding: 7px 10px; font-size: 13px;" placeholder="Es. Compleanno Don Andrea Dotti, Serata Fraterna, Ritiro Spirituale..." required>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label for="master-bacheca-desc" style="font-size: 12px; font-weight: 600;">Dettagli / Programma / Luogo (opzionale)</label>
+              <textarea id="master-bacheca-desc" class="input-textarea" rows="2" style="font-size: 13px;" placeholder="Es. Ore 20:45 in Sala TV o Cappella..."></textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px;">
+              <div class="form-group" style="margin: 0;">
+                <label for="master-bacheca-autore" style="font-size: 12px; font-weight: 600;">Autore / Firmato da</label>
+                <input type="text" id="master-bacheca-autore" class="input-text" style="padding: 6px 10px; font-size: 13px;" value="${escapeHtml(appState.user?.nome || 'Direzione')}">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label for="master-bacheca-priorita" style="font-size: 12px; font-weight: 600;">Priorità</label>
+                <select id="master-bacheca-priorita" class="input-select" style="padding: 6px 10px; font-size: 13px;">
+                  <option value="normale">Normale</option>
+                  <option value="alta">⭐ In Evidenza (Alta priorità)</option>
+                </select>
+              </div>
+            </div>
+
+            <button type="submit" id="btn-master-pubblica-bacheca" class="btn btn-primary btn-block">
+              ➕ Inserisci in Bacheca da Master
+            </button>
+          </form>
+        </div>
+
+        <!-- ELENCO APPUNTAMENTI IN BACHECA -->
+        <div class="sub-section">
+          <div class="flex-between" style="margin-bottom: 8px;">
+            <h4 style="margin: 0; font-size: 14px;">Elenco Appuntamenti Attivi (${(appState.bacheca || []).length})</h4>
+          </div>
+          <div class="table-responsive">
+            <table class="master-table">
+              <thead>
+                <tr>
+                  <th>Tipo</th>
+                  <th>Data</th>
+                  <th>Titolo & Note</th>
+                  <th>Autore</th>
+                  <th>Azione</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(appState.bacheca || []).length === 0 ? `<tr><td colspan="5" style="text-align:center; padding: 18px; color: #64748b;">Nessun appuntamento presente in bacheca. Compila il modulo sopra per pubblicarne uno.</td></tr>` : ''}
+                ${(appState.bacheca || []).map(b => {
+                  let badgeType = "badge-primary";
+                  let icon = "📢";
+                  if (b.tipo === "compleanno") { badgeType = "badge-accent"; icon = "🎂"; }
+                  else if (b.tipo === "anniversario") { badgeType = "badge-warning"; icon = "🔔"; }
+                  else if (b.tipo === "evento") { badgeType = "badge-info"; icon = "📆"; }
+                  else if (b.tipo === "speciale") { badgeType = "badge-secondary"; icon = "⛪"; }
+
+                  return `
+                    <tr>
+                      <td><span class="badge ${badgeType}">${icon} ${escapeHtml(b.tipo || 'avviso')}</span></td>
+                      <td><strong>${String(b.data).split('T')[0]}</strong></td>
+                      <td>
+                        <strong>${escapeHtml(b.titolo)}</strong>
+                        ${b.descrizione ? `<div class="text-xs text-muted" style="margin-top:2px;">${escapeHtml(b.descrizione)}</div>` : ''}
+                        ${b.priorita === 'alta' ? '<span class="badge badge-danger" style="font-size:10px; margin-top:2px;">⭐ In evidenza</span>' : ''}
+                      </td>
+                      <td class="text-sm">${escapeHtml(b.autore || '-')}</td>
+                      <td>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="eliminaAvvisoBacheca('${escapeHtml(b.id)}')" style="color: #dc2626; border-color: #fca5a5; padding: 4px 8px; font-size: 11px;">
+                          🗑️ Elimina
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -2984,6 +3208,68 @@ window.handleAggiornaTestiBacheca = async function(e) {
     }
   } catch (err) {
     mostraToast("Errore di rete", "error");
+  }
+};
+
+window.handleMasterAggiungiAppuntamento = async function(e) {
+  e.preventDefault();
+  const tipo = document.getElementById("master-bacheca-tipo")?.value || "avviso";
+  const data = document.getElementById("master-bacheca-data")?.value || formatYMD(new Date());
+  const titolo = document.getElementById("master-bacheca-titolo")?.value?.trim() || "";
+  const descrizione = document.getElementById("master-bacheca-desc")?.value?.trim() || "";
+  const autore = document.getElementById("master-bacheca-autore")?.value?.trim() || (appState.user?.nome || "Direzione");
+  const priorita = document.getElementById("master-bacheca-priorita")?.value || "normale";
+
+  if (!titolo) {
+    mostraToast("Inserisci un titolo per l'appuntamento", "warning");
+    return;
+  }
+
+  const btn = document.getElementById("btn-master-pubblica-bacheca");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "Salvataggio in corso...";
+  }
+
+  try {
+    const payload = {
+      tipo,
+      data,
+      titolo,
+      descrizione,
+      autore,
+      priorita
+    };
+
+    const res = await callApi("salvaAvvisoBacheca", payload);
+    if (res.success) {
+      mostraToast("Appuntamento aggiunto in bacheca con successo!", "success");
+      if (!appState.bacheca) appState.bacheca = [];
+      const item = {
+        id: res.id || ("B_" + Date.now()),
+        ...payload,
+        timestamp: new Date().toISOString()
+      };
+      appState.bacheca.unshift(item);
+
+      // Svuota i campi testo
+      const tInput = document.getElementById("master-bacheca-titolo");
+      if (tInput) tInput.value = "";
+      const dInput = document.getElementById("master-bacheca-desc");
+      if (dInput) dInput.value = "";
+
+      renderMasterSection();
+      renderBachecaView();
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di connessione", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = "➕ Inserisci in Bacheca da Master";
+    }
   }
 };
 
