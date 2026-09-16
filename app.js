@@ -95,9 +95,9 @@ const MENU_14_GIORNI = {
 const INITIAL_MOCK_DB = {
   utenti: [
     { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true },
-    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", perm_mensa: false, perm_manutenzione: false, perm_spazi: true, perm_admin: false },
+    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false },
     { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false },
-    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "In Attesa", perm_mensa: false, perm_manutenzione: false, perm_spazi: false, perm_admin: false }
+    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false }
   ],
   mensa: [
     { id: "M_001", data: "2026-09-16", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, note: "Piatto standard", timestamp: "2026-09-16T09:00:00Z" },
@@ -271,8 +271,12 @@ function checkAuthAndLoad() {
       console.error("Errore parse utente:", e);
     }
   }
-  // Mostra modal di login se non loggato
-  mostraModalAuth(true);
+  // Se nessun utente salvato, accedi automaticamente con il profilo Don Andrea Dotti (Master / Direzione)
+  const defaultUser = INITIAL_MOCK_DB.utenti[0];
+  appState.user = { ...defaultUser };
+  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+  aggiornaUIUtente();
+  caricaDatiBackend();
 }
 
 // ----------------------------------------------------------------------------
@@ -312,6 +316,24 @@ async function callApi(action, params = {}) {
 }
 
 /**
+ * Helper unificato per formattare e normalizzare date per confronti (YYYY-MM-DD)
+ */
+function formattaDataConfronto(val) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    return formatYMD(val);
+  }
+  const s = String(val).trim();
+  if (s.includes("T")) return s.split("T")[0];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    return formatYMD(d);
+  }
+  return s;
+}
+
+/**
  * Simulatore Backend per funzionamento standalone immediato
  */
 function mockBackendExecution(action, params) {
@@ -333,10 +355,11 @@ function mockBackendExecution(action, params) {
       const exists = db.utenti.some(u => u.email.toLowerCase() === email);
       if (exists) return { success: false, error: "Email già registrata" };
 
-      const nuovo = { email, nome, stato: "In Attesa", perm_mensa: false, perm_manutenzione: false, perm_spazi: false, perm_admin: false };
+      // Ogni residente ha il permesso per prenotare gli spazi comuni (Chiesa e Sala TV)
+      const nuovo = { email, nome, stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false };
       db.utenti.push(nuovo);
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
-      return { success: true, status: "In Attesa", message: "Registrazione inviata con successo!" };
+      return { success: true, status: "Approvato", message: "Registrazione completata con successo!" };
     }
 
     case "approvaUtente": {
@@ -356,10 +379,11 @@ function mockBackendExecution(action, params) {
 
     case "prenotaMensa": {
       const { data, email, tipo_pasto, busta, ritardo, note } = params;
-      const existIdx = db.mensa.findIndex(m => m.data === data && m.email.toLowerCase() === email.toLowerCase() && m.tipo_pasto === tipo_pasto);
+      const dataStr = formattaDataConfronto(data);
+      const existIdx = db.mensa.findIndex(m => formattaDataConfronto(m.data) === dataStr && m.email.toLowerCase() === email.toLowerCase() && m.tipo_pasto === tipo_pasto);
       const entry = {
         id: "M_" + Date.now(),
-        data,
+        data: dataStr,
         email,
         tipo_pasto,
         busta: Boolean(busta),
@@ -378,20 +402,22 @@ function mockBackendExecution(action, params) {
 
     case "cancellaPrenotazioneMensa": {
       const { data, email, tipo_pasto } = params;
-      db.mensa = db.mensa.filter(m => !(m.data === data && m.email.toLowerCase() === email.toLowerCase() && m.tipo_pasto === tipo_pasto));
+      const dataStr = formattaDataConfronto(data);
+      db.mensa = db.mensa.filter(m => !(formattaDataConfronto(m.data) === dataStr && m.email.toLowerCase() === email.toLowerCase() && m.tipo_pasto === tipo_pasto));
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
       return { success: true };
     }
 
     case "prenotaSpazio": {
       const { risorsa, data, slot_orario, email } = params;
-      const occupied = db.prenotazioni_spazi.some(p => p.risorsa === risorsa && p.data === data && p.slot_orario === slot_orario);
+      const dataStr = formattaDataConfronto(data);
+      const occupied = db.prenotazioni_spazi.some(p => p.risorsa === risorsa && formattaDataConfronto(p.data) === dataStr && p.slot_orario === slot_orario);
       if (occupied) return { success: false, error: "Slot già occupato da un altro residente" };
 
       const prenotazione = {
         id: "S_" + Date.now(),
         risorsa,
-        data,
+        data: dataStr,
         slot_orario,
         email,
         timestamp: new Date().toISOString()
@@ -429,11 +455,12 @@ function mockBackendExecution(action, params) {
     case "cancellaPrenotazioneSpazio": {
       const { id, risorsa, data, slot_orario, email } = params;
       const initialLen = db.prenotazioni_spazi.length;
+      const dataStr = formattaDataConfronto(data);
       db.prenotazioni_spazi = db.prenotazioni_spazi.filter(p => {
         if (id && String(p.id) === String(id)) return false;
-        if (risorsa && data && slot_orario) {
-          const pData = String(p.data).split("T")[0];
-          if (p.risorsa === risorsa && pData === data && p.slot_orario === slot_orario) {
+        if (risorsa && dataStr && slot_orario) {
+          const pData = formattaDataConfronto(p.data);
+          if (p.risorsa === risorsa && pData === dataStr && p.slot_orario === slot_orario) {
             // Se non specificata email o utente admin o match email, cancella
             if (!email || !p.email || p.email.toLowerCase() === email.toLowerCase()) return false;
           }
@@ -510,6 +537,31 @@ function mockBackendExecution(action, params) {
       if (params.Testo_Variazione !== undefined) db.configurazione.Testo_Variazione = params.Testo_Variazione;
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
       return { success: true, message: "Configurazione salvata!" };
+    }
+
+    case "ping": {
+      return {
+        success: true,
+        status: "ok",
+        timestamp: new Date().toISOString(),
+        nomeSpreadsheet: "Simulatore Database Locale (Indexed/LocalStorage)",
+        fogliAttivi: ["Utenti", "Mensa", "Prenotazioni_Spazi", "Manutenzione", "Configurazione", "Bacheca"],
+        conteggi: {
+          utenti: db.utenti.length,
+          spazi: db.prenotazioni_spazi.length,
+          mensa: db.mensa.length,
+          guasti: db.manutenzione.length,
+          bacheca: (db.bacheca || []).length
+        },
+        app: "Residenza Card. Newman (Local Mode)"
+      };
+    }
+
+    case "inizializzaDati": {
+      return {
+        success: true,
+        message: "Dati inizializzati con successo nel database!"
+      };
     }
 
     default:
@@ -885,16 +937,23 @@ function renderBachecaView() {
         <div class="roman-italian-date-large">${escapeHtml(cal.dataItaliana)}</div>
       </div>
 
-      <div class="roman-liturgy-badge" style="border-left: 4px solid ${cal.coloreHex};">
-        <div class="liturgy-row">
-          <span class="liturgy-dot" style="background-color: ${cal.coloreHex};"></span>
-          <strong>${escapeHtml(cal.tempoLiturgico)}</strong>
-          <span style="font-weight: 700; color: #f8fafc; font-size: 13px;">(${escapeHtml(cal.coloreLiturgico)})</span>
+      <div class="roman-liturgy-badge" style="border-left: 4px solid ${cal.coloreHex}; background: rgba(0, 0, 0, 0.28);">
+        <div class="liturgy-row" style="display: flex; align-items: center; gap: 8px;">
+          <span class="liturgy-dot" style="background-color: ${cal.coloreHex}; box-shadow: 0 0 10px ${cal.coloreHex}; width: 10px; height: 10px; border-radius: 50%; display: inline-block;"></span>
+          <span style="font-weight: 700; color: #ffffff; font-size: 15px;">${escapeHtml(cal.tempoLiturgico)} <span style="font-weight: 800; color: ${cal.coloreHex === '#16a34a' ? '#4ade80' : (cal.coloreHex === '#dc2626' || cal.coloreHex === '#ef4444' ? '#fca5a5' : '#fef08a')};">(${escapeHtml(cal.coloreLiturgico)})</span></span>
         </div>
-        <div class="liturgy-saint">
+        <div class="liturgy-saint" style="font-size: 14.5px; font-weight: 600; color: #ffffff; margin-top: 5px; line-height: 1.4;">
           ⛪ ${escapeHtml(cal.santo)}
         </div>
       </div>
+
+      ${isMasterOrAdmin ? `
+        <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
+          <button type="button" class="btn btn-sm" onclick="apriModalMasterAppuntamento('Chiesa', '${dataYMD}')" style="background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.3); font-size: 12px; font-weight: 600;">
+            👑 ➕ Inserisci Appuntamento per questo giorno
+          </button>
+        </div>
+      ` : ''}
 
       <!-- NAVIGAZIONE RAPIDA GIORNI -->
       <div class="roman-nav-bar">
@@ -1272,14 +1331,40 @@ window.handleSalvaAvvisoBacheca = async function(e) {
   }
 };
 
-window.eliminaAvvisoBacheca = async function(id) {
-  if (!confirm("Sei sicuro di voler rimuovere questo elemento dalla bacheca?")) return;
+let avvisoIdDaEliminare = null;
+
+window.eliminaAvvisoBacheca = function(id) {
+  avvisoIdDaEliminare = id;
+  const modal = document.getElementById("modal-conferma-elimina-bacheca");
+  if (modal) {
+    modal.style.display = "flex";
+  }
+};
+
+window.chiudiModalEliminaBacheca = function() {
+  const modal = document.getElementById("modal-conferma-elimina-bacheca");
+  if (modal) {
+    modal.style.display = "none";
+  }
+  avvisoIdDaEliminare = null;
+};
+
+window.eseguiEliminazioneBachecaConfermata = async function() {
+  const id = avvisoIdDaEliminare;
+  if (!id) return;
+
+  const btn = document.getElementById("btn-esegui-elimina-bacheca");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Rimozione in corso...";
+  }
 
   try {
     const res = await callApi("eliminaAvvisoBacheca", { id });
     if (res.success) {
       mostraToast("Elemento rimosso dalla bacheca", "info");
       appState.bacheca = (appState.bacheca || []).filter(b => String(b.id) !== String(id));
+      chiudiModalEliminaBacheca();
       renderBachecaView();
       if (document.getElementById("master-dynamic-content")) {
         renderMasterSection();
@@ -1289,6 +1374,12 @@ window.eliminaAvvisoBacheca = async function(id) {
     }
   } catch (err) {
     mostraToast("Errore di connessione", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Sì, Rimuovi";
+    }
+    chiudiModalEliminaBacheca();
   }
 };
 
@@ -2259,6 +2350,19 @@ function renderSpaziView() {
         </button>
       </div>
 
+      ${haPermessiMaster() ? `
+        <!-- BARRA MASTER DIRETTA SUGLI SPAZI -->
+        <div class="card-inner" style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <strong style="color: #9d174d; font-size: 13px;">👑 Azioni Master ${risorsaAttiva === 'Chiesa' ? 'Chiesa' : 'Sala TV'}</strong>
+            <div class="text-xs text-muted">Puoi riservare celebrazioni, bloccare orari e liberare slot occupati.</div>
+          </div>
+          <button type="button" class="btn btn-sm btn-primary" onclick="apriModalMasterAppuntamento('${risorsaAttiva}', '${dataAttiva}')" style="background: #9d174d; border-color: #9d174d; font-weight: 600;">
+            ➕ Inserisci Appuntamento Master
+          </button>
+        </div>
+      ` : ''}
+
       <!-- SELETTORE DATA: RIBBON ORIZZONTALE + PICKER -->
       <div class="date-ribbon-wrap">
         <div class="date-ribbon-title">
@@ -2396,7 +2500,7 @@ function renderSlotSpazi() {
 
   // Estrai gli slot già occupati per risorsa e data
   const occupati = (appState.prenotazioniSpazi || []).filter(p => {
-    const pData = String(p.data).split("T")[0];
+    const pData = formattaDataConfronto(p.data);
     return p.risorsa === selRisorsa && pData === selData;
   });
 
@@ -2471,63 +2575,220 @@ function renderSlotSpazi() {
 }
 
 /**
- * Prenotazione diretta immediata a 1 click dello slot
+ * Gestione dello stato del modal di prenotazione spazio
  */
-window.prenotaSlotDiretto = async function(slot) {
-  if (!appState.user) {
-    mostraModalAuth(true);
-    return;
+let slotInPrenotazione = null;
+let slotInCancellazione = null;
+
+window.chiudiModalPrenotaSpazio = function() {
+  const modal = document.getElementById("modal-prenota-spazio");
+  if (modal) modal.style.display = "none";
+  slotInPrenotazione = null;
+};
+
+window.chiudiModalCancellaSpazio = function() {
+  const modal = document.getElementById("modal-cancella-spazio");
+  if (modal) modal.style.display = "none";
+  slotInCancellazione = null;
+};
+
+window.onSpazioResidentSelectChange = function() {
+  const select = document.getElementById("spazio-quick-resident-select");
+  const customFields = document.getElementById("spazio-custom-user-fields");
+  if (select && customFields) {
+    customFields.style.display = (select.value === "custom") ? "flex" : "none";
+  }
+};
+
+/**
+ * Prenotazione accessibile e diretta per ogni utente
+ */
+window.prenotaSlotDiretto = function(slot) {
+  slotInPrenotazione = slot;
+  const risorsa = appState.selectedSpazioRisorsa || "Chiesa";
+  const data = appState.selectedSpazioData || formatYMD(new Date());
+  const nomeRisorsa = risorsa === "Chiesa" ? "Chiesa / Cappella" : "Sala TV";
+  const icon = risorsa === "Chiesa" ? "⛪" : "📺";
+
+  const modal = document.getElementById("modal-prenota-spazio");
+  if (!modal) return;
+
+  const iconEl = document.getElementById("modal-spazio-icon");
+  if (iconEl) iconEl.textContent = icon;
+
+  const titoloEl = document.getElementById("modal-spazio-titolo");
+  if (titoloEl) titoloEl.textContent = `Prenota ${nomeRisorsa}`;
+
+  const resEl = document.getElementById("modal-spazio-dettaglio-risorsa");
+  if (resEl) resEl.textContent = nomeRisorsa;
+
+  const dataEl = document.getElementById("modal-spazio-dettaglio-data");
+  if (dataEl) dataEl.textContent = data;
+
+  const slotEl = document.getElementById("modal-spazio-dettaglio-slot");
+  if (slotEl) slotEl.textContent = slot;
+
+  const userBlock = document.getElementById("modal-spazio-utente-blocco");
+  if (userBlock) {
+    if (appState.user) {
+      userBlock.innerHTML = `
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; font-size: 13px;">
+          <div style="color: #166534; font-weight: 600; margin-bottom: 2px;">Prenotazione a nome di:</div>
+          <div style="font-size: 15px; font-weight: 700; color: #0f172a;">${escapeHtml(appState.user.nome || appState.user.email)}</div>
+          <div style="font-size: 12px; color: #64748b;">${escapeHtml(appState.user.email)}</div>
+        </div>
+      `;
+    } else {
+      const utentiList = (appState.tuttiUtenti || INITIAL_MOCK_DB.utenti || []).filter(u => u.stato === "Approvato");
+      userBlock.innerHTML = `
+        <div class="form-group" style="margin-bottom: 8px;">
+          <label for="spazio-quick-resident-select" style="font-size: 12px; font-weight: 600; color: #334155;">Seleziona il tuo profilo residente:</label>
+          <select id="spazio-quick-resident-select" class="input-select" onchange="onSpazioResidentSelectChange()">
+            ${utentiList.map(u => `<option value="${escapeHtml(u.email)}" data-nome="${escapeHtml(u.nome)}">${escapeHtml(u.nome)} (${escapeHtml(u.email)})</option>`).join("")}
+            <option value="custom">Altro Residente / Inserisci Dati</option>
+          </select>
+        </div>
+        <div id="spazio-custom-user-fields" style="display: none; flex-direction: column; gap: 8px;">
+          <input type="text" id="spazio-custom-nome" class="input-text" placeholder="Nome e Cognome (es. Marco Bianchi)">
+          <input type="email" id="spazio-custom-email" class="input-text" placeholder="Email residente">
+        </div>
+      `;
+    }
+  }
+
+  modal.style.display = "flex";
+};
+
+window.eseguiPrenotazioneSpazioConfermata = async function() {
+  const slot = slotInPrenotazione;
+  if (!slot) return;
+
+  let emailPrenotante = "";
+  let nomePrenotante = "";
+
+  if (appState.user) {
+    emailPrenotante = appState.user.email;
+    nomePrenotante = appState.user.nome;
+  } else {
+    const sel = document.getElementById("spazio-quick-resident-select");
+    if (sel && sel.value !== "custom") {
+      emailPrenotante = sel.value;
+      const opt = sel.options[sel.selectedIndex];
+      nomePrenotante = opt ? opt.getAttribute("data-nome") : emailPrenotante;
+      // Imposta come utente attivo nella sessione
+      appState.user = {
+        email: emailPrenotante,
+        nome: nomePrenotante,
+        stato: "Approvato",
+        perm_mensa: true,
+        perm_manutenzione: true,
+        perm_spazi: true,
+        perm_admin: emailPrenotante.includes("dotti")
+      };
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+      aggiornaUIUtente();
+    } else {
+      nomePrenotante = (document.getElementById("spazio-custom-nome")?.value || "").trim();
+      emailPrenotante = (document.getElementById("spazio-custom-email")?.value || "").trim().toLowerCase();
+      if (!emailPrenotante || !nomePrenotante) {
+        mostraToast("Inserisci nome ed email per prenotare", "warning");
+        return;
+      }
+      appState.user = {
+        email: emailPrenotante,
+        nome: nomePrenotante,
+        stato: "Approvato",
+        perm_mensa: true,
+        perm_manutenzione: true,
+        perm_spazi: true,
+        perm_admin: false
+      };
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+      aggiornaUIUtente();
+    }
   }
 
   const risorsa = appState.selectedSpazioRisorsa || "Chiesa";
   const data = appState.selectedSpazioData || formatYMD(new Date());
   const nomeRisorsa = risorsa === "Chiesa" ? "Chiesa / Cappella" : "Sala TV";
 
-  const ok = confirm(`Confermi la prenotazione per ${nomeRisorsa} il giorno ${data} nello slot ${slot}?`);
-  if (!ok) return;
+  const btn = document.getElementById("btn-conferma-spazio-azione");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Registrazione in corso...";
+  }
 
   try {
     const res = await callApi("prenotaSpazio", {
       risorsa,
       data,
       slot_orario: slot,
-      email: appState.user.email
+      email: emailPrenotante
     });
 
     if (res.success) {
-      mostraToast("Slot prenotato con successo!", "success");
-      // Aggiungi alla cache locale
+      mostraToast(`✅ Slot ${slot} per ${nomeRisorsa} prenotato!`, "success");
       if (!appState.prenotazioniSpazi) appState.prenotazioniSpazi = [];
       appState.prenotazioniSpazi.push({
         id: res.id || ("S_" + Date.now()),
         risorsa,
         data,
         slot_orario: slot,
-        email: appState.user.email,
+        email: emailPrenotante,
         timestamp: new Date().toISOString()
       });
+      chiudiModalPrenotaSpazio();
       renderSlotSpazi();
+      if (document.getElementById("master-dynamic-content") && haPermessiMaster()) {
+        renderMasterSection();
+      }
     } else {
       mostraToast("Errore: " + (res.error || "Slot non disponibile"), "error");
     }
   } catch (err) {
     mostraToast("Errore di connessione", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "✅ Conferma Prenotazione";
+    }
   }
 };
 
 /**
- * Cancellazione slot (per l'utente proprietario o per il Master)
+ * Cancellazione slot (per l'utente proprietario o per il Master) con modal
  */
-window.cancellaSlotSpazio = async function(id, slot, isMasterAction) {
-  if (!appState.user) return;
+window.cancellaSlotSpazio = function(id, slot, isMasterAction) {
   const risorsa = appState.selectedSpazioRisorsa || "Chiesa";
   const data = appState.selectedSpazioData || formatYMD(new Date());
+  const nomeRisorsa = risorsa === "Chiesa" ? "Chiesa / Cappella" : "Sala TV";
 
-  const msg = isMasterAction
-    ? `Come Amministratore / Master, confermi di voler liberare lo slot ${slot} per ${risorsa} del ${data}?`
-    : `Vuoi annullare la tua prenotazione per ${risorsa} nello slot ${slot}?`;
+  slotInCancellazione = { id, slot, isMasterAction, risorsa, data };
 
-  if (!confirm(msg)) return;
+  const modal = document.getElementById("modal-cancella-spazio");
+  const testo = document.getElementById("cancella-spazio-testo");
+  if (!modal) return;
+
+  if (testo) {
+    if (isMasterAction) {
+      testo.innerHTML = `Come <strong>Amministratore / Master</strong>, confermi di voler liberare lo slot <strong>${escapeHtml(slot)}</strong> per <strong>${escapeHtml(nomeRisorsa)}</strong> del giorno <strong>${escapeHtml(data)}</strong>?`;
+    } else {
+      testo.innerHTML = `Confermi di voler annullare la tua prenotazione per <strong>${escapeHtml(nomeRisorsa)}</strong> nello slot <strong>${escapeHtml(slot)}</strong> del giorno <strong>${escapeHtml(data)}</strong>?`;
+    }
+  }
+
+  modal.style.display = "flex";
+};
+
+window.eseguiCancellazioneSpazioConfermata = async function() {
+  if (!slotInCancellazione) return;
+  const { id, slot, isMasterAction, risorsa, data } = slotInCancellazione;
+
+  const btn = document.getElementById("btn-esegui-cancella-spazio");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Liberazione in corso...";
+  }
 
   try {
     const res = await callApi("cancellaPrenotazioneSpazio", {
@@ -2535,24 +2796,33 @@ window.cancellaSlotSpazio = async function(id, slot, isMasterAction) {
       risorsa,
       data,
       slot_orario: slot,
-      email: isMasterAction ? "" : appState.user.email
+      email: isMasterAction ? "" : (appState.user ? appState.user.email : "")
     });
 
     if (res.success) {
-      mostraToast("Prenotazione annullata", "info");
-      // Aggiorna cache locale
+      mostraToast("Slot liberato con successo", "info");
       appState.prenotazioniSpazi = (appState.prenotazioniSpazi || []).filter(p => {
         if (id && String(p.id) === String(id)) return false;
-        const pData = String(p.data).split("T")[0];
+        const pData = formattaDataConfronto(p.data);
         if (p.risorsa === risorsa && pData === data && p.slot_orario === slot) return false;
         return true;
       });
+      chiudiModalCancellaSpazio();
       renderSlotSpazi();
+      if (document.getElementById("master-dynamic-content") && haPermessiMaster()) {
+        renderMasterSection();
+      }
     } else {
       mostraToast("Errore: " + (res.error || "Impossibile annullare"), "error");
     }
   } catch (err) {
-    mostraToast("Errore di connessione", "error");
+    mostraToast("Errore durante la cancellazione", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "Sì, Libera Slot";
+    }
+    chiudiModalCancellaSpazio();
   }
 };
 
@@ -2831,7 +3101,26 @@ function renderMasterSection() {
 
   const { perm_admin, perm_mensa, perm_manutenzione } = appState.user;
 
-  let html = "";
+  let html = `
+    <!-- BARRA DI COMANDO RAPIDO MASTER -->
+    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.12); padding: 16px;">
+      <div class="flex-between" style="flex-wrap: wrap; gap: 12px;">
+        <div>
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #f59e0b; font-weight: 700;">Amministrazione Residenza</div>
+          <h2 style="font-size: 20px; font-weight: 800; color: #fff; margin: 2px 0 4px 0;">👑 Pannello Master & Gestione Globale</h2>
+          <p style="font-size: 13px; color: #94a3b8; margin: 0;">Gestione appuntamenti comunitari, controllo prenotazioni Chiesa & Sala TV e Database Google Fogli.</p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; display: flex; align-items: center; gap: 6px; font-weight: 700;">
+            <span>➕</span> Inserisci Appuntamento Master
+          </button>
+          <button type="button" class="btn btn-secondary" onclick="apriModalCodiceGas()" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px;">
+            <span>📊</span> Guida Google Fogli (Code.gs)
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
 
   // 1. SUB-PANNELLO ADMIN: Utenti in attesa & Modifica Regolamento/Contatti
   if (perm_admin) {
@@ -2997,8 +3286,194 @@ function renderMasterSection() {
           </div>
         </div>
       </div>
-    `;
-  }
+
+      <!-- ==================================================================
+           GESTIONE AMBIENTI E APPUNTAMENTI MASTER (CHIESA E SALA TV)
+           ================================================================== -->
+      <div class="master-block card" id="master-spazi-management-card" style="border-top: 4px solid #9d174d;">
+        <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 22px;">⛪</span>
+            <div>
+              <h3 class="card-title" style="margin: 0;">Gestione Appuntamenti & Prenotazioni Ambienti (Chiesa & Sala TV)</h3>
+              <span class="text-xs text-muted">Controlla tutti gli slot riservati, inserisci celebrazioni o libera spazi</span>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; font-weight: 700;">
+              ➕ Inserisci Appuntamento
+            </button>
+          </div>
+        </div>
+
+        <p class="card-desc" style="font-size: 13px; margin: 6px 0 12px 0;">
+          Come Master puoi inserire appuntamenti comunitari, sante messe o adorazioni (che bloccano gli slot per i residenti ed evitano sovrapposizioni) e liberare qualunque prenotazione con un clic.
+        </p>
+
+        <div class="table-responsive">
+          <table class="master-table">
+            <thead>
+              <tr>
+                <th>Ambiente</th>
+                <th>Data</th>
+                <th>Orario / Slot</th>
+                <th>Riservato da / Titolo</th>
+                <th>Azione Master</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(() => {
+                const list = (appState.prenotazioniSpazi || []).slice().sort((a, b) => {
+                  const da = formattaDataConfronto(a.data) + (a.slot_orario || "");
+                  const db = formattaDataConfronto(b.data) + (b.slot_orario || "");
+                  return da.localeCompare(db);
+                });
+                if (list.length === 0) {
+                  return `
+                    <tr>
+                      <td colspan="5" style="text-align: center; padding: 18px; color: #64748b;">
+                        Nessuna prenotazione presente per Chiesa o Sala TV. Clicca su "Inserisci Appuntamento" per programmarne uno.
+                      </td>
+                    </tr>
+                  `;
+                }
+                return list.map(p => {
+                  const isChiesa = p.risorsa === "Chiesa";
+                  const isMasterBooking = String(p.email).startsWith("Master");
+                  return `
+                    <tr>
+                      <td>
+                        <span class="badge ${isChiesa ? 'badge-primary' : 'badge-info'}" style="${isChiesa ? 'background:#831843; color:#fff;' : ''}">
+                          ${isChiesa ? '⛪ Chiesa' : '📺 Sala TV'}
+                        </span>
+                      </td>
+                      <td><strong>${formattaDataConfronto(p.data)}</strong></td>
+                      <td><strong style="color: #0f172a;">${escapeHtml(p.slot_orario)}</strong></td>
+                      <td>
+                        ${isMasterBooking ? `
+                          <span class="badge" style="background:#fdf2f8; color:#9d174d; border: 1px solid #fbcfe8; font-weight: 700;">
+                            👑 ${escapeHtml(p.email)}
+                          </span>
+                        ` : `
+                          <span class="text-sm font-semibold">${escapeHtml(p.email)}</span>
+                        `}
+                      </td>
+                      <td>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="eliminaPrenotazioneSpazioMaster('${escapeHtml(p.id)}')" style="color: #dc2626; border-color: #fca5a5; padding: 4px 8px; font-size: 11px;">
+                          🗑️ Libera
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join("");
+              })()}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ==================================================================
+           GESTIONE GOOGLE FOGLIO DATABASE (SPREADSHEET & APPS SCRIPT)
+           ================================================================== -->
+      <div class="master-block card" id="master-google-sheets-card" style="border-top: 4px solid #0284c7;">
+        <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 22px;">📊</span>
+            <div>
+              <h3 class="card-title" style="margin: 0;">Database Google Fogli (Cloud Spreadsheet)</h3>
+              <span class="text-xs text-muted">Collegamento e sincronizzazione con Google Apps Script e i 6 Fogli di lavoro</span>
+            </div>
+          </div>
+          <div>
+            ${appState.backendUrl ? `
+              <span class="badge" style="background: #dcfce7; color: #166534; font-weight: 700; border: 1px solid #86efac; padding: 5px 10px;">
+                🟢 Connesso a Google Spreadsheet Live
+              </span>
+            ` : `
+              <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; border: 1px solid #fde68a; padding: 5px 10px;">
+                🟡 Modalità Stand-alone Locale (Pronto per Google Sheets)
+              </span>
+            `}
+          </div>
+        </div>
+
+        <p class="card-desc" style="font-size: 13px; margin: 8px 0 14px 0;">
+          Il sistema salva e sincronizza in tempo reale tutti i dati su Google Fogli attraverso il backend <strong>Google Apps Script</strong> distribuito come Web App.
+        </p>
+
+        <!-- SELEZIONE/CONFIGURAZIONE URL APPS SCRIPT -->
+        <div class="card-inner" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 14px; margin-bottom: 14px; border-radius: 8px;">
+          <label for="master-gas-url-input" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">
+            URL Web App Google Apps Script (terminante in <code>/exec</code>):
+          </label>
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <input type="url" id="master-gas-url-input" class="input-text" style="flex: 1; min-width: 260px;" placeholder="https://script.google.com/macros/s/.../exec" value="${escapeHtml(appState.backendUrl || '')}">
+            <button type="button" class="btn btn-primary btn-sm" onclick="salvaUrlGasMaster()" style="font-weight: 600;">
+              💾 Salva URL
+            </button>
+            <button type="button" class="btn btn-secondary btn-sm" onclick="testaConnessioneGAS()" style="font-weight: 600;">
+              🔍 Test Connessione (Ping)
+            </button>
+          </div>
+          <div id="master-gas-test-result" style="margin-top: 8px;"></div>
+        </div>
+
+        <!-- BOTTONI AZIONE SUL DATABASE -->
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 16px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="sincronizzaTuttoDaGoogleFogli()" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
+            <span>🔄</span> <strong>Sincronizza / Scarica Dati</strong>
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="inizializzaGoogleFogli()" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
+            <span>📤</span> <strong>Inizializza Struttura Fogli</strong>
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="apriModalCodiceGas()" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
+            <span>📋</span> <strong>Codice Code.gs & Guida</strong>
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="esportaBackupLocale()" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
+            <span>📥</span> <strong>Esporta Backup JSON</strong>
+          </button>
+        </div>
+
+        <!-- RIEPILOGO DEI 6 FOGLI -->
+        <div class="sub-section">
+          <h4 style="font-size: 13px; margin: 0 0 8px 0; color: #334155; font-weight: 700;">I 6 Fogli del Database Google Fogli:</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px;">
+            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
+              <div style="font-weight: 700; color: #0284c7;">👥 1. Utenti</div>
+              <div class="text-muted" style="font-size: 11px;">Residenti, ruoli e permessi</div>
+              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">${(appState.utentiInAttesa.length + 5)} registrati</div>
+            </div>
+            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
+              <div style="font-weight: 700; color: #16a34a;">🍽️ 2. Mensa</div>
+              <div class="text-muted" style="font-size: 11px;">Pranzi (14:30), cene, buste</div>
+              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">${appState.mensaBookings.length} pasti salvati</div>
+            </div>
+            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
+              <div style="font-weight: 700; color: #9d174d;">⛪ 3. Prenotazioni_Spazi</div>
+              <div class="text-muted" style="font-size: 11px;">Slot 30 min Chiesa e Sala TV</div>
+              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">${appState.prenotazioniSpazi.length} slot occupati</div>
+            </div>
+            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
+              <div style="font-weight: 700; color: #d97706;">🛠️ 4. Manutenzione</div>
+              <div class="text-muted" style="font-size: 11px;">Guasti con foto e stato</div>
+              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">${appState.manutenzioneList.length} segnalazioni</div>
+            </div>
+            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
+              <div style="font-weight: 700; color: #7c3aed;">📢 5. Bacheca</div>
+              <div class="text-muted" style="font-size: 11px;">Avvisi, ricorrenze, eventi</div>
+              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">${appState.bacheca.length} pubblicati</div>
+            </div>
+            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
+              <div style="font-weight: 700; color: #475569;">⚙️ 6. Configurazione</div>
+              <div class="text-muted" style="font-size: 11px;">Regolamento, contatti, menu</div>
+              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">Configurata</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
 
   // 2. SUB-PANNELLO MENSA: Totali presenti, buste, note e variazione straordinaria
   if (perm_mensa) {
@@ -3690,3 +4165,344 @@ function mostraToast(messaggio, tipo = "info") {
     setTimeout(() => toast.remove(), 400);
   }, 3200);
 }
+
+// ============================================================================
+// GESTIONE MASTER APPUNTAMENTI & PRENOTAZIONE AMBIENTI
+// ============================================================================
+
+window.apriModalMasterAppuntamento = function(risorsaDefault, dataDefault) {
+  const modal = document.getElementById("modal-master-nuovo-appuntamento");
+  if (!modal) return;
+
+  const ambSelect = document.getElementById("master-app-ambiente");
+  if (ambSelect) ambSelect.value = risorsaDefault || "Chiesa";
+
+  const dataInput = document.getElementById("master-app-data");
+  if (dataInput) dataInput.value = dataDefault || appState.selectedSpazioData || formatYMD(new Date());
+
+  const orarioSelect = document.getElementById("master-app-orario");
+  if (orarioSelect) {
+    const defaultSlots = [
+      { val: "07:00 - 08:00", label: "07:00 - 08:00 (S. Messa del Mattino)" },
+      { val: "07:30 - 08:30", label: "07:30 - 08:30" },
+      { val: "08:00 - 09:00", label: "08:00 - 09:00" },
+      { val: "12:00 - 13:00", label: "12:00 - 13:00 (Ora Media / Angelus)" },
+      { val: "18:00 - 19:00", label: "18:00 - 19:00 (S. Messa della Sera / Rosario)" },
+      { val: "18:30 - 19:30", label: "18:30 - 19:30 (Vespri & Adorazione)" },
+      { val: "20:30 - 21:30", label: "20:30 - 21:30" },
+      { val: "20:45 - 22:30", label: "20:45 - 22:30 (Cineforum / Serata)" },
+      { val: "21:00 - 22:00", label: "21:00 - 22:00 (Compieta / Preghiera Notturna)" }
+    ];
+
+    const slot30 = getTuttiSlotOrari30Min();
+    let optionsHtml = `<optgroup label="Fasce e Celebrazioni Tipiche">`;
+    defaultSlots.forEach(s => {
+      optionsHtml += `<option value="${s.val}">${s.label}</option>`;
+    });
+    optionsHtml += `</optgroup><optgroup label="Slot Singoli da 30 Minuti">`;
+    slot30.forEach(s => {
+      optionsHtml += `<option value="${s}">${s}</option>`;
+    });
+    optionsHtml += `</optgroup>`;
+    orarioSelect.innerHTML = optionsHtml;
+  }
+
+  const titInput = document.getElementById("master-app-titolo");
+  if (titInput) titInput.value = "";
+
+  const descInput = document.getElementById("master-app-descrizione");
+  if (descInput) descInput.value = "";
+
+  onMasterAppAmbienteChange();
+  modal.style.display = "flex";
+};
+
+window.chiudiModalMasterAppuntamento = function() {
+  const modal = document.getElementById("modal-master-nuovo-appuntamento");
+  if (modal) modal.style.display = "none";
+};
+
+window.impostaTitoloPredefinito = function(titolo) {
+  const titInput = document.getElementById("master-app-titolo");
+  if (titInput) titInput.value = titolo;
+};
+
+window.onMasterAppAmbienteChange = function() {
+  const ambSelect = document.getElementById("master-app-ambiente");
+  const slotGroup = document.getElementById("master-app-slot-group");
+  const bloccaCheck = document.getElementById("master-app-blocca-slot");
+  if (ambSelect && slotGroup) {
+    if (ambSelect.value === "Bacheca") {
+      slotGroup.style.display = "none";
+      if (bloccaCheck) bloccaCheck.checked = false;
+    } else {
+      slotGroup.style.display = "block";
+      if (bloccaCheck) bloccaCheck.checked = true;
+    }
+  }
+};
+
+window.salvaMasterAppuntamento = async function(e) {
+  e.preventDefault();
+  const ambiente = document.getElementById("master-app-ambiente")?.value || "Chiesa";
+  const titolo = document.getElementById("master-app-titolo")?.value?.trim() || "";
+  const data = document.getElementById("master-app-data")?.value || formatYMD(new Date());
+  const orario = document.getElementById("master-app-orario")?.value || "";
+  const descrizione = document.getElementById("master-app-descrizione")?.value?.trim() || "";
+  const bloccaSlot = document.getElementById("master-app-blocca-slot")?.checked || false;
+  const pubblicaBacheca = document.getElementById("master-app-pubblica-bacheca")?.checked || false;
+
+  if (!titolo) {
+    mostraToast("Inserisci un titolo per l'appuntamento", "warning");
+    return;
+  }
+
+  const btn = document.getElementById("btn-submit-master-app");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Salvataggio in corso...";
+  }
+
+  try {
+    // 1. Se bloccaSlot è attivo e ambiente è Chiesa o Sala TV, prenota tutti gli slot da 30 min compresi
+    if (bloccaSlot && ambiente !== "Bacheca" && orario) {
+      const parts = orario.split(" - ");
+      const startT = parts[0]?.trim();
+      const endT = parts[1] ? parts[1].trim().split(" ")[0] : "";
+
+      const tutti30 = getTuttiSlotOrari30Min();
+      const slotsToBlock = [];
+
+      if (tutti30.includes(orario)) {
+        slotsToBlock.push(orario);
+      } else if (startT && endT && startT.includes(":") && endT.includes(":")) {
+        const [sh, sm] = startT.split(":").map(Number);
+        const [eh, em] = endT.split(":").map(Number);
+        const startMin = sh * 60 + sm;
+        const endMin = eh * 60 + em;
+
+        tutti30.forEach(s => {
+          const [sPart] = s.split(" - ");
+          const [h, m] = sPart.split(":").map(Number);
+          const tMin = h * 60 + m;
+          if (tMin >= startMin && tMin < endMin) {
+            slotsToBlock.push(s);
+          }
+        });
+      }
+
+      if (slotsToBlock.length === 0) {
+        slotsToBlock.push(orario);
+      }
+
+      for (const s of slotsToBlock) {
+        await callApi("prenotaSpazio", {
+          risorsa: ambiente,
+          data: data,
+          slot_orario: s,
+          email: `Master (${titolo})`
+        });
+        if (!appState.prenotazioniSpazi) appState.prenotazioniSpazi = [];
+        appState.prenotazioniSpazi = appState.prenotazioniSpazi.filter(p => !(p.risorsa === ambiente && formattaDataConfronto(p.data) === data && p.slot_orario === s));
+        appState.prenotazioniSpazi.push({
+          id: "S_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+          risorsa: ambiente,
+          data: data,
+          slot_orario: s,
+          email: `Master (${titolo})`,
+          timestamp: new Date().toISOString()
+        });
+      }
+    }
+
+    // 2. Se pubblicaBacheca è attivo, crea l'avviso in bacheca
+    if (pubblicaBacheca) {
+      const payloadBacheca = {
+        tipo: ambiente === "Chiesa" ? "speciale" : (ambiente === "Sala TV" ? "evento" : "avviso"),
+        data: data,
+        titolo: (ambiente !== "Bacheca" ? `[${ambiente}] ` : "") + titolo,
+        descrizione: (orario ? `⏰ Orario: ${orario}\n` : "") + (descrizione || ""),
+        autore: appState.user?.nome || "Direzione / Master",
+        priorita: "alta"
+      };
+      const resB = await callApi("salvaAvvisoBacheca", payloadBacheca);
+      if (!appState.bacheca) appState.bacheca = [];
+      appState.bacheca.unshift({
+        id: resB.id || ("B_" + Date.now()),
+        ...payloadBacheca,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    mostraToast("✅ Appuntamento registrato con successo!", "success");
+    chiudiModalMasterAppuntamento();
+
+    // Aggiorna tutte le viste
+    renderBachecaView();
+    renderSpaziView();
+    if (haPermessiMaster()) {
+      renderMasterSection();
+    }
+  } catch (err) {
+    mostraToast("Errore durante il salvataggio dell'appuntamento", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "💾 Salva e Programma Appuntamento";
+    }
+  }
+};
+
+window.eliminaPrenotazioneSpazioMaster = async function(id) {
+  if (!confirm("Sei sicuro di voler liberare questa prenotazione?")) return;
+  try {
+    const res = await callApi("cancellaPrenotazioneSpazio", { id });
+    if (res.success) {
+      mostraToast("Slot liberato con successo", "success");
+      appState.prenotazioniSpazi = (appState.prenotazioniSpazi || []).filter(p => String(p.id) !== String(id));
+      renderSlotSpazi();
+      if (haPermessiMaster()) {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile liberare lo slot"), "error");
+    }
+  } catch (e) {
+    mostraToast("Errore di rete", "error");
+  }
+};
+
+// ============================================================================
+// GESTIONE GOOGLE FOGLI DATABASE (SPREADSHEET & GOOGLE APPS SCRIPT)
+// ============================================================================
+
+window.salvaUrlGasMaster = function() {
+  const input = document.getElementById("master-gas-url-input");
+  if (!input) return;
+  const url = input.value.trim();
+  if (!url) {
+    localStorage.removeItem(STORAGE_KEYS.GAS_URL);
+    appState.backendUrl = "";
+    mostraToast("Modalità locale stand-alone ripristinata", "info");
+  } else {
+    localStorage.setItem(STORAGE_KEYS.GAS_URL, url);
+    appState.backendUrl = url;
+    mostraToast("URL Google Apps Script salvato! Esegui il Test Connessione.", "success");
+  }
+  aggiornaIndicatoreConnessione();
+  renderMasterSection();
+};
+
+window.testaConnessioneGAS = async function() {
+  const resultEl = document.getElementById("master-gas-test-result");
+  if (resultEl) {
+    resultEl.innerHTML = `<span style="color:#0284c7;">🔄 Connessione a Google Apps Script in corso...</span>`;
+  }
+  const t0 = performance.now();
+  try {
+    const res = await callApi("ping");
+    const t1 = performance.now();
+    const ms = Math.round(t1 - t0);
+    if (res && (res.status === "online" || res.success)) {
+      mostraToast(`✅ Connessione riuscita in ${ms}ms!`, "success");
+      if (resultEl) {
+        resultEl.innerHTML = `
+          <div style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 6px; padding: 8px 12px; color: #166534; font-size: 13px;">
+            <strong>✅ Google Apps Script Attivo!</strong> Risposta in ${ms}ms.<br>
+            ${res.spreadsheetName ? `Spreadsheet: <strong>${escapeHtml(res.spreadsheetName)}</strong><br>` : ''}
+            ${res.activeSheets ? `Fogli attivi: <em>${escapeHtml(res.activeSheets.join(', '))}</em>` : 'Tutti i 6 fogli operativi (Utenti, Mensa, Spazi, Manutenzione, Bacheca, Configurazione)'}
+          </div>
+        `;
+      }
+    } else {
+      mostraToast("Risposta dal server: " + JSON.stringify(res), "warning");
+      if (resultEl) {
+        resultEl.innerHTML = `<span style="color:#b45309;">⚠️ Risposta: ${JSON.stringify(res)}</span>`;
+      }
+    }
+  } catch (err) {
+    mostraToast("Errore connessione: " + err.message, "error");
+    if (resultEl) {
+      resultEl.innerHTML = `<span style="color:#dc2626;">❌ Connessione fallita. Verifica l'URL o i permessi 'Chiunque' nella distribuzione Web App.</span>`;
+    }
+  }
+};
+
+window.sincronizzaTuttoDaGoogleFogli = async function() {
+  mostraToast("Sincronizzazione in corso con Google Fogli...", "info");
+  try {
+    await inizializzaApp();
+    mostraToast("✅ Dati sincronizzati con Google Fogli!", "success");
+    if (haPermessiMaster()) {
+      renderMasterSection();
+    }
+  } catch (err) {
+    mostraToast("Errore durante la sincronizzazione: " + err.message, "error");
+  }
+};
+
+window.inizializzaGoogleFogli = async function() {
+  if (!confirm("Vuoi inviare la richiesta di inizializzazione dei 6 fogli di lavoro al tuo Google Spreadsheet?")) return;
+  mostraToast("Inizializzazione struttura Fogli Google in corso...", "info");
+  try {
+    const res = await callApi("inizializzaDati");
+    if (res && res.success) {
+      mostraToast("✅ Database Google Fogli inizializzato con successo!", "success");
+      sincronizzaTuttoDaGoogleFogli();
+    } else {
+      mostraToast("Risultato: " + (res.message || res.error || "Operazione completata"), "info");
+    }
+  } catch (err) {
+    mostraToast("Errore inizializzazione: " + err.message, "error");
+  }
+};
+
+window.apriModalCodiceGas = async function() {
+  const modal = document.getElementById("modal-codice-gas");
+  const textarea = document.getElementById("gas-source-code-textarea");
+  if (!modal) return;
+
+  if (textarea) {
+    textarea.value = "Caricamento codice Code.gs...";
+    try {
+      const resp = await fetch("/Code.gs");
+      if (resp.ok) {
+        textarea.value = await resp.text();
+      } else {
+        textarea.value = "// Consulta il file Code.gs nella radice del progetto per il codice completo.";
+      }
+    } catch (e) {
+      textarea.value = "// Consulta il file Code.gs nella radice del progetto per il codice completo.";
+    }
+  }
+  modal.style.display = "flex";
+};
+
+window.chiudiModalCodiceGas = function() {
+  const modal = document.getElementById("modal-codice-gas");
+  if (modal) modal.style.display = "none";
+};
+
+window.copiaCodiceGasNegliAppunti = function() {
+  const textarea = document.getElementById("gas-source-code-textarea");
+  if (!textarea) return;
+  textarea.select();
+  navigator.clipboard.writeText(textarea.value).then(() => {
+    mostraToast("📋 Codice Code.gs copiato negli appunti!", "success");
+  }).catch(() => {
+    document.execCommand("copy");
+    mostraToast("📋 Codice copiato!", "success");
+  });
+};
+
+window.esportaBackupLocale = function() {
+  const data = localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || JSON.stringify(INITIAL_MOCK_DB);
+  const blob = new Blob([data], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `backup_residenza_newman_${formatYMD(new Date())}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  mostraToast("📥 Backup esportato con successo!", "success");
+};

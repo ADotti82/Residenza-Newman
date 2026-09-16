@@ -2239,11 +2239,17 @@
 
       <div class="form-group">
         <label for="input-gas-url">URL Web App Google Apps Script</label>
-        <input type="url" id="input-gas-url" class="input-text" placeholder="https://script.google.com/macros/s/.../exec">
+        <div style="display: flex; gap: 8px;">
+          <input type="url" id="input-gas-url" class="input-text" placeholder="https://script.google.com/macros/s/.../exec" style="flex: 1;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="testaConnessioneGoogleFogli()" title="Testa la connessione al Web App URL">
+            🔍 Ping
+          </button>
+        </div>
         <p class="text-xs text-muted" style="margin-top: 4px;">
           Incolla qui l'URL generato da <em>Distribuisci &gt; Nuova distribuzione &gt; Applicazione web</em> in Apps Script.
           Se lasciato vuoto, l'app usa il simulatore database locale ad alte prestazioni.
         </p>
+        <div id="gas-test-result" style="margin-top: 6px; font-size: 12px; display: none;"></div>
       </div>
 
       <div class="form-group" style="margin-top: 14px;">
@@ -2253,10 +2259,13 @@
         </label>
       </div>
 
-      <div class="card-inner" style="margin-top: 14px;">
-        <div class="text-xs text-muted">
-          <strong>File Code.gs:</strong> Il codice backend completo è pronto nel file <code>Code.gs</code> del progetto, con architettura a 5 fogli e salvataggio foto su Drive.
+      <div class="card-inner" style="margin-top: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
+        <div class="text-xs text-muted" style="margin-bottom: 8px;">
+          <strong>Database a 6 fogli:</strong> <code>Utenti</code>, <code>Mensa</code>, <code>Prenotazioni_Spazi</code>, <code>Manutenzione</code>, <code>Configurazione</code>, <code>Bacheca</code>.
         </div>
+        <button type="button" class="btn btn-outline btn-block btn-sm" onclick="apriModalCodiceGas()" style="font-size: 12px;">
+          📋 Istruzioni Setup &amp; Copia Codice Code.gs
+        </button>
       </div>
 
       <div style="display: flex; gap: 8px; margin-top: 16px;">
@@ -2376,6 +2385,250 @@
           <button type="button" class="btn btn-secondary" onclick="chiudiModalBacheca()">Annulla</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL PRENOTA SPAZIO (CHIESA / SALA TV) - DIALOGO ACCESSIBILE E DIRETTO
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-prenota-spazio" style="display: none;">
+    <div class="modal-card">
+      <div class="flex-between" style="margin-bottom: 14px;">
+        <div class="flex-align" style="gap: 8px;">
+          <span id="modal-spazio-icon" style="font-size: 26px;">⛪</span>
+          <div>
+            <h3 class="modal-title" id="modal-spazio-titolo" style="margin: 0;">Prenotazione Spazio</h3>
+            <span class="text-xs text-muted" id="modal-spazio-sub">Conferma immediata dello slot</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalPrenotaSpazio()" style="color:#0f172a;">✕</button>
+      </div>
+
+      <div class="card-inner" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+          <span class="text-xs text-muted">Ambiente:</span>
+          <strong id="modal-spazio-dettaglio-risorsa" style="color: #0f172a;">Chiesa / Cappella</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+          <span class="text-xs text-muted">Data:</span>
+          <strong id="modal-spazio-dettaglio-data" style="color: #0f172a;">-</strong>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <span class="text-xs text-muted">Fascia Oraria:</span>
+          <span class="badge badge-info" id="modal-spazio-dettaglio-slot" style="font-size: 13px; font-weight: 700; padding: 4px 10px;">-</span>
+        </div>
+      </div>
+
+      <!-- SEZIONE UTENTE / RESIDENTE -->
+      <div id="modal-spazio-utente-blocco" style="margin-bottom: 14px;">
+        <!-- popolato dinamicamente via JS -->
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button type="button" id="btn-conferma-spazio-azione" class="btn btn-primary btn-block" onclick="eseguiPrenotazioneSpazioConfermata()">
+          ✅ Conferma Prenotazione
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="chiudiModalPrenotaSpazio()">
+          Annulla
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL CANCELLA PRENOTAZIONE SPAZIO
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-cancella-spazio" style="display: none;">
+    <div class="modal-card">
+      <div class="flex-between" style="margin-bottom: 14px;">
+        <div class="flex-align" style="gap: 8px;">
+          <span style="font-size: 24px;">🗑️</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0;">Annulla Prenotazione</h3>
+            <span class="text-xs text-muted">Liberazione dello slot orario</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalCancellaSpazio()" style="color:#0f172a;">✕</button>
+      </div>
+
+      <p id="cancella-spazio-testo" style="font-size: 14px; margin-bottom: 16px; color: #334155; line-height: 1.5;">
+        Confermi di voler liberare questo slot?
+      </p>
+
+      <div style="display: flex; gap: 8px;">
+        <button type="button" id="btn-esegui-cancella-spazio" class="btn btn-danger btn-block" onclick="eseguiCancellazioneSpazioConfermata()">
+          Sì, Libera Slot
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="chiudiModalCancellaSpazio()">
+          Indietro
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL CONFERMA ELIMINAZIONE AVVISO BACHECA
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-conferma-elimina-bacheca" style="display: none;">
+    <div class="modal-card">
+      <div class="flex-between" style="margin-bottom: 14px;">
+        <div class="flex-align" style="gap: 8px;">
+          <span style="font-size: 24px;">⚠️</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0;">Rimuovi Elemento</h3>
+            <span class="text-xs text-muted">Conferma rimozione dalla bacheca</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalEliminaBacheca()" style="color:#0f172a;">✕</button>
+      </div>
+
+      <p id="elimina-bacheca-testo" style="font-size: 14px; margin-bottom: 16px; color: #334155; line-height: 1.5;">
+        Sei sicuro di voler rimuovere questo elemento dalla bacheca?
+      </p>
+
+      <div style="display: flex; gap: 8px;">
+        <button type="button" id="btn-esegui-elimina-bacheca" class="btn btn-danger btn-block" onclick="eseguiEliminazioneBachecaConfermata()">
+          Sì, Rimuovi
+        </button>
+        <button type="button" class="btn btn-secondary" onclick="chiudiModalEliminaBacheca()">
+          Annulla
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL MASTER INSERIMENTO NUOVO APPUNTAMENTO / EVENTO
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-master-nuovo-appuntamento" style="display: none;">
+    <div class="modal-card" style="max-width: 540px;">
+      <div class="flex-between" style="margin-bottom: 14px;">
+        <div class="flex-align" style="gap: 8px;">
+          <span style="font-size: 26px;">👑</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0;">Inserisci Appuntamento Master</h3>
+            <span class="text-xs text-muted">Programma celebrazioni, eventi comunitari o blocca orari</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalMasterAppuntamento()" style="color:#0f172a;">✕</button>
+      </div>
+
+      <form id="form-master-nuovo-appuntamento" onsubmit="salvaMasterAppuntamento(event)">
+        <!-- AMBIENTE / DESTINAZIONE -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="master-app-ambiente" style="font-size: 12px; font-weight: 700; color: #1e293b;">Ambiente / Spazio:</label>
+          <select id="master-app-ambiente" class="input-select" onchange="onMasterAppAmbienteChange()">
+            <option value="Chiesa">⛪ Chiesa / Cappella (Messa, Adorazione, Liturgia)</option>
+            <option value="Sala TV">📺 Sala TV (Cineforum, Eventi, Riunioni)</option>
+            <option value="Bacheca">📢 Solo Bacheca Generale (Avviso / Circolare)</option>
+          </select>
+        </div>
+
+        <!-- TITOLO APPUNTAMENTO -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="master-app-titolo" style="font-size: 12px; font-weight: 700; color: #1e293b;">Titolo dell'Appuntamento:</label>
+          <input type="text" id="master-app-titolo" class="input-text" placeholder="es. Santa Messa Comunitaria, Rosario, Cineforum..." required>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-top: 6px;">
+            <button type="button" class="badge" style="cursor: pointer; background: #e0e7ff; color: #3730a3;" onclick="impostaTitoloPredefinito('Santa Messa Comunitaria')">+ S. Messa</button>
+            <button type="button" class="badge" style="cursor: pointer; background: #fef3c7; color: #92400e;" onclick="impostaTitoloPredefinito('Adorazione Eucaristica')">+ Adorazione</button>
+            <button type="button" class="badge" style="cursor: pointer; background: #dcfce7; color: #166534;" onclick="impostaTitoloPredefinito('Recita del Santo Rosario')">+ S. Rosario</button>
+            <button type="button" class="badge" style="cursor: pointer; background: #f3e8ff; color: #6b21a8;" onclick="impostaTitoloPredefinito('Incontro Comunitario di Residenza')">+ Incontro Comunità</button>
+            <button type="button" class="badge" style="cursor: pointer; background: #fee2e2; color: #991b1b;" onclick="impostaTitoloPredefinito('Cineforum & Dibattito')">+ Cineforum</button>
+          </div>
+        </div>
+
+        <!-- DATA E ORARIO -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div class="form-group">
+            <label for="master-app-data" style="font-size: 12px; font-weight: 700; color: #1e293b;">Data:</label>
+            <input type="date" id="master-app-data" class="input-text" required>
+          </div>
+          <div class="form-group" id="master-app-slot-group">
+            <label for="master-app-orario" style="font-size: 12px; font-weight: 700; color: #1e293b;">Orario / Slot:</label>
+            <select id="master-app-orario" class="input-select">
+              <!-- Popolato dinamicamente da app.js -->
+            </select>
+          </div>
+        </div>
+
+        <!-- DESCRIZIONE / NOTE -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label for="master-app-descrizione" style="font-size: 12px; font-weight: 700; color: #1e293b;">Dettagli o Istruzioni per i Residenti:</label>
+          <textarea id="master-app-descrizione" class="input-textarea" rows="3" placeholder="Informazioni utili per i partecipanti (es. orario di inizio, intenzioni, canti)..."></textarea>
+        </div>
+
+        <!-- OPZIONI AGGIUNTIVE -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 16px; font-size: 13px;">
+          <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin-bottom: 6px;">
+            <input type="checkbox" id="master-app-blocca-slot" checked style="margin-top: 2px;">
+            <span><strong>Riserva ed escludi slot</strong> (impedisce sovrapposizioni da parte dei residenti)</span>
+          </label>
+          <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer;">
+            <input type="checkbox" id="master-app-pubblica-bacheca" checked style="margin-top: 2px;">
+            <span><strong>Pubblica in Bacheca</strong> (visibile a tutta la comunità come evento con priorità)</span>
+          </label>
+        </div>
+
+        <!-- PULSANTI AZIONE -->
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="chiudiModalMasterAppuntamento()">Annulla</button>
+          <button type="submit" id="btn-submit-master-app" class="btn btn-primary" style="background: #9d174d; border-color: #9d174d;">
+            💾 Salva e Programma Appuntamento
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL CODICE GAS & GUIDA DATABASE GOOGLE FOGLI
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-codice-gas" style="display: none;">
+    <div class="modal-card" style="max-width: 680px; max-height: 88vh; display: flex; flex-direction: column;">
+      <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0;">
+        <div class="flex-align" style="gap: 8px;">
+          <span style="font-size: 26px;">📊</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0;">Google Foglio Database (Apps Script)</h3>
+            <span class="text-xs text-muted">Architettura completa a 6 fogli: Utenti, Mensa, Spazi, Manutenzione, Config, Bacheca</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalCodiceGas()" style="color:#0f172a;">✕</button>
+      </div>
+
+      <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
+        <!-- GUIDA STEP-BY-STEP -->
+        <div class="card-inner" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-left: 4px solid #16a34a; padding: 12px; margin-bottom: 14px; font-size: 13px;">
+          <strong style="color: #166534;">Come attivare il tuo Database Google Fogli in 2 minuti:</strong>
+          <ol style="margin: 6px 0 0 18px; padding: 0; line-height: 1.6; color: #1e293b;">
+            <li>Crea un nuovo foglio su <a href="https://sheets.new" target="_blank" rel="noopener noreferrer" style="color:#0284c7; font-weight:600; text-decoration: underline;">Google Fogli (sheets.new)</a> e chiamalo ad es. <em>"Database Residenza Newman"</em>.</li>
+            <li>Nel menu in alto del foglio, clicca su <strong>Estensioni &gt; Apps Script</strong>.</li>
+            <li>Nel file <code>Code.gs</code> che si apre, cancella tutto il contenuto, incolla il codice sottostante e clicca su <strong>Salva (icona dischetto 💾)</strong>.</li>
+            <li>Nel menu a tendina delle funzioni in alto, seleziona <code>setupDatabase</code> e premi <strong>Esegui</strong> (autorizza i permessi richiesti dal tuo account Google). Questo creerà automaticamente tutti i 6 fogli con le intestazioni.</li>
+            <li>In alto a destra, clicca su <strong>Distribuisci &gt; Nuova distribuzione</strong>:
+              <br>• Seleziona Tipo: <em>Applicazione Web</em>
+              <br>• Esegui come: <em>Me (il tuo account)</em>
+              <br>• Chi può accedere: <strong style="color: #166534;">Chiunque</strong> (necessario per permettere alla web app di salvare i dati)
+            </li>
+            <li>Copia l'<strong>URL dell'applicazione web</strong> terminante in <code>/exec</code> e incollalo nell'applicazione!</li>
+          </ol>
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <strong style="font-size: 13px; color: #0f172a;">Codice Sorgente Backend (Code.gs):</strong>
+          <button type="button" class="btn btn-primary btn-sm" onclick="copiaCodiceGasNegliAppunti()" style="display: flex; align-items: center; gap: 4px;">
+            <span>📋</span> Copia Tutto il Codice
+          </button>
+        </div>
+
+        <textarea id="gas-source-code-textarea" class="input-textarea" rows="11" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; background: #0f172a; color: #38bdf8; white-space: pre; border-radius: 6px;" readonly></textarea>
+      </div>
+
+      <div style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0;">
+        <button type="button" class="btn btn-secondary" onclick="chiudiModalCodiceGas()">
+          Chiudi
+        </button>
+      </div>
     </div>
   </div>
 
