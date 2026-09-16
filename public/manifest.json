@@ -1,0 +1,27 @@
+{
+  "name": "Residenza Card. Newman",
+  "short_name": "Newman",
+  "description": "Servizi Comunitari Residenza Card. Newman",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#14213d",
+  "theme_color": "#14213d",
+  "icons": [
+    {
+      "src": "/icon-newman.png",
+      "sizes": "256x256",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    }
+  ]
+}

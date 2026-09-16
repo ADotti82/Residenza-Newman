@@ -1,0 +1,6 @@
+{
+  "name": "Residenza Card. Newman",
+  "description": "App mobile-first per la Residenza Card. Newman con Bacheca, Calendario Romano ed eventi del giorno, Mensa, Prenotazione Chiesa e Sala TV, La Residenza (regolamento e orari) e Manutenzione.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

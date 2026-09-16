@@ -1,0 +1,2342 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Residenza Card. Newman</title>
+  <meta name="description" content="App mobile-first per la Residenza Card. Newman con Bacheca, Calendario Romano ed eventi del giorno, Mensa, Prenotazione Chiesa e Sala TV, La Residenza (regolamento e orari) e Manutenzione.">
+  <meta property="og:title" content="Residenza Card. Newman">
+  <meta property="og:description" content="App mobile-first per la Residenza Card. Newman con Bacheca, Calendario Romano ed eventi del giorno, Mensa, Prenotazione Chiesa e Sala TV, La Residenza (regolamento e orari) e Manutenzione.">
+  <meta property="og:type" content="website">
+  <meta name="theme-color" content="#14213d">
+  <link rel="icon" type="image/png" href="/favicon.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="manifest" href="/manifest.json">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Residenza Newman">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <!-- STILI CSS3 PURI E OTTIMIZZATI - ZERO DIPENDENZE ESTERNE -->
+  <style>
+    /* ==========================================================================
+       VARIABILI DI TEMA E RESET GLOBALE
+       Palette: Cardinal Royal Navy (#14213d), Gold (#d97706), Slate & Pure White
+       ========================================================================== */
+    :root {
+      --primary: #14213d;
+      --primary-light: #1f2f54;
+      --primary-dark: #0a1120;
+      --accent: #d97706;
+      --accent-hover: #b45309;
+      --accent-soft: #fef3c7;
+      --bg: #f8fafc;
+      --surface: #ffffff;
+      --surface-alt: #f1f5f9;
+      --border: #e2e8f0;
+      --border-dark: #cbd5e1;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-light: #94a3b8;
+      --success: #16a34a;
+      --success-bg: #dcfce7;
+      --danger: #dc2626;
+      --danger-bg: #fee2e2;
+      --warning: #ca8a04;
+      --warning-bg: #fef9c3;
+      --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 16px;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06);
+      --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+      --shadow-lg: 0 10px 25px rgba(15, 23, 42, 0.12);
+      --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background-color: #0b1329;
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      line-height: 1.5;
+      font-size: 15px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* Container di simulazione mobile frame su desktop e full-width nativo su mobile */
+    .app-frame {
+      width: 100%;
+      max-width: 480px;
+      min-height: 100vh;
+      background-color: var(--bg);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      box-shadow: 0 0 40px rgba(0, 0, 0, 0.35);
+    }
+
+    /* ==========================================================================
+       HEADER FISSO ISTITUZIONALE
+       ========================================================================== */
+    .app-header {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #ffffff;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid var(--accent);
+      box-shadow: var(--shadow-md);
+    }
+
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 38px;
+      height: 38px;
+      background-color: rgba(217, 119, 6, 0.2);
+      border: 2px solid var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      flex-shrink: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+    }
+
+    .brand-avatar-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .brand-titles {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: #ffffff;
+      line-height: 1.2;
+    }
+
+    .brand-subtitle {
+      font-size: 11px;
+      color: #cbd5e1;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      font-weight: 500;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .connection-badge {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 7px;
+      border-radius: 20px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      cursor: pointer;
+    }
+
+    .connection-badge.live {
+      background-color: var(--success-bg);
+      color: var(--success);
+      border: 1px solid var(--success);
+    }
+
+    .connection-badge.demo {
+      background-color: var(--warning-bg);
+      color: var(--warning);
+      border: 1px solid var(--warning);
+    }
+
+    .user-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 4px 8px 4px 4px;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .user-pill:hover {
+      background: rgba(255, 255, 255, 0.18);
+    }
+
+    .user-avatar {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background-color: var(--accent);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .user-name-role {
+      display: flex;
+      flex-direction: column;
+      text-align: left;
+      line-height: 1.1;
+    }
+
+    .header-user-name {
+      font-size: 11px;
+      font-weight: 600;
+      max-width: 90px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: #ffffff;
+    }
+
+    .header-user-role {
+      font-size: 9px;
+      color: #fde68a;
+    }
+
+    .btn-icon-head {
+      background: none;
+      border: none;
+      color: #e2e8f0;
+      cursor: pointer;
+      padding: 6px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+    }
+
+    .btn-icon-head:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #ffffff;
+    }
+
+    /* ==========================================================================
+       BANNER ALERT VARIAZIONE MENU STRAORDINARIA
+       ========================================================================== */
+    .alert-banner-wrap {
+      padding: 10px 16px 0 16px;
+    }
+
+    .alert-box {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 14px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      line-height: 1.4;
+      border: 1px solid transparent;
+    }
+
+    .alert-warning {
+      background-color: #fffbeb;
+      border-color: #fde68a;
+      color: #92400e;
+    }
+
+    .alert-icon {
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+
+    /* ==========================================================================
+       AREA CONTENUTO DINAMICO & VISTE
+       ========================================================================== */
+    .main-content {
+      flex: 1;
+      padding: 16px 16px 84px 16px; /* Spazio extra per bottom nav */
+      overflow-y: auto;
+    }
+
+    .view-container {
+      display: none;
+      animation: fadeIn 0.25s ease-out forwards;
+    }
+
+    .view-container.active-view {
+      display: block;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ==========================================================================
+       CARD E COMPONENTI DI DESIGN PURI
+       ========================================================================== */
+    .card {
+      background-color: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 18px;
+      margin-bottom: 16px;
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+    }
+
+    .card-inner {
+      background-color: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 4px;
+    }
+
+    .card-title-sm {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 8px;
+    }
+
+    .card-desc {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 14px;
+    }
+
+    .flex-between {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .flex-align {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+      line-height: 1;
+    }
+
+    .badge-primary { background: #e0e7ff; color: #3730a3; }
+    .badge-accent { background: var(--accent-soft); color: var(--accent-hover); }
+    .badge-success { background: var(--success-bg); color: var(--success); }
+    .badge-danger { background: var(--danger-bg); color: var(--danger); }
+
+    /* ==========================================================================
+       SEZIONE MENSA
+       ========================================================================== */
+    .mensa-header-card {
+      background: linear-gradient(to bottom, #ffffff, #fafaf9);
+    }
+
+    .mensa-day-pills {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 4px;
+      margin-top: 14px;
+    }
+
+    .day-pill {
+      border: 1px solid var(--border);
+      background: #ffffff;
+      border-radius: var(--radius-sm);
+      padding: 8px 2px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .day-pill:hover {
+      background: var(--surface-alt);
+    }
+
+    .day-pill.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+      box-shadow: 0 2px 6px rgba(20, 33, 61, 0.25);
+    }
+
+    .day-pill.today:not(.active) {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+    }
+
+    .day-abbr {
+      font-size: 10px;
+      text-transform: uppercase;
+      font-weight: 600;
+    }
+
+    .day-num {
+      font-size: 14px;
+      font-weight: 700;
+      margin-top: 2px;
+    }
+
+    .meal-card {
+      border-left: 4px solid var(--primary);
+    }
+
+    .meal-card.card-disabled {
+      opacity: 0.85;
+      background: #fafaf9;
+      border-left-color: var(--text-light);
+    }
+
+    .meal-icon {
+      font-size: 24px;
+    }
+
+    .meal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .meal-sub {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .meal-menu-body {
+      background: var(--surface-alt);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin: 12px 0;
+    }
+
+    .dish-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .dish-item {
+      font-size: 13.5px;
+      color: var(--text-main);
+    }
+
+    .dish-type {
+      font-weight: 700;
+      color: var(--primary);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      display: inline-block;
+      width: 75px;
+    }
+
+    .dish-name {
+      color: #1e293b;
+    }
+
+    .busta-notice-box {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px;
+      background: #fff7ed;
+      border: 1px dashed #fdba74;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      color: #9a3412;
+    }
+
+    .busta-icon {
+      font-size: 28px;
+      flex-shrink: 0;
+    }
+
+    /* Stili Calendario e Settimana Scorrevole */
+    .mensa-nav-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .week-nav-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--surface-alt);
+      border-radius: var(--radius-md);
+      padding: 6px 8px;
+      margin-bottom: 12px;
+    }
+
+    .week-nav-btn {
+      background: #ffffff;
+      border: 1px solid var(--border-dark);
+      border-radius: var(--radius-sm);
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--primary);
+      transition: var(--transition);
+    }
+
+    .week-nav-btn:hover {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    .week-nav-label {
+      text-align: center;
+      font-weight: 700;
+      font-size: 13.5px;
+      color: var(--primary);
+    }
+
+    .week-nav-sub {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      font-weight: 500;
+      display: block;
+    }
+
+    /* Tabs Vista: Giorno / Tutta la Settimana */
+    .mensa-view-mode-tabs {
+      display: flex;
+      gap: 6px;
+      margin-bottom: 14px;
+      background: #e2e8f0;
+      border-radius: var(--radius-md);
+      padding: 3px;
+    }
+
+    .mode-tab-btn {
+      flex: 1;
+      border: none;
+      background: transparent;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      color: #475569;
+      transition: var(--transition);
+      text-align: center;
+    }
+
+    .mode-tab-btn.active {
+      background: #ffffff;
+      color: var(--primary);
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    /* Panoramica Settimanale Scorrevole */
+    .weekly-scroll-container {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .weekly-day-card {
+      background: #ffffff;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      overflow: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+    }
+
+    .weekly-day-card.is-today {
+      border: 2px solid var(--accent);
+      box-shadow: 0 4px 12px rgba(217, 119, 6, 0.15);
+    }
+
+    .weekly-day-card.is-selected {
+      border-color: var(--primary);
+    }
+
+    .weekly-day-header {
+      background: var(--surface-alt);
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .weekly-day-card.is-today .weekly-day-header {
+      background: #fffbeb;
+    }
+
+    .weekly-day-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .weekly-meal-row {
+      padding: 12px 14px;
+      border-bottom: 1px solid #f1f5f9;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .weekly-meal-row:last-child {
+      border-bottom: none;
+    }
+
+    .weekly-meal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .weekly-meal-title {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .weekly-meal-dishes {
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: #334155;
+      background: #fafaf9;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border-left: 3px solid var(--primary-light);
+    }
+
+    .weekly-meal-row.cena-row .weekly-meal-dishes {
+      border-left-color: var(--primary);
+    }
+
+    .meal-status-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 12px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .meal-status-pill.booked {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #86efac;
+    }
+
+    .meal-status-pill.not-booked {
+      background: #f1f5f9;
+      color: #64748b;
+    }
+
+    .booking-inline-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-top: 4px;
+    }
+
+    .btn-quick-book {
+      padding: 6px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid var(--primary);
+      background: #ffffff;
+      color: var(--primary);
+      transition: var(--transition);
+    }
+
+    .btn-quick-book:hover:not(:disabled) {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    .btn-quick-book.active {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    .btn-quick-cancel {
+      padding: 6px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      border: 1px solid #fca5a5;
+      background: #fef2f2;
+      color: #991b1b;
+      transition: var(--transition);
+    }
+
+    .btn-quick-cancel:hover:not(:disabled) {
+      background: #fee2e2;
+    }
+
+    .presence-summary-badge {
+      font-size: 11.5px;
+      font-weight: 600;
+      color: #15803d;
+      background: #f0fdf4;
+      padding: 4px 10px;
+      border-radius: 14px;
+      border: 1px solid #bbf7d0;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .variation-master-card {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-bottom: 14px;
+    }
+
+    /* Badge per conteggio presenti visibile al Master */
+    .master-attendees-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      background: #eff6ff;
+      color: #1e40af;
+      border: 1px solid #bfdbfe;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .master-attendees-badge:hover {
+      background: #dbeafe;
+      border-color: #93c5fd;
+    }
+
+    .master-attendees-badge .count-num {
+      background: #2563eb;
+      color: #ffffff;
+      padding: 0 5px;
+      border-radius: 8px;
+      font-size: 10px;
+    }
+
+    /* Classici di Busta & Variazione Cuoca */
+    .busta-classici-container {
+      background: #fffaf0;
+      border: 1px solid #fed7aa;
+      border-radius: var(--radius-md);
+      padding: 14px;
+    }
+
+    .busta-classici-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .busta-chips-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .busta-chip {
+      background: #ffffff;
+      border: 1px solid #fbd38d;
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .busta-chip .chip-icon {
+      font-size: 20px;
+      flex-shrink: 0;
+    }
+
+    .busta-chip strong {
+      font-size: 12px;
+      color: #7c2d12;
+      display: block;
+    }
+
+    .busta-chip small {
+      font-size: 10.5px;
+      color: #9a3412;
+      display: block;
+    }
+
+    .cuoca-var-box {
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      margin-top: 8px;
+    }
+
+    .cuoca-var-box.has-var {
+      background: #fef3c7;
+      border: 1px solid #fcd34d;
+    }
+
+    .cuoca-var-box.no-var {
+      background: #ffffff;
+      border: 1px dashed #cbd5e1;
+    }
+
+    .cuoca-inline-variation {
+      margin-top: 5px;
+      background: #fef3c7;
+      border-left: 3px solid #d97706;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 11.5px;
+      color: #92400e;
+    }
+
+    .btn-link-cuoca {
+      background: none;
+      border: none;
+      padding: 0;
+      color: #b45309;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .btn-link-cuoca:hover {
+      color: #78350f;
+    }
+
+    /* ==========================================================================
+       SEZIONE BACHECA & CALENDARIO ROMANO (PAGINA INIZIALE)
+       ========================================================================== */
+    .roman-calendar-card {
+      background: linear-gradient(145deg, #14213d 0%, #1a2c50 60%, #101c34 100%);
+      color: #ffffff;
+      border-radius: var(--radius-lg);
+      padding: 16px;
+      margin-bottom: 14px;
+      box-shadow: 0 10px 25px rgba(20, 33, 61, 0.25);
+      border: 1px solid rgba(217, 119, 6, 0.35);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .roman-calendar-card::before {
+      content: "";
+      position: absolute;
+      top: -30px;
+      right: -30px;
+      width: 140px;
+      height: 140px;
+      background: radial-gradient(circle, rgba(217, 119, 6, 0.18) 0%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .roman-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      padding-bottom: 8px;
+    }
+
+    .roman-header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.8px;
+      text-transform: uppercase;
+      color: #fef08a;
+      background: rgba(217, 119, 6, 0.2);
+      border: 1px solid rgba(217, 119, 6, 0.4);
+      padding: 3px 8px;
+      border-radius: 20px;
+    }
+
+    .roman-nav-buttons {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .roman-nav-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: #ffffff;
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 13px;
+      transition: var(--transition);
+    }
+
+    .roman-nav-btn:hover {
+      background: rgba(217, 119, 6, 0.35);
+      border-color: var(--accent);
+    }
+
+    .roman-date-latin {
+      font-size: 19px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: #fef9c3;
+      margin-top: 2px;
+      font-family: "Cinzel", "Times New Roman", Georgia, serif;
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+    }
+
+    .roman-date-it {
+      font-size: 13px;
+      color: #cbd5e1;
+      margin-top: 3px;
+      font-weight: 500;
+    }
+
+    .roman-liturgic-box {
+      margin-top: 12px;
+      padding: 10px 12px;
+      background: rgba(255, 255, 255, 0.08);
+      border-radius: var(--radius-sm);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .liturgic-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+    }
+
+    .liturgic-color-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .liturgic-saint-name {
+      font-size: 13.5px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.35;
+    }
+
+    /* Bacheca Card Items */
+    .bacheca-section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .bacheca-card {
+      background: #ffffff;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      border-left: 4px solid var(--primary);
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .bacheca-card:hover {
+      box-shadow: var(--shadow-md);
+    }
+
+    .bacheca-card.tipo-compleanno {
+      border-left-color: #d97706;
+      background: linear-gradient(180deg, #fffbeb 0%, #ffffff 40%);
+    }
+
+    .bacheca-card.tipo-anniversario {
+      border-left-color: #7c3aed;
+      background: linear-gradient(180deg, #f5f3ff 0%, #ffffff 40%);
+    }
+
+    .bacheca-card.tipo-evento {
+      border-left-color: #2563eb;
+      background: linear-gradient(180deg, #eff6ff 0%, #ffffff 40%);
+    }
+
+    .bacheca-card.tipo-avviso {
+      border-left-color: #059669;
+      background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 40%);
+    }
+
+    .bacheca-card-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .bacheca-type-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 12px;
+    }
+
+    .bacheca-card-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-main);
+      margin-top: 4px;
+    }
+
+    .bacheca-card-desc {
+      font-size: 13px;
+      color: #334155;
+      line-height: 1.5;
+      white-space: pre-line;
+      margin: 6px 0;
+    }
+
+    .bacheca-card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 11px;
+      color: var(--text-muted);
+      border-top: 1px solid #f1f5f9;
+      padding-top: 8px;
+      margin-top: 8px;
+    }
+
+    .bacheca-delete-btn {
+      background: none;
+      border: none;
+      color: #ef4444;
+      cursor: pointer;
+      font-size: 14px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: var(--transition);
+    }
+
+    .bacheca-delete-btn:hover {
+      background: #fee2e2;
+    }
+
+    /* ==========================================================================
+       SEZIONE SPAZI & SERVIZI (SOLO CHIESA E SALA TV - SLOT 30 MINUTI)
+       ========================================================================== */
+    .spazi-resource-selector {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .spazi-resource-btn {
+      background: #ffffff;
+      border: 2px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 10px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      text-align: center;
+      gap: 6px;
+      cursor: pointer;
+      transition: var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .spazi-resource-btn:hover {
+      border-color: var(--accent);
+      transform: translateY(-2px);
+    }
+
+    .spazi-resource-btn.active {
+      border-color: var(--primary);
+      background: #f8fafc;
+      box-shadow: 0 4px 12px rgba(20, 33, 61, 0.12);
+    }
+
+    .spazi-res-icon {
+      font-size: 26px;
+    }
+
+    .spazi-res-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--primary);
+    }
+
+    .spazi-res-sub {
+      font-size: 11px;
+      color: var(--text-muted);
+      background: var(--surface-alt);
+      padding: 2px 6px;
+      border-radius: 10px;
+      font-weight: 500;
+    }
+
+    .spazi-resource-btn.active .spazi-res-sub {
+      background: var(--accent-soft);
+      color: #92400e;
+      font-weight: 600;
+    }
+
+    /* Calendario Orizzontale a Scorrimento */
+    .date-ribbon-wrap {
+      margin-bottom: 12px;
+    }
+
+    .date-ribbon-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-muted);
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .date-ribbon {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      padding: 4px 2px 8px 2px;
+      scroll-snap-type: x mandatory;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .date-ribbon::-webkit-scrollbar {
+      height: 4px;
+    }
+
+    .date-ribbon::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 4px;
+    }
+
+    .date-chip {
+      flex: 0 0 62px;
+      scroll-snap-align: start;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 4px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      cursor: pointer;
+      transition: var(--transition);
+    }
+
+    .date-chip:hover {
+      border-color: var(--accent);
+    }
+
+    .date-chip.active {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #ffffff;
+      box-shadow: 0 3px 8px rgba(20, 33, 61, 0.2);
+    }
+
+    .date-chip-day {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+      color: var(--text-muted);
+    }
+
+    .date-chip.active .date-chip-day {
+      color: #fef08a;
+    }
+
+    .date-chip-num {
+      font-size: 16px;
+      font-weight: 800;
+    }
+
+    .date-chip-month {
+      font-size: 9.5px;
+      color: var(--text-light);
+    }
+
+    .date-chip.active .date-chip-month {
+      color: #e2e8f0;
+    }
+
+    .time-filter-row {
+      display: flex;
+      gap: 6px;
+      overflow-x: auto;
+      margin-bottom: 12px;
+      padding-bottom: 2px;
+    }
+
+    .time-filter-chip {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 5px 10px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: var(--transition);
+    }
+
+    .time-filter-chip.active {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+
+    /* Griglia Slot Orari 30 Minuti */
+    .slots-grid-v2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+      gap: 8px;
+      max-height: 380px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+
+    .slot-card-v2 {
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .slot-card-v2.slot-available {
+      background: #ffffff;
+      cursor: pointer;
+    }
+
+    .slot-card-v2.slot-available:hover {
+      border-color: #16a34a;
+      background: #f0fdf4;
+      transform: translateY(-1px);
+      box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15);
+    }
+
+    .slot-card-v2.slot-mine {
+      background: #eff6ff;
+      border-color: #3b82f6;
+      box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15);
+    }
+
+    .slot-card-v2.slot-master {
+      background: #faf5ff;
+      border-color: #a855f7;
+    }
+
+    .slot-card-v2.slot-occupied {
+      background: #f1f5f9;
+      border-color: #e2e8f0;
+      opacity: 0.8;
+      cursor: not-allowed;
+    }
+
+    .slot-time-text {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+
+    .slot-status-pill {
+      font-size: 10px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .slot-available .slot-status-pill {
+      color: #16a34a;
+    }
+
+    .slot-mine .slot-status-pill {
+      color: #1d4ed8;
+    }
+
+    .slot-master .slot-status-pill {
+      color: #7e22ce;
+    }
+
+    .slot-occupied .slot-status-pill {
+      color: #64748b;
+    }
+
+    .slot-cancel-btn {
+      margin-top: 4px;
+      background: #fee2e2;
+      border: 1px solid #fca5a5;
+      color: #dc2626;
+      font-size: 10.5px;
+      font-weight: 600;
+      padding: 3px 6px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: var(--transition);
+      width: 100%;
+      text-align: center;
+    }
+
+    .slot-cancel-btn:hover {
+      background: #dc2626;
+      color: #ffffff;
+    }
+
+    /* La Residenza View */
+    .residenza-hour-card {
+      background: #ffffff;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      padding: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .residenza-contact-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      font-weight: 600;
+      text-decoration: none;
+      background: var(--surface-alt);
+      color: var(--primary);
+      border: 1px solid var(--border);
+      transition: var(--transition);
+    }
+
+    .residenza-contact-btn:hover {
+      background: var(--primary);
+      color: #ffffff;
+    }
+
+    /* ==========================================================================
+       SEZIONE MANUTENZIONE & RESIZE CANVAS
+       ========================================================================== */
+    .photo-upload-zone {
+      border: 2px dashed var(--border-dark);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      text-align: center;
+      background: var(--surface-alt);
+      cursor: pointer;
+      transition: var(--transition);
+      margin-bottom: 12px;
+      position: relative;
+    }
+
+    .photo-upload-zone:hover {
+      border-color: var(--accent);
+      background: #fffbeb;
+    }
+
+    .photo-preview-wrap {
+      margin-top: 10px;
+      text-align: center;
+    }
+
+    .photo-preview-img {
+      max-width: 100%;
+      max-height: 180px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border);
+      object-fit: cover;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .resize-badge {
+      display: block;
+      font-size: 11px;
+      color: var(--success);
+      font-weight: 600;
+      margin-top: 4px;
+    }
+
+    .guasto-card {
+      border-left: 3px solid var(--accent);
+    }
+
+    .guasto-desc {
+      font-size: 13.5px;
+      margin: 6px 0;
+      color: var(--text-main);
+    }
+
+    .guasto-thumb-wrap {
+      margin: 8px 0;
+    }
+
+    .guasto-thumb {
+      max-width: 100%;
+      height: 120px;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      cursor: pointer;
+    }
+
+    /* ==========================================================================
+       SEZIONE MASTER (ADMIN, MENSA, MANUTENZIONE)
+       ========================================================================== */
+    .master-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .master-tag {
+      background: var(--primary);
+      color: #ffffff;
+      font-size: 10px;
+      font-weight: 800;
+      padding: 3px 8px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-bottom: 16px;
+    }
+
+    .metric-card {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    .metric-val {
+      font-size: 26px;
+      font-weight: 800;
+      color: var(--primary);
+      line-height: 1;
+    }
+
+    .metric-lbl {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .user-approval-row {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .permessi-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 4px;
+      font-size: 11px;
+      margin: 4px 0;
+    }
+
+    .table-responsive {
+      overflow-x: auto;
+    }
+
+    .master-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+
+    .master-table th, .master-table td {
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+    }
+
+    .master-table th {
+      background: var(--surface-alt);
+      color: var(--text-muted);
+      font-weight: 700;
+    }
+
+    .guasto-photo-box {
+      margin: 8px 0;
+    }
+
+    .guasto-photo-img {
+      max-width: 100%;
+      max-height: 160px;
+      border-radius: var(--radius-sm);
+      object-fit: cover;
+      cursor: pointer;
+    }
+
+    /* ==========================================================================
+       FORMS & CONTROLLI
+       ========================================================================== */
+    .form-group {
+      margin-bottom: 12px;
+    }
+
+    label {
+      display: block;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-main);
+      margin-bottom: 4px;
+    }
+
+    .input-text, .input-date, .input-select, .input-textarea {
+      width: 100%;
+      padding: 10px 12px;
+      font-family: inherit;
+      font-size: 14px;
+      border: 1px solid var(--border-dark);
+      border-radius: var(--radius-sm);
+      background-color: #ffffff;
+      color: var(--text-main);
+      transition: var(--transition);
+      outline: none;
+    }
+
+    .input-text:focus, .input-date:focus, .input-select:focus, .input-textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(20, 33, 61, 0.12);
+    }
+
+    .checkbox-group {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin: 10px 0;
+    }
+
+    .custom-checkbox {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 13.5px;
+      cursor: pointer;
+    }
+
+    .custom-checkbox input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--primary);
+      cursor: pointer;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 10px 18px;
+      font-size: 14px;
+      font-weight: 600;
+      border-radius: var(--radius-sm);
+      border: none;
+      cursor: pointer;
+      transition: var(--transition);
+      text-decoration: none;
+      line-height: 1;
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background-color: var(--primary-light);
+    }
+
+    .btn-accent {
+      background-color: var(--accent);
+      color: #ffffff;
+    }
+
+    .btn-accent:hover:not(:disabled) {
+      background-color: var(--accent-hover);
+    }
+
+    .btn-success {
+      background-color: var(--success);
+      color: #ffffff;
+    }
+
+    .btn-outline {
+      background: transparent;
+      border: 1px solid var(--border-dark);
+      color: var(--text-main);
+    }
+
+    .btn-block {
+      width: 100%;
+    }
+
+    .btn-sm {
+      padding: 6px 12px;
+      font-size: 12px;
+    }
+
+    .mini-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mini-item {
+      padding: 10px 12px;
+      background: var(--surface-alt);
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .empty-state-text {
+      text-align: center;
+      color: var(--text-muted);
+      font-size: 13px;
+      padding: 14px 0;
+    }
+
+    .banner-test-mode {
+      margin-top: 10px;
+      padding: 6px 10px;
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-radius: var(--radius-sm);
+      font-size: 11px;
+      color: #1e40af;
+      text-align: center;
+    }
+
+    /* ==========================================================================
+       BOTTOM NAVIGATION BAR FISSA
+       ========================================================================== */
+    .bottom-nav {
+      position: sticky;
+      bottom: 0;
+      width: 100%;
+      background: #ffffff;
+      border-top: 1px solid var(--border);
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding: 6px 2px 8px 2px;
+      box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.04);
+      z-index: 45;
+    }
+
+    .bottom-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      font-size: 9.5px;
+      font-weight: 600;
+      cursor: pointer;
+      padding: 3px 2px;
+      border-radius: var(--radius-sm);
+      transition: var(--transition);
+      flex: 1;
+      max-width: 66px;
+      white-space: nowrap;
+    }
+
+    .bottom-nav-item svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 2;
+      transition: var(--transition);
+    }
+
+    .bottom-nav-item.active {
+      color: var(--primary);
+    }
+
+    .bottom-nav-item.active svg {
+      transform: translateY(-2px);
+      stroke: var(--accent);
+    }
+
+    /* ==========================================================================
+       MODALI E OVERLAYS
+       ========================================================================== */
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(4px);
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 420px;
+      background: #ffffff;
+      border-radius: var(--radius-lg);
+      padding: 24px;
+      box-shadow: var(--shadow-lg);
+      position: relative;
+    }
+
+    .modal-header {
+      margin-bottom: 18px;
+      text-align: center;
+    }
+
+    .modal-brand-badge {
+      width: 48px;
+      height: 48px;
+      background: var(--primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent);
+      margin: 0 auto 12px auto;
+    }
+
+    .modal-title {
+      font-size: 19px;
+      font-weight: 800;
+      color: var(--primary);
+    }
+
+    .modal-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-top: 4px;
+    }
+
+    .quick-logins-box {
+      margin-top: 18px;
+      padding: 12px;
+      background: var(--surface-alt);
+      border-radius: var(--radius-md);
+      font-size: 12px;
+    }
+
+    .quick-btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 8px;
+    }
+
+    .quick-login-btn {
+      background: #ffffff;
+      border: 1px solid var(--border-dark);
+      padding: 4px 8px;
+      border-radius: 14px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+
+    .toast-container {
+      position: fixed;
+      top: 64px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 200;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      width: 90%;
+      max-width: 380px;
+      pointer-events: none;
+    }
+
+    .toast {
+      padding: 10px 16px;
+      border-radius: var(--radius-md);
+      font-size: 13px;
+      font-weight: 600;
+      color: #ffffff;
+      box-shadow: var(--shadow-md);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      pointer-events: auto;
+    }
+
+    .toast-info { background-color: var(--primary); }
+    .toast-success { background-color: var(--success); }
+    .toast-warning { background-color: var(--warning); }
+    .toast-error { background-color: var(--danger); }
+
+    .toast-fade-out {
+      opacity: 0;
+      transform: translateY(-8px);
+      transition: all 0.3s ease;
+    }
+
+    .text-muted { color: var(--text-muted); }
+    .text-sm { font-size: 12px; }
+    .text-xs { font-size: 11px; }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <!-- FRAME MOBILE PRINCIPALE -->
+  <div class="app-frame" id="app-frame">
+
+    <!-- HEADER FISSO ISTITUZIONALE -->
+    <header class="app-header" id="main-header">
+      <div class="header-brand">
+        <div class="brand-icon" id="header-brand-icon">
+          <img src="/icon-newman.png" alt="Card. Newman" class="brand-avatar-img">
+        </div>
+        <div class="brand-titles">
+          <span class="brand-title">Residenza Card. Newman</span>
+          <span class="brand-subtitle">Servizi Comunitari</span>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <!-- Indicatore stato connessione (GAS Live / Demo Locale) -->
+        <span class="connection-badge demo" id="header-connection-badge" onclick="document.getElementById('btn-open-settings').click()">Demo</span>
+
+        <!-- Badge utente corrente -->
+        <div class="user-pill" id="header-user-pill" onclick="mostraModalAuth(true)">
+          <div class="user-avatar" id="header-user-avatar">CN</div>
+          <div class="user-name-role">
+            <span class="header-user-name" id="header-user-name">Ospite</span>
+            <span class="header-user-role" id="header-user-role">Accedi</span>
+          </div>
+        </div>
+
+        <!-- Pulsante Impostazioni Backend -->
+        <button type="button" class="btn-icon-head" id="btn-open-settings" title="Impostazioni Backend Apps Script">
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- INIEZIONE ALERT BANNER VARIAZIONE STRAORDINARIA MENU -->
+    <div class="alert-banner-wrap" id="menu-variation-alert" style="display: none;"></div>
+
+    <!-- AREA PRINCIPALE CONTENUTO DINAMICO -->
+    <main class="main-content" id="main-content">
+
+      <!-- ====================================================================
+           VISTA 1: BACHECA & CALENDARIO ROMANO (PAGINA INIZIALE)
+           ==================================================================== -->
+      <section class="view-container active-view" id="view-info">
+        <div id="bacheca-container">
+          <!-- Popolato dinamicamente da renderBachecaView() in app.js -->
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISTA 2: MENSA
+           ==================================================================== -->
+      <section class="view-container" id="view-mensa">
+        <div id="mensa-container">
+          <!-- Popolato dinamicamente da renderMensaView() in app.js -->
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISTA 3: SPAZI (CHIESA E SALA TV - SLOT 30 MIN)
+           ==================================================================== -->
+      <section class="view-container" id="view-spazi">
+        <div id="spazi-container">
+          <!-- Popolato dinamicamente da renderSpaziView() in app.js -->
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISTA 4: LA RESIDENZA (REGOLAMENTO, ORARI E CONTATTI)
+           ==================================================================== -->
+      <section class="view-container hidden" id="view-residenza">
+        <div id="residenza-container">
+          <!-- Popolato dinamicamente da renderResidenzaView() in app.js -->
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISTA 5: MANUTENZIONE
+           ==================================================================== -->
+      <section class="view-container" id="view-manutenzione">
+        <div class="card">
+          <h2 class="card-title">Segnalazione Guasti</h2>
+          <p class="card-desc">Segnala un problema tecnico nella tua camera o nelle aree comuni con foto opzionale.</p>
+
+          <form id="form-segnala-guasto">
+            <div class="form-group">
+              <label for="manutenzione-luogo">Ubicazione / Stanza</label>
+              <input type="text" id="manutenzione-luogo" class="input-text" placeholder="Es. Stanza 204, Bagno Piano 2, Lavanderia..." required>
+            </div>
+
+            <div class="form-group">
+              <label for="manutenzione-descrizione">Descrizione del Problema</label>
+              <textarea id="manutenzione-descrizione" class="input-textarea" rows="3" placeholder="Descrivi in dettaglio il guasto riscontrato..." required></textarea>
+            </div>
+
+            <div class="form-group">
+              <label>Fotografia del Guasto (Opzionale)</label>
+              <div class="photo-upload-zone" onclick="document.getElementById('manutenzione-foto-input').click()">
+                <div style="font-size: 26px; margin-bottom: 4px;">📷</div>
+                <div style="font-size: 13px; font-weight: 600;">Scatta una foto o scegli dalla galleria</div>
+                <div class="text-xs text-muted">Compressione automatica via Canvas a max 800px</div>
+                <input type="file" id="manutenzione-foto-input" accept="image/*" style="display: none;">
+              </div>
+
+              <!-- Box anteprima immagine compressa dal Canvas invisibile -->
+              <div id="manutenzione-foto-preview-box" class="photo-preview-wrap" style="display: none;">
+                <img id="manutenzione-foto-preview" class="photo-preview-img" alt="Anteprima">
+                <span id="manutenzione-resize-info" class="resize-badge"></span>
+              </div>
+            </div>
+
+            <button type="submit" id="btn-submit-guasto" class="btn btn-primary btn-block">
+              Invia Segnalazione Guasto
+            </button>
+          </form>
+        </div>
+
+        <!-- Feed dei guasti segnalati di recente -->
+        <div class="card">
+          <h3 class="card-title-sm">Segnalazioni Recenti</h3>
+          <div id="manutenzione-recenti-list">
+            <p class="empty-state-text">Caricamento storico guasti...</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VISTA 6: SEZIONE MASTER (AMMINISTRAZIONE DINAMICA)
+           ==================================================================== -->
+      <section class="view-container" id="view-master">
+        <div id="master-dynamic-content">
+          <!-- Popolato dinamicamente da renderMasterSection() in app.js -->
+        </div>
+      </section>
+
+    </main>
+
+    <!-- ======================================================================
+         BOTTOM NAVIGATION BAR FISSA (6 TAB)
+         ====================================================================== -->
+    <nav class="bottom-nav" id="bottom-nav">
+      <!-- Tab Bacheca -->
+      <button type="button" class="bottom-nav-item active" data-tab="info" id="nav-tab-info">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="4" y1="10" x2="20" y2="10"></line>
+        </svg>
+        <span>Bacheca</span>
+      </button>
+
+      <!-- Tab Mensa -->
+      <button type="button" class="bottom-nav-item" data-tab="mensa" id="nav-tab-mensa">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
+          <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
+          <line x1="6" y1="1" x2="6" y2="4"></line>
+          <line x1="10" y1="1" x2="10" y2="4"></line>
+          <line x1="14" y1="1" x2="14" y2="4"></line>
+        </svg>
+        <span>Mensa</span>
+      </button>
+
+      <!-- Tab Spazi -->
+      <button type="button" class="bottom-nav-item" data-tab="spazi" id="nav-tab-spazi">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span>Spazi</span>
+      </button>
+
+      <!-- Tab La Residenza -->
+      <button type="button" class="bottom-nav-item" data-tab="residenza" id="nav-tab-residenza">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
+        </svg>
+        <span>Residenza</span>
+      </button>
+
+      <!-- Tab Manutenzione -->
+      <button type="button" class="bottom-nav-item" data-tab="manutenzione" id="nav-tab-manutenzione">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
+        </svg>
+        <span>Guasti</span>
+      </button>
+
+      <!-- Tab Master (visibile solo se ha permessi) -->
+      <button type="button" class="bottom-nav-item" data-tab="master" id="nav-tab-master" style="display: none;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
+        </svg>
+        <span>Master</span>
+      </button>
+    </nav>
+
+  </div>
+
+  <!-- ======================================================================
+       MODAL DI AUTENTICAZIONE E REGISTRAZIONE
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-auth" style="display: none;">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div class="modal-brand-badge">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+            <path d="M12 2v20M5 8h14M8 4h8M9 20h6"/>
+          </svg>
+        </div>
+        <h3 class="modal-title">Accesso Residente</h3>
+        <p class="modal-subtitle">Inserisci la tua email per accedere ai servizi della Residenza.</p>
+      </div>
+
+      <!-- Step 1: Inserimento Email -->
+      <div id="auth-step-email">
+        <form id="form-auth-email">
+          <div class="form-group">
+            <label for="auth-input-email">Indirizzo Email</label>
+            <input type="email" id="auth-input-email" class="input-text" placeholder="nome@residenza.it" required>
+          </div>
+          <button type="submit" id="btn-check-email" class="btn btn-primary btn-block">Continua</button>
+        </form>
+
+        <!-- Accessi Rapidi per Test Immediato -->
+        <div class="quick-logins-box">
+          <strong>Accessi Rapidi Demo:</strong>
+          <div class="quick-btn-row">
+            <button type="button" class="quick-login-btn" data-email="donandreadotti@gmail.com">Don Andrea (Admin)</button>
+            <button type="button" class="quick-login-btn" data-email="donrocco@newman.it">Don Rocco (Residente)</button>
+            <button type="button" class="quick-login-btn" data-email="donsergio@newman.it">Don Sergio (Mensa)</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Registrazione Nuovo Utente (se non trovato) -->
+      <div id="auth-step-register" class="hidden">
+        <div class="alert-box alert-warning" style="margin-bottom: 12px;">
+          <span>Email non censita. Compila il modulo per inviare la richiesta di approvazione.</span>
+        </div>
+        <form id="form-auth-register">
+          <div class="form-group">
+            <label for="reg-input-email">Email</label>
+            <input type="email" id="reg-input-email" class="input-text" readonly>
+          </div>
+          <div class="form-group">
+            <label for="reg-input-nome">Nome Completo</label>
+            <input type="text" id="reg-input-nome" class="input-text" placeholder="Es. Don Mario Rossi" required>
+          </div>
+          <button type="submit" id="btn-submit-register" class="btn btn-accent btn-block">Invia Richiesta di Registrazione</button>
+          <button type="button" class="btn btn-outline btn-block" style="margin-top: 8px;" onclick="mostraModalAuth(true)">Indietro</button>
+        </form>
+      </div>
+
+      <!-- Step 3: Stato "In Attesa" -->
+      <div id="auth-step-waiting" class="hidden" style="text-align: center;">
+        <div style="font-size: 38px; margin-bottom: 8px;">⏳</div>
+        <h4 style="color: var(--primary);">Registrazione In Attesa</h4>
+        <p class="text-sm text-muted" style="margin: 8px 0 16px 0;">
+          La richiesta per <strong id="waiting-user-email"></strong> è stata registrata con successo.<br>
+          Il Direttore della Residenza deve approvare il tuo profilo prima che tu possa accedere.
+        </p>
+        <button type="button" class="btn btn-primary btn-block" onclick="location.reload()">Verifica Approvazione</button>
+        <button type="button" class="btn btn-outline btn-block" style="margin-top: 8px;" onclick="logout()">Accedi con altra email</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL CONFIGURAZIONE BACKEND (GOOGLE APPS SCRIPT)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-settings" style="display: none;">
+    <div class="modal-card">
+      <div class="flex-between" style="margin-bottom: 16px;">
+        <h3 class="modal-title">Configurazione Sistema</h3>
+        <button type="button" class="btn-icon-head" onclick="document.getElementById('modal-settings').style.display='none'" style="color:#0f172a;">✕</button>
+      </div>
+
+      <div class="form-group">
+        <label for="input-gas-url">URL Web App Google Apps Script</label>
+        <input type="url" id="input-gas-url" class="input-text" placeholder="https://script.google.com/macros/s/.../exec">
+        <p class="text-xs text-muted" style="margin-top: 4px;">
+          Incolla qui l'URL generato da <em>Distribuisci &gt; Nuova distribuzione &gt; Applicazione web</em> in Apps Script.
+          Se lasciato vuoto, l'app usa il simulatore database locale ad alte prestazioni.
+        </p>
+      </div>
+
+      <div class="form-group" style="margin-top: 14px;">
+        <label class="custom-checkbox">
+          <input type="checkbox" id="checkbox-bypass-timelock">
+          <span>Ignora blocchi orari 13:30 / 18:30 (Modalità Valutazione/Test)</span>
+        </label>
+      </div>
+
+      <div class="card-inner" style="margin-top: 14px;">
+        <div class="text-xs text-muted">
+          <strong>File Code.gs:</strong> Il codice backend completo è pronto nel file <code>Code.gs</code> del progetto, con architettura a 5 fogli e salvataggio foto su Drive.
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; margin-top: 16px;">
+        <button type="button" id="btn-save-settings" class="btn btn-primary btn-block">Salva Impostazioni</button>
+        <button type="button" class="btn btn-outline" onclick="logout()" title="Disconnetti utente">Esci</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL VARIAZIONE MENU DELLA CUOCA
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-variazione-cuoca" style="display: none;">
+    <div class="modal-card">
+      <div class="flex-between" style="margin-bottom: 14px;">
+        <div class="flex-align">
+          <span style="font-size: 24px; margin-right: 8px;">👩‍🍳</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0;">Variazione Menù Cuoca</h3>
+            <span class="text-xs text-muted">Comunica una variazione o aggiunta speciale</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalVariazioneCuoca()" style="color:#0f172a;">✕</button>
+      </div>
+
+      <form onsubmit="handleSalvaVariazioneCuocaModal(event)">
+        <div class="form-group">
+          <label for="cuoca-modal-data">Giorno di applicazione</label>
+          <input type="date" id="cuoca-modal-data" class="input-date" required onchange="onCuocaModalDataChange()">
+        </div>
+
+        <div class="form-group">
+          <label for="cuoca-modal-pasto">Pasto di applicazione</label>
+          <select id="cuoca-modal-pasto" class="input-select" onchange="onCuocaModalPastoChange()">
+            <option value="pranzo">☀️ Solo Pranzo (14:30)</option>
+            <option value="cena">🌙 Solo Cena (19:30)</option>
+            <option value="entrambi">🍽️ Entrambi i pasti (Pranzo e Cena)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="cuoca-modal-testo">Testo della Variazione</label>
+          <textarea id="cuoca-modal-testo" class="input-textarea" rows="3" placeholder="Es. Per il pranzo di oggi è disponibile pasta fredda da asporto / focaccia farcita..." required></textarea>
+          <p class="text-xs text-muted" style="margin-top: 4px;">
+            Questa nota apparirà visibile a tutti i residenti nel menù di questo giorno (inclusi martedì e giovedì di busta).
+          </p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 16px;">
+          <button type="submit" class="btn btn-primary btn-block">Salva Variazione Cuoca</button>
+          <button type="button" class="btn btn-secondary btn-block" onclick="handleCancellaVariazioneCuocaModal()" style="color: #991b1b; border-color: #fca5a5; background: #fef2f2;">
+            Rimuovi Variazione
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL AGGIUNGI AVVISO / COMPLEANNO IN BACHECA (PER MASTER/ADMIN)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-bacheca" style="display: none;">
+    <div class="modal-card">
+      <div class="flex-between" style="margin-bottom: 14px;">
+        <div class="flex-align">
+          <span style="font-size: 24px; margin-right: 8px;">📋</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0;">Nuovo Elemento in Bacheca</h3>
+            <span class="text-xs text-muted">Aggiungi compleanno, anniversario, evento o avviso</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalBacheca()" style="color:#0f172a;">✕</button>
+      </div>
+
+      <form onsubmit="handleSalvaAvvisoBacheca(event)">
+        <div class="form-group">
+          <label for="bacheca-modal-tipo">Tipologia</label>
+          <select id="bacheca-modal-tipo" class="input-select" required>
+            <option value="compleanno">🎂 Compleanno</option>
+            <option value="anniversario">🔔 Anniversario</option>
+            <option value="evento">📆 Evento Programmato</option>
+            <option value="avviso" selected>📢 Avviso Comunitario</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="bacheca-modal-data">Data</label>
+          <input type="date" id="bacheca-modal-data" class="input-date" required>
+        </div>
+
+        <div class="form-group">
+          <label for="bacheca-modal-titolo">Titolo / Nome</label>
+          <input type="text" id="bacheca-modal-titolo" class="input-text" placeholder="Es. Compleanno Don Andrea / Proiezione Partita / S. Messa Solenne" required>
+        </div>
+
+        <div class="form-group">
+          <label for="bacheca-modal-desc">Dettagli / Messaggio</label>
+          <textarea id="bacheca-modal-desc" class="input-textarea" rows="3" placeholder="Aggiungi una descrizione, orario o messaggio di auguri per la comunità..."></textarea>
+        </div>
+
+        <div class="form-row" style="display: flex; gap: 8px;">
+          <div class="form-group" style="flex: 1;">
+            <label for="bacheca-modal-autore">Firmato da</label>
+            <input type="text" id="bacheca-modal-autore" class="input-text" value="Direzione">
+          </div>
+          <div class="form-group" style="flex: 1;">
+            <label for="bacheca-modal-priorita">Priorità</label>
+            <select id="bacheca-modal-priorita" class="input-select">
+              <option value="normale">Normale</option>
+              <option value="alta">In Evidenza ⭐</option>
+            </select>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 8px; margin-top: 16px;">
+          <button type="submit" id="btn-submit-bacheca" class="btn btn-primary btn-block">Pubblica in Bacheca</button>
+          <button type="button" class="btn btn-secondary" onclick="chiudiModalBacheca()">Annulla</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- CONTENITORE NOTIFICHE TOAST -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <!-- SCRIPT FRONTEND LOGICA (VANILLA JS) -->
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
