@@ -2084,49 +2084,113 @@ window.handlePrenotazioneMensa = async function(event, tipoPasto) {
 };
 
 // ----------------------------------------------------------------------------
-// LOGICA SEZIONE 3: SPAZI E SERVIZI
+// LOGICA SEZIONE 3: SPAZI (CHIESA E SALA TV - SLOT 30 MINUTI)
 // ----------------------------------------------------------------------------
 
 function renderSpaziView() {
   const container = document.getElementById("spazi-container");
   if (!container) return;
 
-  const oggi = formatYMD(new Date());
+  if (!appState.selectedSpazioRisorsa) {
+    appState.selectedSpazioRisorsa = "Chiesa";
+  }
+  if (!appState.selectedSpazioData) {
+    appState.selectedSpazioData = formatYMD(new Date());
+  }
+  if (!appState.selectedSpazioFascia) {
+    appState.selectedSpazioFascia = "tutti";
+  }
+
+  const risorsaAttiva = appState.selectedSpazioRisorsa;
+  const dataAttiva = appState.selectedSpazioData;
+  const fasciaAttiva = appState.selectedSpazioFascia;
+  const oggiYMD = formatYMD(new Date());
+
+  // Genera ribbon per 14 giorni
+  const giorniSettimanaBrevi = ["DOM", "LUN", "MAR", "MER", "GIO", "VEN", "SAB"];
+  const mesiBrevi = ["GEN", "FEB", "MAR", "APR", "MAG", "GIU", "LUG", "AGO", "SET", "OTT", "NOV", "DIC"];
+
+  let ribbonHtml = "";
+  const baseDate = new Date();
+  for (let i = 0; i < 14; i++) {
+    const d = new Date(baseDate);
+    d.setDate(d.getDate() + i);
+    const dYMD = formatYMD(d);
+    const isSel = (dYMD === dataAttiva);
+    const dayName = i === 0 ? "OGGI" : giorniSettimanaBrevi[d.getDay()];
+    const dayNum = d.getDate();
+    const monthName = mesiBrevi[d.getMonth()];
+
+    ribbonHtml += `
+      <div class="date-chip ${isSel ? 'active' : ''}" onclick="cambiaDataSpazio('${dYMD}')">
+        <span class="date-chip-day">${dayName}</span>
+        <span class="date-chip-num">${dayNum}</span>
+        <span class="date-chip-month">${monthName}</span>
+      </div>
+    `;
+  }
 
   container.innerHTML = `
-    <div class="card">
-      <h2 class="card-title">Prenotazione Spazi & Servizi</h2>
-      <p class="card-desc">Riserva uno spazio per il tuo ministero, studio o lavanderia personale.</p>
+    <!-- HEADER PRESENTAZIONE AMBIENTI -->
+    <div class="card" style="margin-bottom: 12px;">
+      <h2 class="card-title">Prenotazione Ambienti Comuni</h2>
+      <p class="card-desc">Riserva uno slot per la Chiesa / Cappella o per la Sala TV. Slot da 30 minuti con attivazione immediata.</p>
 
-      <div class="form-group">
-        <label for="select-risorsa">Seleziona Risorsa</label>
-        <select id="select-risorsa" class="input-select" onchange="renderSlotSpazi()">
-          <option value="Chiesa">Chiesa / Cappella (Slot da 30 min)</option>
-          <option value="Lavanderia">Lavanderia (Slot da 2 ore)</option>
-          <option value="Sala Lettura">Sala Lettura (Slot da 1 ora)</option>
-        </select>
+      <!-- SELETTORE RISORSE: SOLO CHIESA E SALA TV -->
+      <div class="spazi-resource-selector">
+        <button type="button" class="spazi-resource-btn ${risorsaAttiva === 'Chiesa' ? 'active' : ''}" onclick="cambiaRisorsaSpazio('Chiesa')">
+          <span class="spazi-res-icon">⛪</span>
+          <span class="spazi-res-title">Chiesa / Cappella</span>
+          <span class="spazi-res-sub">Slot 30 min • Preghiera & Liturgia</span>
+        </button>
+
+        <button type="button" class="spazi-resource-btn ${risorsaAttiva === 'Sala TV' ? 'active' : ''}" onclick="cambiaRisorsaSpazio('Sala TV')">
+          <span class="spazi-res-icon">📺</span>
+          <span class="spazi-res-title">Sala TV / Cinema</span>
+          <span class="spazi-res-sub">Slot 30 min • Visione & Comunità</span>
+        </button>
       </div>
 
-      <div class="form-group">
-        <label for="input-date-spazi">Data della Prenotazione</label>
-        <input type="date" id="input-date-spazi" class="input-date" value="${oggi}" min="${oggi}" onchange="renderSlotSpazi()">
-      </div>
-
-      <div class="form-group">
-        <label>Slot Orari Disponibili</label>
-        <div id="slots-grid" class="slots-grid">
-          <!-- Inseriti dinamicamente -->
+      <!-- SELETTORE DATA: RIBBON ORIZZONTALE + PICKER -->
+      <div class="date-ribbon-wrap">
+        <div class="date-ribbon-title">
+          <span>Seleziona Data (${dataAttiva === oggiYMD ? 'Oggi' : dataAttiva})</span>
+          <input type="date" class="input-date-small" value="${dataAttiva}" min="${oggiYMD}" onchange="cambiaDataSpazio(this.value)" title="Scegli qualsiasi data">
+        </div>
+        <div class="date-ribbon">
+          ${ribbonHtml}
         </div>
       </div>
 
-      <div id="spazio-selected-info" class="spazio-selected-banner" style="display: none;">
-        <div>Slot selezionato: <strong id="selected-slot-label"></strong></div>
-        <button type="button" id="btn-conferma-spazio" class="btn btn-primary btn-sm" onclick="confermaPrenotazioneSpazio()">Conferma Prenotazione</button>
+      <!-- FILTRI FASCE ORARIE -->
+      <div class="time-filter-row">
+        <button type="button" class="time-filter-chip ${fasciaAttiva === 'tutti' ? 'active' : ''}" onclick="cambiaFasciaSpazio('tutti')">
+          Tutti gli orari
+        </button>
+        <button type="button" class="time-filter-chip ${fasciaAttiva === 'mattina' ? 'active' : ''}" onclick="cambiaFasciaSpazio('mattina')">
+          🌅 Mattina (06:30 - 12:30)
+        </button>
+        <button type="button" class="time-filter-chip ${fasciaAttiva === 'pomeriggio' ? 'active' : ''}" onclick="cambiaFasciaSpazio('pomeriggio')">
+          ☀️ Pomeriggio (12:30 - 18:30)
+        </button>
+        <button type="button" class="time-filter-chip ${fasciaAttiva === 'sera' ? 'active' : ''}" onclick="cambiaFasciaSpazio('sera')">
+          🌙 Sera (18:30 - 23:30)
+        </button>
+      </div>
+
+      <!-- STATUS BAR & CONTEGGIO DISPONIBILITÀ -->
+      <div id="spazi-availability-summary" class="flex-between text-xs text-muted" style="margin-bottom: 10px; padding: 4px 2px;">
+        <!-- Inserito dinamicamente da renderSlotSpazi -->
+      </div>
+
+      <!-- GRIGLIA SLOT 30 MINUTI V2 -->
+      <div id="slots-grid-container" class="slots-grid-v2">
+        <!-- Inseriti dinamicamente da renderSlotSpazi -->
       </div>
     </div>
 
-    <!-- Elenco prenotazioni già attive per l'utente loggato -->
-    <div class="card" style="margin-top: 16px;">
+    <!-- CARD MIE PRENOTAZIONI ATTIVE -->
+    <div class="card" style="margin-top: 14px;">
       <h3 class="card-title-sm">Le Mie Prenotazioni Attive</h3>
       <div id="mie-prenotazioni-spazi-list" class="mini-list">
         <!-- Renderizzate dinamicamente -->
@@ -2137,130 +2201,202 @@ function renderSpaziView() {
   renderSlotSpazi();
 }
 
+window.cambiaRisorsaSpazio = function(risorsa) {
+  appState.selectedSpazioRisorsa = risorsa;
+  renderSpaziView();
+};
+
+window.cambiaDataSpazio = function(dateStr) {
+  if (!dateStr) return;
+  appState.selectedSpazioData = dateStr;
+  renderSpaziView();
+};
+
+window.cambiaFasciaSpazio = function(fascia) {
+  appState.selectedSpazioFascia = fascia;
+  renderSpaziView();
+};
+
 /**
- * Genera e visualizza gli slot orari con stato disponibile/occupato
+ * Genera l'elenco completo degli slot a 30 minuti dalle 06:30 alle 23:30
+ */
+function getTuttiSlotOrari30Min() {
+  const slots = [];
+  let currentHour = 6;
+  let currentMin = 30;
+
+  while (currentHour < 23 || (currentHour === 23 && currentMin <= 30)) {
+    const startH = String(currentHour).padStart(2, "0");
+    const startM = String(currentMin).padStart(2, "0");
+
+    let endHour = currentHour;
+    let endMin = currentMin + 30;
+    if (endMin >= 60) {
+      endHour++;
+      endMin = 0;
+    }
+
+    const endH = String(endHour).padStart(2, "0");
+    const endM = String(endMin).padStart(2, "0");
+
+    slots.push(`${startH}:${startM} - ${endH}:${endM}`);
+
+    currentHour = endHour;
+    currentMin = endMin;
+  }
+  return slots;
+}
+
+/**
+ * Filtra gli slot per fascia oraria
+ */
+function filtraSlotPerFascia(slot, fascia) {
+  if (fascia === "tutti") return true;
+  const startPart = slot.split(" - ")[0]; // "07:30"
+  const [h, m] = startPart.split(":").map(Number);
+  const timeVal = h * 60 + m;
+
+  if (fascia === "mattina") {
+    // 06:30 (390) fino a 12:30 (750)
+    return timeVal >= 390 && timeVal < 750;
+  }
+  if (fascia === "pomeriggio") {
+    // 12:30 (750) fino a 18:30 (1110)
+    return timeVal >= 750 && timeVal < 1110;
+  }
+  if (fascia === "sera") {
+    // 18:30 (1110) in poi
+    return timeVal >= 1110;
+  }
+  return true;
+}
+
+/**
+ * Genera e visualizza gli slot orari nella griglia V2 con schede dedicate
  */
 function renderSlotSpazi() {
-  const selRisorsa = document.getElementById("select-risorsa")?.value || "Chiesa";
-  const selData = document.getElementById("input-date-spazi")?.value || formatYMD(new Date());
-  const grid = document.getElementById("slots-grid");
-  const selectedBanner = document.getElementById("spazio-selected-info");
-
-  if (selectedBanner) selectedBanner.style.display = "none";
-  window.currentSelectedSlot = null;
-
+  const grid = document.getElementById("slots-grid-container");
+  const summaryEl = document.getElementById("spazi-availability-summary");
   if (!grid) return;
 
-  let slotList = [];
-  if (selRisorsa === "Chiesa") {
-    // 30 min da 06:30 a 21:30
-    slotList = [
-      "06:30 - 07:00", "07:00 - 07:30", "07:30 - 08:00", "08:00 - 08:30",
-      "08:30 - 09:00", "09:00 - 09:30", "09:30 - 10:00", "10:00 - 10:30",
-      "11:00 - 11:30", "12:00 - 12:30", "15:00 - 15:30", "16:00 - 16:30",
-      "17:00 - 17:30", "18:00 - 18:30", "19:00 - 19:30", "20:30 - 21:00", "21:00 - 21:30"
-    ];
-  } else if (selRisorsa === "Lavanderia") {
-    // 2 ore da 07:00 a 23:00
-    slotList = [
-      "07:00 - 09:00", "09:00 - 11:00", "11:00 - 13:00",
-      "13:00 - 15:00", "15:00 - 17:00", "17:00 - 19:00",
-      "19:00 - 21:00", "21:00 - 23:00"
-    ];
-  } else {
-    // Sala Lettura: 1 ora
-    slotList = [
-      "08:00 - 09:00", "09:00 - 10:00", "10:00 - 11:00", "11:00 - 12:00",
-      "14:00 - 15:00", "15:00 - 16:00", "16:00 - 17:00", "17:00 - 18:00",
-      "18:00 - 19:00", "20:30 - 21:30", "21:30 - 22:30"
-    ];
-  }
+  const selRisorsa = appState.selectedSpazioRisorsa || "Chiesa";
+  const selData = appState.selectedSpazioData || formatYMD(new Date());
+  const selFascia = appState.selectedSpazioFascia || "tutti";
 
-  // Estrai gli slot già occupati dal DB/cache
-  const occupati = appState.prenotazioniSpazi.filter(p => {
+  const tuttiSlot = getTuttiSlotOrari30Min();
+  const slotFiltrati = tuttiSlot.filter(s => filtraSlotPerFascia(s, selFascia));
+
+  // Estrai gli slot già occupati per risorsa e data
+  const occupati = (appState.prenotazioniSpazi || []).filter(p => {
     const pData = String(p.data).split("T")[0];
     return p.risorsa === selRisorsa && pData === selData;
   });
 
   const occupatiMap = {};
   occupati.forEach(p => {
-    occupatiMap[p.slot_orario] = p.email;
+    occupatiMap[p.slot_orario] = p;
   });
 
-  let html = "";
-  slotList.forEach(slot => {
-    const isOccupato = Boolean(occupatiMap[slot]);
-    const isMio = isOccupato && appState.user && (occupatiMap[slot].toLowerCase() === appState.user.email.toLowerCase());
+  const isMaster = haPermessiMaster();
+  const currentUserEmail = appState.user ? appState.user.email.toLowerCase() : "";
 
-    if (isOccupato) {
+  let totaliFascia = slotFiltrati.length;
+  let disponibiliFascia = 0;
+
+  let html = "";
+  slotFiltrati.forEach(slot => {
+    const pren = occupatiMap[slot];
+    const isOccupato = Boolean(pren);
+    const prenEmail = pren ? String(pren.email).toLowerCase() : "";
+    const isMio = isOccupato && currentUserEmail && (prenEmail === currentUserEmail);
+
+    if (!isOccupato) {
+      disponibiliFascia++;
       html += `
-        <button type="button" class="slot-btn slot-occupied" disabled title="Già occupato da ${escapeHtml(occupatiMap[slot])}">
-          <span>${slot}</span>
-          <small class="slot-status-label">${isMio ? 'La tua prenotazione' : 'Occupato'}</small>
-        </button>
+        <div class="slot-card-v2 slot-available" onclick="prenotaSlotDiretto('${slot}')" title="Clicca per prenotare questo slot di 30 minuti">
+          <div class="slot-time-text">${slot}</div>
+          <span class="slot-status-pill">🟢 Disponibile</span>
+        </div>
+      `;
+    } else if (isMio) {
+      html += `
+        <div class="slot-card-v2 slot-mine">
+          <div class="slot-time-text">${slot}</div>
+          <span class="slot-status-pill">⭐ La tua prenotazione</span>
+          <button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', false)">
+            Annulla Prenotazione
+          </button>
+        </div>
+      `;
+    } else if (isMaster) {
+      // Per il Master: mostra chi occupa lo slot e pulsante per liberarlo
+      html += `
+        <div class="slot-card-v2 slot-master">
+          <div class="slot-time-text">${slot}</div>
+          <span class="slot-status-pill" title="${escapeHtml(pren.email)}">👑 Occupato: ${escapeHtml(pren.email.split('@')[0])}</span>
+          <button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', true)">
+            Libera Slot (Master)
+          </button>
+        </div>
       `;
     } else {
+      // Per gli altri residenti: slot occupato, preservando la privacy
       html += `
-        <button type="button" class="slot-btn slot-available" onclick="selezionaSlotSpazio('${slot}', this)">
-          <span>${slot}</span>
-          <small class="slot-status-label">Disponibile</small>
-        </button>
+        <div class="slot-card-v2 slot-occupied" title="Questo slot è già stato riservato">
+          <div class="slot-time-text">${slot}</div>
+          <span class="slot-status-pill">🔒 Occupato</span>
+        </div>
       `;
     }
   });
 
-  grid.innerHTML = html;
+  grid.innerHTML = html || `<p class="empty-state-text" style="grid-column: 1 / -1;">Nessuno slot trovato per i filtri selezionati.</p>`;
+
+  if (summaryEl) {
+    summaryEl.innerHTML = `
+      <span>Ambiente: <strong>${selRisorsa === 'Chiesa' ? 'Chiesa / Cappella' : 'Sala TV'}</strong> • ${selData}</span>
+      <span class="badge" style="background:#f1f5f9; font-weight: 700;">${disponibiliFascia} / ${totaliFascia} liberi</span>
+    `;
+  }
+
   renderMiePrenotazioniSpazi();
 }
 
-window.selezionaSlotSpazio = function(slot, btnElement) {
-  document.querySelectorAll(".slot-btn").forEach(b => b.classList.remove("selected"));
-  btnElement.classList.add("selected");
-
-  window.currentSelectedSlot = slot;
-  const banner = document.getElementById("spazio-selected-info");
-  const lbl = document.getElementById("selected-slot-label");
-  if (banner && lbl) {
-    lbl.innerText = slot;
-    banner.style.display = "flex";
-  }
-};
-
-window.confermaPrenotazioneSpazio = async function() {
+/**
+ * Prenotazione diretta immediata a 1 click dello slot
+ */
+window.prenotaSlotDiretto = async function(slot) {
   if (!appState.user) {
     mostraModalAuth(true);
     return;
   }
-  if (!window.currentSelectedSlot) {
-    mostraToast("Seleziona prima uno slot orario", "warning");
-    return;
-  }
 
-  const risorsa = document.getElementById("select-risorsa")?.value || "Chiesa";
-  const data = document.getElementById("input-date-spazi")?.value || formatYMD(new Date());
-  const slotOrario = window.currentSelectedSlot;
+  const risorsa = appState.selectedSpazioRisorsa || "Chiesa";
+  const data = appState.selectedSpazioData || formatYMD(new Date());
+  const nomeRisorsa = risorsa === "Chiesa" ? "Chiesa / Cappella" : "Sala TV";
 
-  const btn = document.getElementById("btn-conferma-spazio");
-  btn.disabled = true;
-  btn.innerText = "Prenotazione in corso...";
+  const ok = confirm(`Confermi la prenotazione per ${nomeRisorsa} il giorno ${data} nello slot ${slot}?`);
+  if (!ok) return;
 
   try {
     const res = await callApi("prenotaSpazio", {
       risorsa,
       data,
-      slot_orario: slotOrario,
+      slot_orario: slot,
       email: appState.user.email
     });
 
     if (res.success) {
       mostraToast("Slot prenotato con successo!", "success");
       // Aggiungi alla cache locale
+      if (!appState.prenotazioniSpazi) appState.prenotazioniSpazi = [];
       appState.prenotazioniSpazi.push({
-        id: res.id,
+        id: res.id || ("S_" + Date.now()),
         risorsa,
         data,
-        slot_orario: slotOrario,
-        email: appState.user.email
+        slot_orario: slot,
+        email: appState.user.email,
+        timestamp: new Date().toISOString()
       });
       renderSlotSpazi();
     } else {
@@ -2268,11 +2404,47 @@ window.confermaPrenotazioneSpazio = async function() {
     }
   } catch (err) {
     mostraToast("Errore di connessione", "error");
-  } finally {
-    if (btn) {
-      btn.disabled = false;
-      btn.innerText = "Conferma Prenotazione";
+  }
+};
+
+/**
+ * Cancellazione slot (per l'utente proprietario o per il Master)
+ */
+window.cancellaSlotSpazio = async function(id, slot, isMasterAction) {
+  if (!appState.user) return;
+  const risorsa = appState.selectedSpazioRisorsa || "Chiesa";
+  const data = appState.selectedSpazioData || formatYMD(new Date());
+
+  const msg = isMasterAction
+    ? `Come Amministratore / Master, confermi di voler liberare lo slot ${slot} per ${risorsa} del ${data}?`
+    : `Vuoi annullare la tua prenotazione per ${risorsa} nello slot ${slot}?`;
+
+  if (!confirm(msg)) return;
+
+  try {
+    const res = await callApi("cancellaPrenotazioneSpazio", {
+      id,
+      risorsa,
+      data,
+      slot_orario: slot,
+      email: isMasterAction ? "" : appState.user.email
+    });
+
+    if (res.success) {
+      mostraToast("Prenotazione annullata", "info");
+      // Aggiorna cache locale
+      appState.prenotazioniSpazi = (appState.prenotazioniSpazi || []).filter(p => {
+        if (id && String(p.id) === String(id)) return false;
+        const pData = String(p.data).split("T")[0];
+        if (p.risorsa === risorsa && pData === data && p.slot_orario === slot) return false;
+        return true;
+      });
+      renderSlotSpazi();
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile annullare"), "error");
     }
+  } catch (err) {
+    mostraToast("Errore di connessione", "error");
   }
 };
 
@@ -2285,19 +2457,28 @@ function renderMiePrenotazioniSpazi() {
     return;
   }
 
-  const mie = appState.prenotazioniSpazi.filter(p => p.email && p.email.toLowerCase() === appState.user.email.toLowerCase());
+  const mie = (appState.prenotazioniSpazi || []).filter(p => p.email && p.email.toLowerCase() === appState.user.email.toLowerCase());
   if (mie.length === 0) {
     container.innerHTML = `<p class="empty-state-text">Nessuna prenotazione attiva registrata.</p>`;
     return;
   }
 
+  // Ordina per data e orario decrescente
+  mie.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
+
   container.innerHTML = mie.map(p => `
-    <div class="mini-item flex-between">
+    <div class="mini-item flex-between" style="padding: 8px 6px;">
       <div>
-        <strong>${escapeHtml(p.risorsa)}</strong> • <span>${p.slot_orario}</span>
-        <div class="text-muted text-xs">${String(p.data).split('T')[0]}</div>
+        <div class="flex-align" style="gap: 6px;">
+          <span style="font-size: 16px;">${p.risorsa === 'Chiesa' ? '⛪' : '📺'}</span>
+          <strong>${escapeHtml(p.risorsa)}</strong>
+          <span class="badge" style="background:#f1f5f9; font-size:11px;">${p.slot_orario}</span>
+        </div>
+        <div class="text-muted text-xs" style="margin-top: 2px;">📅 ${String(p.data).split('T')[0]}</div>
       </div>
-      <span class="badge badge-success">Confermata</span>
+      <button type="button" class="btn btn-secondary btn-sm" onclick="cancellaSlotSpazio('${p.id || ''}', '${p.slot_orario}', false)" style="color: #dc2626; border-color: #fca5a5; background: #fff;">
+        Annulla
+      </button>
     </div>
   `).join("");
 }
