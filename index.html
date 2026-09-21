@@ -2399,7 +2399,86 @@
           <button type="submit" id="btn-submit-bacheca" class="btn btn-primary btn-block">Pubblica in Bacheca</button>
           <button type="button" class="btn btn-secondary" onclick="chiudiModalBacheca()">Annulla</button>
         </div>
+
+        <div style="text-align: center; margin-top: 12px; padding-top: 10px; border-top: 1px dashed #cbd5e1;">
+          <button type="button" onclick="chiudiModalBacheca(); apriModalImportaCalendarioCSV();" style="color: #0284c7; font-size: 12px; font-weight: 600; text-decoration: underline; background: none; border: none; cursor: pointer; display: inline-flex; align-items: center; gap: 4px;">
+            <span>📤</span> Vuoi caricare più date ed eventi insieme? Importa da file CSV
+          </button>
+        </div>
       </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL IMPORTA CALENDARIO DA FILE CSV (PER MASTER/ADMIN)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-importa-calendario-csv" style="display: none;">
+    <div class="modal-card" style="max-width: 580px; max-height: 90vh; display: flex; flex-direction: column;">
+      <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0;">
+        <div class="flex-align" style="gap: 8px;">
+          <span style="font-size: 26px;">📤</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0;">Carica CSV Calendario</h3>
+            <span class="text-xs text-muted">Importa massivamente eventi e date nel foglio Bacheca</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalImportaCalendarioCSV()" style="color:#0f172a;">✕</button>
+      </div>
+
+      <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
+        <!-- ZONA CARICAMENTO FILE DRAG & DROP -->
+        <div id="dropzone-csv" class="card-inner" style="border: 2px dashed #93c5fd; background: #eff6ff; border-radius: 8px; padding: 20px; text-align: center; cursor: pointer; transition: background 0.2s;" onclick="document.getElementById('input-file-csv-calendario').click()">
+          <div style="font-size: 32px; margin-bottom: 6px;">📄</div>
+          <strong style="color: #1e40af; font-size: 14px; display: block;">Trascina qui il tuo file CSV oppure clicca per sfogliare</strong>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">Supporta file <code>.csv</code> e <code>.txt</code> con separatore virgola (,) o punto e virgola (;)</span>
+          <input type="file" id="input-file-csv-calendario" accept=".csv,text/csv,text/plain" style="display:none;" onchange="handleFileCSVSelezionato(event)">
+        </div>
+
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 12px 0 6px 0; flex-wrap: wrap; gap: 6px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="scaricaModelloCalendarioCSV()" style="font-size: 11.5px;">
+            📥 Scarica Modello Esempio CSV
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="toggleTextareaCSV()" style="font-size: 11.5px;" id="btn-toggle-textarea-csv">
+            ✍️ Oppure incolla testo CSV
+          </button>
+        </div>
+
+        <!-- TEXTAREA OPZIONALE PER INCOLLARE CSV -->
+        <div id="container-textarea-csv" style="display: none; margin-bottom: 12px;">
+          <label for="textarea-csv-calendario" style="font-size: 12px; font-weight: 600; color: #475569; display: block; margin-bottom: 4px;">
+            Incolla qui le righe del tuo file CSV:
+          </label>
+          <textarea id="textarea-csv-calendario" class="input-textarea" rows="5" style="font-family: monospace; font-size: 11.5px;" placeholder="ID;Data;Tipo;Titolo;Descrizione;Autore;Priorita&#10;B_1;2026-10-04;speciale;San Francesco;Messa solenne;Direzione;alta&#10;B_2;2026-10-15;compleanno;Compleanno Don Andrea;Auguri comunitari;Comunita;normale" oninput="handleTextareaCSVInput(event)"></textarea>
+        </div>
+
+        <!-- STATO E ANTEPRIMA DEGLI EVENTI ANALIZZATI -->
+        <div id="preview-csv-container" style="display: none; margin-top: 10px;">
+          <div class="flex-between" style="margin-bottom: 8px; background: #f8fafc; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+            <strong id="preview-csv-count" style="font-size: 13px; color: #0f172a;">Trovati 0 eventi</strong>
+            <span class="text-xs text-muted">Anteprima prime righe</span>
+          </div>
+          <div style="max-height: 220px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 6px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 11.5px;">
+              <thead style="background: #f1f5f9; position: sticky; top: 0;">
+                <tr>
+                  <th style="padding: 6px 8px; text-align: left;">Data</th>
+                  <th style="padding: 6px 8px; text-align: left;">Tipo</th>
+                  <th style="padding: 6px 8px; text-align: left;">Titolo</th>
+                  <th style="padding: 6px 8px; text-align: left;">Priorità</th>
+                </tr>
+              </thead>
+              <tbody id="preview-csv-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0; border-top: 1px solid #e2e8f0; padding-top: 12px;">
+        <button type="button" class="btn btn-secondary" onclick="chiudiModalImportaCalendarioCSV()">Annulla</button>
+        <button type="button" id="btn-conferma-import-csv" class="btn btn-primary" onclick="eseguiImportazioneEventiCalendario()" style="font-weight: 700;" disabled>
+          💾 Importa 0 Eventi nel Calendario
+        </button>
+      </div>
     </div>
   </div>
 

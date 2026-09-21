@@ -811,6 +811,31 @@ function mockBackendExecution(action, params) {
       return { success: true, id: item.id, item };
     }
 
+    case "importaEventiCalendario": {
+      if (!db.bacheca) db.bacheca = [];
+      const eventi = params.eventi || [];
+      let count = 0;
+      const nowStr = new Date().toISOString();
+      eventi.forEach(ev => {
+        if (ev && ev.titolo) {
+          const item = {
+            id: ev.id || ("B_" + Date.now() + "_" + Math.floor(Math.random() * 1000)),
+            tipo: ev.tipo || "evento",
+            data: ev.data || formatYMD(new Date()),
+            titolo: String(ev.titolo).trim(),
+            descrizione: ev.descrizione ? String(ev.descrizione).trim() : "",
+            autore: ev.autore ? String(ev.autore).trim() : "Direzione",
+            priorita: ev.priorita || "normale",
+            timestamp: nowStr
+          };
+          db.bacheca.unshift(item);
+          count++;
+        }
+      });
+      localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+      return { success: true, count, message: `${count} eventi importati con successo nel database locale` };
+    }
+
     case "eliminaAvvisoBacheca": {
       if (!db.bacheca) db.bacheca = [];
       const initLen = db.bacheca.length;
@@ -1291,9 +1316,14 @@ function renderBachecaView() {
           </span>
         </div>
         ${isMasterOrAdmin ? `
-          <button type="button" class="btn btn-primary btn-sm" onclick="apriModalBacheca('${dataYMD}')" style="font-weight: 700;">
-            👑 + Aggiungi Evento
-          </button>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="apriModalImportaCalendarioCSV()" style="font-size: 11px; padding: 4px 8px; font-weight: 600;" title="Carica file CSV con eventi">
+              📤 Carica CSV
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="apriModalBacheca('${dataYMD}')" style="font-weight: 700; font-size: 11px;">
+              👑 + Aggiungi Evento
+            </button>
+          </div>
         ` : ''}
       </div>
 
@@ -4012,10 +4042,13 @@ function renderMasterSection() {
             </div>
           </div>
           <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-            <button type="button" class="btn btn-outline btn-sm" onclick="scaricaModelloCalendarioCSV()" style="font-size: 11px; padding: 5px 10px;">
-              📥 Scarica Modello Fogli (CSV)
+            <button type="button" class="btn btn-primary btn-sm" onclick="apriModalImportaCalendarioCSV()" style="font-size: 11px; padding: 5px 10px; font-weight: 700;">
+              📤 Carica CSV Calendario
             </button>
-            <button type="button" class="btn btn-primary btn-sm" onclick="sincronizzaTuttoDaGoogleFogli()" style="font-size: 11px; padding: 5px 10px;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="scaricaModelloCalendarioCSV()" style="font-size: 11px; padding: 5px 10px;">
+              📥 Scarica Modello (CSV)
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="sincronizzaTuttoDaGoogleFogli()" style="font-size: 11px; padding: 5px 10px;">
               🔄 Sincronizza Date da Fogli
             </button>
           </div>
@@ -4024,12 +4057,13 @@ function renderMasterSection() {
         <!-- GUIDA ESPLICATIVA PASSO PASSO -->
         <div class="card-inner" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px; margin: 12px 0;">
           <h4 style="margin: 0 0 8px 0; color: #1e40af; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
-            <span>ℹ️</span> <strong>Come inserire date ed eventi dal Foglio Google e dall'App:</strong>
+            <span>ℹ️</span> <strong>Come gestire le date e gli eventi del Calendario:</strong>
           </h4>
           <ol style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: #1e3a8a;">
-            <li><strong>Dal Foglio Google:</strong> Nel foglio denominato <code>Bacheca</code> puoi compilare direttamente le righe con: <em>ID, Data (formato YYYY-MM-DD, es. 2026-10-04), Tipo (compleanno, anniversario, evento, speciale, avviso), Titolo, Descrizione, Autore, Priorita (normale o alta)</em>.</li>
-            <li><strong>Dall'App:</strong> Usa il modulo sottostante oppure il pulsante rapido <em>"➕ Inserisci Appuntamento Master"</em> per pubblicare subito una data senza aprire il foglio.</li>
-            <li><strong>Sincronizzazione Automatica:</strong> Cliccando su <em>"Sincronizza Date da Fogli"</em> l'app ricarica tutte le ricorrenze e le festività che hai inserito nel foglio!</li>
+            <li><strong>📤 Caricamento rapido da CSV:</strong> Clicca su <em>"Carica CSV Calendario"</em> in alto per importare un intero file con compleanni, ricorrenze ed eventi in un solo clic!</li>
+            <li><strong>Dal Foglio Google:</strong> Nel foglio denominato <code>Bacheca</code> puoi compilare o incollare direttamente le righe con: <em>ID, Data (YYYY-MM-DD, es. 2026-10-04), Tipo (compleanno, anniversario, evento, speciale, avviso), Titolo, Descrizione, Autore, Priorita (normale o alta)</em>.</li>
+            <li><strong>Dall'App:</strong> Usa il modulo sottostante o il pulsante rapido <em>"➕ Inserisci Appuntamento Master"</em> per pubblicare subito un evento senza aprire il foglio.</li>
+            <li><strong>Sincronizzazione Automatica:</strong> Cliccando su <em>"Sincronizza Date da Fogli"</em> l'app ricarica tutte le ricorrenze e le festività presenti nel foglio Google!</li>
           </ol>
         </div>
 
@@ -4724,6 +4758,305 @@ window.scaricaModelloCalendarioCSV = function() {
   link.click();
   document.body.removeChild(link);
   mostraToast("📥 Modello CSV Calendario scaricato con successo!", "success");
+};
+
+// ----------------------------------------------------------------------------
+// IMPORTAZIONE FILE CSV PER CALENDARIO & BACHECA
+// ----------------------------------------------------------------------------
+let eventiCSVAnalizzati = [];
+
+window.apriModalImportaCalendarioCSV = function() {
+  const modal = document.getElementById("modal-importa-calendario-csv");
+  if (!modal) return;
+  eventiCSVAnalizzati = [];
+  aggiornaAnteprimaCSV([]);
+  const textEl = document.getElementById("textarea-csv-calendario");
+  if (textEl) textEl.value = "";
+  const fileEl = document.getElementById("input-file-csv-calendario");
+  if (fileEl) fileEl.value = "";
+  modal.style.display = "flex";
+  setupDropzoneCSV();
+};
+
+window.chiudiModalImportaCalendarioCSV = function() {
+  const modal = document.getElementById("modal-importa-calendario-csv");
+  if (modal) modal.style.display = "none";
+};
+
+window.toggleTextareaCSV = function() {
+  const container = document.getElementById("container-textarea-csv");
+  const btn = document.getElementById("btn-toggle-textarea-csv");
+  if (!container) return;
+  const isHidden = container.style.display === "none";
+  container.style.display = isHidden ? "block" : "none";
+  if (btn) btn.innerText = isHidden ? "📁 Nascondi testo CSV" : "✍️ Oppure incolla testo CSV";
+};
+
+function setupDropzoneCSV() {
+  const dropzone = document.getElementById("dropzone-csv");
+  if (!dropzone || dropzone.dataset.initialized) return;
+  dropzone.dataset.initialized = "true";
+
+  ['dragenter', 'dragover'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.style.background = "#dbeafe";
+      dropzone.style.borderColor = "#2563eb";
+    }, false);
+  });
+
+  ['dragleave', 'drop'].forEach(eventName => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.style.background = "#eff6ff";
+      dropzone.style.borderColor = "#93c5fd";
+    }, false);
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    const files = dt.files;
+    if (files && files.length > 0) {
+      leggiFileCSV(files[0]);
+    }
+  }, false);
+}
+
+window.handleFileCSVSelezionato = function(event) {
+  const files = event.target.files;
+  if (files && files.length > 0) {
+    leggiFileCSV(files[0]);
+  }
+};
+
+function leggiFileCSV(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    const content = e.target.result;
+    const textEl = document.getElementById("textarea-csv-calendario");
+    if (textEl) textEl.value = content;
+    const eventi = parseCalendarCSV(content);
+    eventiCSVAnalizzati = eventi;
+    aggiornaAnteprimaCSV(eventi);
+  };
+  reader.onerror = function() {
+    mostraToast("Errore durante la lettura del file CSV", "error");
+  };
+  reader.readAsText(file);
+}
+
+window.handleTextareaCSVInput = function(event) {
+  const content = event.target.value;
+  const eventi = parseCalendarCSV(content);
+  eventiCSVAnalizzati = eventi;
+  aggiornaAnteprimaCSV(eventi);
+};
+
+function parseCalendarCSV(csvText) {
+  if (!csvText || !csvText.trim()) return [];
+
+  const rawLines = csvText.split(/\r?\n/);
+  const rows = [];
+
+  for (let rawLine of rawLines) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const countSemi = (line.match(/;/g) || []).length;
+    const countComma = (line.match(/,/g) || []).length;
+    const delimiter = countSemi > countComma ? ";" : ",";
+
+    const cells = [];
+    let currentCell = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          currentCell += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (ch === delimiter && !inQuotes) {
+        cells.push(currentCell.trim());
+        currentCell = "";
+      } else {
+        currentCell += ch;
+      }
+    }
+    cells.push(currentCell.trim());
+    rows.push(cells);
+  }
+
+  if (rows.length === 0) return [];
+
+  let startIndex = 0;
+  let colMap = { id: -1, data: -1, tipo: -1, titolo: -1, descrizione: -1, autore: -1, priorita: -1 };
+  const firstRow = rows[0].map(c => c.toLowerCase());
+
+  const hasHeader = firstRow.some(c => 
+    c.includes("titolo") || c.includes("title") || c.includes("data") || c.includes("date") || c.includes("tipo") || c.includes("id")
+  );
+
+  if (hasHeader) {
+    firstRow.forEach((col, idx) => {
+      if (col.includes("titolo") || col.includes("title") || col.includes("nome") || col.includes("evento")) colMap.titolo = idx;
+      else if (col.includes("data") || col.includes("date") || col.includes("giorno")) colMap.data = idx;
+      else if (col.includes("tipo") || col.includes("type") || col.includes("categoria")) colMap.tipo = idx;
+      else if (col.includes("desc") || col.includes("dettagli") || col.includes("note")) colMap.descrizione = idx;
+      else if (col.includes("autor") || col.includes("chi")) colMap.autore = idx;
+      else if (col.includes("prior") || col.includes("urgente")) colMap.priorita = idx;
+      else if (col === "id") colMap.id = idx;
+    });
+    startIndex = 1;
+  }
+
+  if (colMap.titolo === -1) {
+    if (rows[0].length >= 4) {
+      colMap = { id: 0, data: 1, tipo: 2, titolo: 3, descrizione: 4, autore: 5, priorita: 6 };
+    } else {
+      colMap = { id: -1, data: 0, tipo: 1, titolo: 2, descrizione: 3, autore: -1, priorita: -1 };
+    }
+  }
+
+  const results = [];
+  for (let r = startIndex; r < rows.length; r++) {
+    const row = rows[r];
+    if (!row || row.length === 0 || row.every(c => !c)) continue;
+
+    let titolo = colMap.titolo !== -1 && row[colMap.titolo] ? row[colMap.titolo] : "";
+    let dataStr = colMap.data !== -1 && row[colMap.data] ? row[colMap.data] : "";
+    let tipo = colMap.tipo !== -1 && row[colMap.tipo] ? row[colMap.tipo].toLowerCase() : "evento";
+    let desc = colMap.descrizione !== -1 && row[colMap.descrizione] ? row[colMap.descrizione] : "";
+    let autore = colMap.autore !== -1 && row[colMap.autore] ? row[colMap.autore] : "Direzione";
+    let priorita = colMap.priorita !== -1 && row[colMap.priorita] ? row[colMap.priorita].toLowerCase() : "normale";
+    let id = colMap.id !== -1 && row[colMap.id] ? row[colMap.id] : "";
+
+    if (!titolo && row.length === 1) {
+      titolo = row[0];
+    }
+    if (!titolo) continue;
+
+    // Pulizia e normalizzazione data
+    dataStr = dataStr.trim().replace(/\//g, "-").replace(/\./g, "-");
+    const dmyMatch = dataStr.match(/^(\d{1,2})-(\d{1,2})-(\d{4})$/);
+    if (dmyMatch) {
+      const day = dmyMatch[1].padStart(2, "0");
+      const month = dmyMatch[2].padStart(2, "0");
+      const year = dmyMatch[3];
+      dataStr = `${year}-${month}-${day}`;
+    }
+
+    if (tipo.includes("compleann") || tipo.includes("birth")) tipo = "compleanno";
+    else if (tipo.includes("anniversar") || tipo.includes("ordinaz")) tipo = "anniversario";
+    else if (tipo.includes("special") || tipo.includes("festa") || tipo.includes("celebraz")) tipo = "speciale";
+    else if (tipo.includes("avvis") || tipo.includes("comunicaz")) tipo = "avviso";
+    else tipo = "evento";
+
+    if (priorita.includes("alta") || priorita.includes("high") || priorita.includes("urgente") || priorita.includes("evidenza")) {
+      priorita = "alta";
+    } else {
+      priorita = "normale";
+    }
+
+    results.push({
+      id: id || ("B_" + Date.now() + "_" + Math.floor(Math.random() * 10000)),
+      data: dataStr || formatYMD(new Date()),
+      tipo,
+      titolo: titolo.replace(/^"|"$/g, ""),
+      descrizione: desc.replace(/^"|"$/g, ""),
+      autore: autore.replace(/^"|"$/g, ""),
+      priorita
+    });
+  }
+
+  return results;
+}
+
+function aggiornaAnteprimaCSV(eventi) {
+  const container = document.getElementById("preview-csv-container");
+  const countEl = document.getElementById("preview-csv-count");
+  const tbody = document.getElementById("preview-csv-tbody");
+  const btn = document.getElementById("btn-conferma-import-csv");
+
+  if (!container || !tbody || !btn) return;
+
+  if (!eventi || eventi.length === 0) {
+    container.style.display = "none";
+    tbody.innerHTML = "";
+    btn.disabled = true;
+    btn.innerText = "💾 Importa 0 Eventi nel Calendario";
+    return;
+  }
+
+  container.style.display = "block";
+  if (countEl) countEl.innerText = `Trovati ${eventi.length} eventi validi:`;
+  btn.disabled = false;
+  btn.innerText = `💾 Importa ${eventi.length} Eventi nel Calendario`;
+
+  const previewList = eventi.slice(0, 10);
+  tbody.innerHTML = previewList.map(ev => {
+    let tipoBadge = "📅 Evento";
+    if (ev.tipo === "compleanno") tipoBadge = "🎂 Compleanno";
+    else if (ev.tipo === "anniversario") tipoBadge = "🔔 Anniversario";
+    else if (ev.tipo === "speciale") tipoBadge = "⛪ Speciale";
+    else if (ev.tipo === "avviso") tipoBadge = "📢 Avviso";
+
+    return `
+      <tr style="border-bottom: 1px solid #f1f5f9;">
+        <td style="padding: 6px 8px; font-weight: 600; color: #1e293b; white-space: nowrap;">${escapeHtml(ev.data)}</td>
+        <td style="padding: 6px 8px; white-space: nowrap;"><span class="badge" style="font-size: 10px;">${tipoBadge}</span></td>
+        <td style="padding: 6px 8px; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><strong>${escapeHtml(ev.titolo)}</strong></td>
+        <td style="padding: 6px 8px; white-space: nowrap;">${ev.priorita === 'alta' ? '<span style="color:#b91c1c; font-weight:700;">Alta ⭐</span>' : '<span style="color:#64748b;">Normale</span>'}</td>
+      </tr>
+    `;
+  }).join("") + (eventi.length > 10 ? `<tr><td colspan="4" style="text-align: center; padding: 6px; font-style: italic; color: #64748b;">...ed altri ${eventi.length - 10} eventi</td></tr>` : "");
+}
+
+window.eseguiImportazioneEventiCalendario = async function() {
+  if (!eventiCSVAnalizzati || eventiCSVAnalizzati.length === 0) {
+    mostraToast("Nessun evento da importare. Seleziona prima un file CSV valido.", "warning");
+    return;
+  }
+
+  const btn = document.getElementById("btn-conferma-import-csv");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "⏳ Importazione in corso...";
+  }
+
+  try {
+    const res = await callApi("importaEventiCalendario", { eventi: eventiCSVAnalizzati });
+    if (res && res.success) {
+      mostraToast(`✅ ${res.count || eventiCSVAnalizzati.length} eventi importati con successo nel Calendario!`, "success");
+      chiudiModalImportaCalendarioCSV();
+
+      // Sincronizza dati aggiornati
+      if (typeof caricaDatiInfo === "function") await caricaDatiInfo();
+      if (typeof caricaDatiMaster === "function") await caricaDatiMaster();
+      if (appState.currentTab === "info" && typeof renderBachecaView === "function") {
+        renderBachecaView();
+      } else if (appState.currentTab === "residenza" && typeof renderResidenzaSection === "function") {
+        renderResidenzaSection();
+      }
+    } else {
+      mostraToast("Errore durante l'importazione: " + (res?.error || "Errore sconosciuto"), "error");
+      if (btn) {
+        btn.disabled = false;
+        btn.innerText = `💾 Importa ${eventiCSVAnalizzati.length} Eventi nel Calendario`;
+      }
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante l'importazione: " + err.message, "error");
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = `💾 Importa ${eventiCSVAnalizzati.length} Eventi nel Calendario`;
+    }
+  }
 };
 
 window.approvaUtente = async function(email) {
@@ -5492,11 +5825,11 @@ window.salvaUrlGasMaster = function() {
   if (!input) return;
   const url = input.value.trim();
   if (!url) {
-    localStorage.removeItem(STORAGE_KEYS.GAS_URL);
+    localStorage.removeItem(STORAGE_KEYS.BACKEND_URL);
     appState.backendUrl = "";
     mostraToast("Modalità locale stand-alone ripristinata", "info");
   } else {
-    localStorage.setItem(STORAGE_KEYS.GAS_URL, url);
+    localStorage.setItem(STORAGE_KEYS.BACKEND_URL, url);
     appState.backendUrl = url;
     mostraToast("URL Google Apps Script salvato! Esegui il Test Connessione.", "success");
   }

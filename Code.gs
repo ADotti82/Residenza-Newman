@@ -282,6 +282,9 @@ function doPost(e) {
       case "salvaAvvisoBacheca":
         return gestisciSalvaAvvisoBacheca(payload);
 
+      case "importaEventiCalendario":
+        return gestisciImportaEventiCalendario(payload);
+
       case "eliminaAvvisoBacheca":
         return gestisciEliminaAvvisoBacheca(payload);
 
@@ -1137,6 +1140,60 @@ function gestisciEliminaAvvisoBacheca(payload) {
   }
 
   return rispostaJSON({ success: false, error: "Avviso non trovato" });
+}
+
+function gestisciImportaEventiCalendario(payload) {
+  const eventi = payload.eventi;
+  if (!Array.isArray(eventi) || eventi.length === 0) {
+    return rispostaJSON({ success: false, error: "Nessun evento fornito per l'importazione" });
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_BACHECA);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_BACHECA);
+    sheet.appendRow(["ID", "Data", "Tipo", "Titolo", "Descrizione", "Autore", "Priorita", "Timestamp"]);
+  }
+
+  let importati = 0;
+  const nowIso = new Date().toISOString();
+  const rowsToAdd = [];
+
+  for (let i = 0; i < eventi.length; i++) {
+    const ev = eventi[i];
+    if (!ev || !ev.titolo) continue;
+
+    const idVal = ev.id || generaId("BACH");
+    const dataVal = ev.data ? String(ev.data).split("T")[0] : Utilities.formatDate(new Date(), "GMT+1", "yyyy-MM-dd");
+    const tipoVal = ev.tipo || "evento";
+    const titoloVal = String(ev.titolo).trim();
+    const descVal = ev.descrizione ? String(ev.descrizione).trim() : "";
+    const autoreVal = ev.autore ? String(ev.autore).trim() : "Direzione";
+    const prioritaVal = ev.priorita || "normale";
+
+    rowsToAdd.push([
+      idVal,
+      dataVal,
+      tipoVal,
+      titoloVal,
+      descVal,
+      autoreVal,
+      prioritaVal,
+      nowIso
+    ]);
+    importati++;
+  }
+
+  if (rowsToAdd.length > 0) {
+    const startRow = sheet.getLastRow() + 1;
+    sheet.getRange(startRow, 1, rowsToAdd.length, 8).setValues(rowsToAdd);
+  }
+
+  return rispostaJSON({
+    success: true,
+    count: importati,
+    message: importati + " eventi importati con successo nel foglio Bacheca!"
+  });
 }
 
 // ----------------------------------------------------------------------------
