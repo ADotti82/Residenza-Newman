@@ -59,8 +59,9 @@ window.switchTab = function(tabId) {
   }
 };
 
-// Data di ancoraggio per la Settimana 1 del Menu: 20 Luglio 2026
-const MENU_ANCHOR_DATE = new Date("2026-07-20T00:00:00");
+// Data di ancoraggio per la Settimana 1 del Menu: Lunedì 21 Settembre 2026
+// (Settimana 1 inizia con Paella di carne alla Valenciana e Saltimbocca alla Romana)
+const MENU_ANCHOR_DATE = new Date("2026-09-21T00:00:00");
 
 // Componenti standard della Busta (Pranzo al Sacco - Martedì e Giovedì)
 const CLASSICI_BUSTA = [
@@ -1284,14 +1285,16 @@ function renderBachecaView() {
     <div class="card">
       <div class="flex-between" style="margin-bottom: 12px;">
         <div>
-          <h3 class="card-title" style="margin: 0;">Bacheca della Residenza</h3>
+          <h3 class="card-title" style="margin: 0;">Bacheca & Calendario Eventi</h3>
           <span class="text-xs text-muted">
-            Avvisi, compleanni ed eventi per ${isOggi ? 'oggi' : cal.dataItaliana}
+            Avvisi, ricorrenze ed eventi per ${isOggi ? 'oggi' : cal.dataItaliana}
           </span>
         </div>
-        <button type="button" class="btn btn-primary btn-sm" onclick="apriModalBacheca('${dataYMD}')">
-          + Aggiungi
-        </button>
+        ${isMasterOrAdmin ? `
+          <button type="button" class="btn btn-primary btn-sm" onclick="apriModalBacheca('${dataYMD}')" style="font-weight: 700;">
+            👑 + Aggiungi Evento
+          </button>
+        ` : ''}
       </div>
 
       <div class="bacheca-list">
@@ -1338,9 +1341,14 @@ function renderBachecaView() {
               ${isEvidenza ? '<span class="badge badge-accent">⭐ In Evidenza</span>' : ''}
             </div>
             ${isMasterOrAdmin ? `
-              <button type="button" class="btn-delete-bacheca" onclick="eliminaAvvisoBacheca('${item.id}')" title="Elimina dalla bacheca">
-                ✕
-              </button>
+              <div style="display: flex; gap: 4px; align-items: center;">
+                <button type="button" class="btn btn-outline btn-sm" style="padding: 2px 8px; font-size: 11px; font-weight: 600;" onclick="modificaAvvisoBacheca('${item.id}')" title="Modifica evento">
+                  ✏️ Modifica
+                </button>
+                <button type="button" class="btn-delete-bacheca" onclick="eliminaAvvisoBacheca('${item.id}')" title="Elimina dalla bacheca">
+                  ✕
+                </button>
+              </div>
             ` : ''}
           </div>
 
@@ -1387,7 +1395,14 @@ function renderBachecaView() {
               <div class="text-xs text-muted">${item.data} • ${escapeHtml(item.autore || 'Direzione')}</div>
             </div>
           </div>
-          <span class="badge" style="background:#f1f5f9; font-size: 10.5px;">Vedi</span>
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <span class="badge" style="background:#f1f5f9; font-size: 10.5px;">Vedi</span>
+            ${isMasterOrAdmin ? `
+              <button type="button" class="btn btn-outline btn-sm" style="padding: 2px 6px; font-size: 11px;" onclick="event.stopPropagation(); modificaAvvisoBacheca('${item.id}')" title="Modifica evento">
+                ✏️
+              </button>
+            ` : ''}
+          </div>
         </div>
       `;
     });
@@ -1498,6 +1513,71 @@ function renderResidenzaView() {
       </div>
     </div>
 
+    <!-- CARD SPAZIO BACHECA DELLA RESIDENZA (COMUNICAZIONI & RICORRENZE) -->
+    <div class="card" style="border-top: 4px solid #0284c7;">
+      <div class="flex-between" style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+        <div class="flex-align" style="gap: 8px;">
+          <span style="font-size: 24px;">📌</span>
+          <div>
+            <h2 class="card-title" style="margin: 0; font-size: 17px;">Bacheca della Residenza</h2>
+            <span class="text-xs text-muted">Comunicazioni, avvisi comunitari, compleanni ed eventi della struttura</span>
+          </div>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          ${haPermessiMaster() ? `
+            <button type="button" class="btn btn-primary btn-sm" onclick="apriModalBacheca()" style="font-weight: 700;">
+              👑 + Nuovo Avviso
+            </button>
+          ` : ''}
+          <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('info')" style="font-size: 11px;">
+            📅 Calendario Completo
+          </button>
+        </div>
+      </div>
+
+      ${(!appState.bacheca || appState.bacheca.length === 0) ? `
+        <div class="empty-state-card card-inner" style="text-align: center; padding: 20px; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;">
+          <div style="font-size: 28px; margin-bottom: 4px;">🕊️</div>
+          <p style="margin: 0; font-weight: 600;">Nessun avviso presente in bacheca al momento.</p>
+          <span class="text-xs text-muted" style="display: block; margin-top: 2px;">I messaggi e gli annunci ufficiali per la comunità compariranno qui.</span>
+        </div>
+      ` : `
+        <div class="residenza-bacheca-feed" style="display: flex; flex-direction: column; gap: 10px;">
+          ${appState.bacheca.slice(0, 6).map(item => {
+            const isEvidenza = item.priorita === "alta";
+            let icon = "📢";
+            let badgeStyle = "background: #e0f2fe; color: #0369a1;";
+            if (item.tipo === "compleanno") { icon = "🎂"; badgeStyle = "background: #fef3c7; color: #92400e;"; }
+            else if (item.tipo === "anniversario") { icon = "🔔"; badgeStyle = "background: #f3e8ff; color: #6b21a8;"; }
+            else if (item.tipo === "evento") { icon = "📆"; badgeStyle = "background: #dcfce7; color: #166534;"; }
+
+            return `
+              <div class="card-inner" style="background: ${isEvidenza ? '#fffbeb' : '#ffffff'}; border: 1px solid ${isEvidenza ? '#fcd34d' : '#e2e8f0'}; border-radius: 8px; padding: 12px; box-shadow: 0 1px 2px rgba(0,0,0,0.03);">
+                <div class="flex-between" style="margin-bottom: 6px;">
+                  <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                    <span class="badge" style="${badgeStyle} font-weight: 700; font-size: 11px;">${icon} ${item.tipo ? item.tipo.toUpperCase() : 'AVVISO'}</span>
+                    ${isEvidenza ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 10.5px;">⭐ In Evidenza</span>' : ''}
+                    <span class="text-xs text-muted" style="font-weight: 600;">📅 ${item.data ? formattaDataConfronto(item.data) : ''}</span>
+                  </div>
+                  ${haPermessiMaster() ? `
+                    <div style="display: flex; gap: 4px;">
+                      <button type="button" class="btn btn-outline btn-sm" style="padding: 1px 6px; font-size: 10.5px;" onclick="modificaAvvisoBacheca('${item.id}')" title="Modifica">✏️</button>
+                      <button type="button" class="btn btn-outline btn-sm" style="padding: 1px 6px; font-size: 10.5px; color: #dc2626;" onclick="eliminaAvvisoBacheca('${item.id}')" title="Elimina">✕</button>
+                    </div>
+                  ` : ''}
+                </div>
+                <h4 style="margin: 2px 0 4px 0; font-size: 14.5px; color: #0f172a; font-weight: 700;">${escapeHtml(item.titolo)}</h4>
+                ${item.descrizione ? `<p style="margin: 0; font-size: 13px; color: #334155; line-height: 1.45;">${escapeHtml(item.descrizione)}</p>` : ''}
+                <div class="text-xs text-muted" style="margin-top: 6px; font-style: italic;">
+                  Pubblicato da: <strong>${escapeHtml(item.autore || 'Direzione')}</strong>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `}
+    </div>
+
     <!-- CARD ORARI COMUNITARI GIORNALIERI -->
     <div class="card">
       <div class="flex-align" style="margin-bottom: 8px;">
@@ -1560,7 +1640,7 @@ function renderResidenzaView() {
       </div>
     </div>
 
-    <!-- CARD REGOLAMENTO INTERNO -->
+    <!-- CARD REGOLAMENTO INTERNO (SINCRONIZZATO GOOGLE FOGLI) -->
     <div class="card">
       <div class="flex-between" style="margin-bottom: 8px;">
         <div class="flex-align">
@@ -1568,8 +1648,8 @@ function renderResidenzaView() {
           <h2 class="card-title" style="margin: 0;">Regolamento Interno</h2>
         </div>
         ${haPermessiMaster() ? `
-          <button type="button" class="btn btn-secondary btn-sm" onclick="switchTab('master')">
-            Modifica da Master
+          <button type="button" class="btn btn-secondary btn-sm" onclick="apriModalTestiResidenza()">
+            ✏️ Modifica Testi
           </button>
         ` : ''}
       </div>
@@ -1578,11 +1658,18 @@ function renderResidenzaView() {
       </div>
     </div>
 
-    <!-- CARD CONTATTI E RECAPITI -->
+    <!-- CARD CONTATTI E RECAPITI (SINCRONIZZATO GOOGLE FOGLI) -->
     <div class="card">
-      <div class="flex-align" style="margin-bottom: 8px;">
-        <span style="font-size: 22px; margin-right: 8px;">📞</span>
-        <h2 class="card-title" style="margin: 0;">Contatti & Numeri Utili</h2>
+      <div class="flex-between" style="margin-bottom: 8px;">
+        <div class="flex-align">
+          <span style="font-size: 22px; margin-right: 8px;">📞</span>
+          <h2 class="card-title" style="margin: 0;">Contatti & Numeri Utili</h2>
+        </div>
+        ${haPermessiMaster() ? `
+          <button type="button" class="btn btn-secondary btn-sm" onclick="apriModalTestiResidenza()">
+            ✏️ Modifica Testi
+          </button>
+        ` : ''}
       </div>
       <div class="residenza-text-box">
         ${escapeHtml(contText)}
@@ -1670,12 +1757,118 @@ window.salvaMessaggioSupermaster = async function(event) {
 };
 
 // ----------------------------------------------------------------------------
+// MODAL GESTIONE TESTI RESIDENZA (REGOLAMENTO & CONTATTI GOOGLE FOGLI)
+// ----------------------------------------------------------------------------
+window.apriModalTestiResidenza = function() {
+  const regText = appState.cachedConfig.Info_Regolamento || `REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN
+1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità è alla base della convivenza.
+2. ORARI DI SILENZIO: Dalle ore 23:00 alle ore 07:30 del mattino è richiesto il silenzio assoluto nei corridoi e nelle aree comuni.
+3. MENSA COMUNITARIA:
+   • Pranzo alle 14:30 (prenotazioni aperte fino alle 13:30, 1h prima).
+   • Cena alle 19:30 (prenotazioni aperte fino alle 18:30, 1h prima).
+   • Martedì e Giovedì a pranzo: sono previsti i classici di busta (pranzo al sacco da asporto).
+4. PRENOTAZIONE SPAZI:
+   • Gli unici spazi soggetti a prenotazione sono la Chiesa / Cappella e la Sala TV.
+   • Gli slot sono di 30 minuti. Non serve conferma preventiva.
+5. MANUTENZIONE: Segnalare tempestivamente qualsiasi anomalia nell'apposita sezione Guasti.`;
+
+  const contText = appState.cachedConfig.Info_Contatti || `CONTATTI E RECAPITI DELLA RESIDENZA:
+• Portineria / Accoglienza: Tel. +39 06 87654321 (Int. 101) - Attiva 07:00 - 22:30
+• Direzione Generale: direzione@residenzanewman.org (Int. 102)
+• Emergenze Notturne Custode: +39 333 1122334
+• Economato & Servizio Mensa: mensa@residenzanewman.org
+• Assistenza Tecnica Manutenzione: manutenzione@residenzanewman.org`;
+
+  let modal = document.getElementById("modal-testi-residenza");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "modal-testi-residenza";
+    modal.className = "modal-overlay";
+    modal.innerHTML = `
+      <div class="modal-card" style="max-width: 600px;">
+        <div class="modal-header" style="margin-bottom: 14px;">
+          <div style="font-size: 28px; margin-bottom: 4px;">📜</div>
+          <h3 class="modal-title" style="margin: 0;">Spazio Testi della Residenza (Google Fogli)</h3>
+          <p class="modal-subtitle" style="font-size: 12.5px; color: #64748b; margin-top: 4px;">
+            I testi inseriti qui vengono memorizzati nel foglio <strong>Configurazione</strong> di Google Fogli e visualizzati da tutti i residenti.
+          </p>
+        </div>
+        <form onsubmit="salvaTestiResidenza(event)">
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="textarea-regolamento-edit" style="font-weight: 700; font-size: 13px;">📜 Testo Regolamento Interno:</label>
+            <textarea id="textarea-regolamento-edit" class="input-textarea" rows="7" style="font-size: 12.5px; line-height: 1.45;" required></textarea>
+          </div>
+          <div class="form-group" style="margin-bottom: 14px;">
+            <label for="textarea-contatti-edit" style="font-weight: 700; font-size: 13px;">📞 Testo Contatti & Recapiti Utili:</label>
+            <textarea id="textarea-contatti-edit" class="input-textarea" rows="5" style="font-size: 12.5px; line-height: 1.45;" required></textarea>
+          </div>
+          <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+            <button type="button" class="btn btn-secondary" onclick="chiudiModalTestiResidenza()">Annulla</button>
+            <button type="submit" class="btn btn-primary" style="font-weight: 700;">💾 Salva nel Foglio Google</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  const tReg = document.getElementById("textarea-regolamento-edit");
+  const tCont = document.getElementById("textarea-contatti-edit");
+  if (tReg) tReg.value = regText;
+  if (tCont) tCont.value = contText;
+
+  modal.style.display = "flex";
+};
+
+window.chiudiModalTestiResidenza = function() {
+  const modal = document.getElementById("modal-testi-residenza");
+  if (modal) modal.style.display = "none";
+};
+
+window.salvaTestiResidenza = async function(event) {
+  if (event) event.preventDefault();
+  const reg = document.getElementById("textarea-regolamento-edit")?.value || "";
+  const cont = document.getElementById("textarea-contatti-edit")?.value || "";
+
+  try {
+    const res = await callApi("aggiornaConfig", {
+      Info_Regolamento: reg,
+      Info_Contatti: cont
+    });
+    if (res.success) {
+      if (!appState.cachedConfig) appState.cachedConfig = {};
+      appState.cachedConfig.Info_Regolamento = reg;
+      appState.cachedConfig.Info_Contatti = cont;
+      mostraToast("✅ Testi salvati nel foglio Google e aggiornati!", "success");
+      chiudiModalTestiResidenza();
+      renderResidenzaView();
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete nel salvataggio", "error");
+  }
+};
+
+// ----------------------------------------------------------------------------
 // MODAL GESTIONE BACHECA (NUOVO AVVISO / COMPLEANNO)
 // ----------------------------------------------------------------------------
 
 window.apriModalBacheca = function(prefillData) {
   const modal = document.getElementById("modal-bacheca");
   if (!modal) return;
+
+  const form = document.getElementById("form-nuovo-avviso-bacheca");
+  if (form) form.reset();
+
+  const idInput = document.getElementById("bacheca-modal-id");
+  if (idInput) idInput.value = "";
+
+  const titleEl = document.getElementById("bacheca-modal-title-text");
+  if (titleEl) titleEl.innerText = "Nuovo Elemento in Bacheca";
+
+  const btn = document.getElementById("btn-submit-bacheca");
+  if (btn) btn.innerText = "Pubblica in Bacheca";
 
   const dataInput = document.getElementById("bacheca-modal-data");
   if (dataInput) {
@@ -1690,6 +1883,45 @@ window.apriModalBacheca = function(prefillData) {
   modal.style.display = "flex";
 };
 
+window.modificaAvvisoBacheca = function(id) {
+  const item = (appState.bacheca || []).find(b => String(b.id) === String(id));
+  if (!item) {
+    mostraToast("Elemento non trovato", "warning");
+    return;
+  }
+  const modal = document.getElementById("modal-bacheca");
+  if (!modal) return;
+
+  const idInput = document.getElementById("bacheca-modal-id");
+  if (idInput) idInput.value = item.id;
+
+  const tipoSelect = document.getElementById("bacheca-modal-tipo");
+  if (tipoSelect) tipoSelect.value = item.tipo || "avviso";
+
+  const dataInput = document.getElementById("bacheca-modal-data");
+  if (dataInput) dataInput.value = formattaDataConfronto(item.data) || formatYMD(new Date());
+
+  const titoloInput = document.getElementById("bacheca-modal-titolo");
+  if (titoloInput) titoloInput.value = item.titolo || "";
+
+  const descInput = document.getElementById("bacheca-modal-desc");
+  if (descInput) descInput.value = item.descrizione || "";
+
+  const autoreInput = document.getElementById("bacheca-modal-autore");
+  if (autoreInput) autoreInput.value = item.autore || (appState.user ? appState.user.nome : "Direzione");
+
+  const prioritaSelect = document.getElementById("bacheca-modal-priorita");
+  if (prioritaSelect) prioritaSelect.value = item.priorita || "normale";
+
+  const titleEl = document.getElementById("bacheca-modal-title-text");
+  if (titleEl) titleEl.innerText = "✏️ Modifica Evento / Bacheca";
+
+  const btn = document.getElementById("btn-submit-bacheca");
+  if (btn) btn.innerText = "💾 Salva Modifiche Evento";
+
+  modal.style.display = "flex";
+};
+
 window.chiudiModalBacheca = function() {
   const modal = document.getElementById("modal-bacheca");
   if (modal) modal.style.display = "none";
@@ -1698,6 +1930,7 @@ window.chiudiModalBacheca = function() {
 window.handleSalvaAvvisoBacheca = async function(e) {
   e.preventDefault();
 
+  const id = document.getElementById("bacheca-modal-id")?.value?.trim() || "";
   const tipo = document.getElementById("bacheca-modal-tipo")?.value || "avviso";
   const data = document.getElementById("bacheca-modal-data")?.value || formatYMD(new Date());
   const titolo = document.getElementById("bacheca-modal-titolo")?.value.trim();
@@ -1713,11 +1946,12 @@ window.handleSalvaAvvisoBacheca = async function(e) {
   const btn = document.getElementById("btn-submit-bacheca");
   if (btn) {
     btn.disabled = true;
-    btn.innerText = "Pubblicazione in corso...";
+    btn.innerText = id ? "Salvataggio modifiche..." : "Pubblicazione in corso...";
   }
 
   try {
     const payload = {
+      id: id || undefined,
       tipo,
       data,
       titolo,
@@ -1728,18 +1962,31 @@ window.handleSalvaAvvisoBacheca = async function(e) {
 
     const res = await callApi("salvaAvvisoBacheca", payload);
     if (res.success) {
-      mostraToast("Pubblicato in bacheca con successo!", "success");
+      mostraToast(id ? "✅ Evento aggiornato con successo!" : "✅ Pubblicato in bacheca con successo!", "success");
       // Aggiorna cache locale
       if (!appState.bacheca) appState.bacheca = [];
+      const updatedId = res.id || id || ("B_" + Date.now());
       const item = {
-        id: res.id || ("B_" + Date.now()),
-        ...payload,
+        id: updatedId,
+        tipo,
+        data,
+        titolo,
+        descrizione,
+        autore,
+        priorita,
         timestamp: new Date().toISOString()
       };
-      appState.bacheca.unshift(item);
+
+      const existingIdx = appState.bacheca.findIndex(b => String(b.id) === String(updatedId));
+      if (existingIdx !== -1) {
+        appState.bacheca[existingIdx] = item;
+      } else {
+        appState.bacheca.unshift(item);
+      }
 
       chiudiModalBacheca();
       renderBachecaView();
+      renderResidenzaView();
       if (document.getElementById("master-dynamic-content")) {
         renderMasterSection();
       }
@@ -1751,7 +1998,7 @@ window.handleSalvaAvvisoBacheca = async function(e) {
   } finally {
     if (btn) {
       btn.disabled = false;
-      btn.innerText = "Pubblica in Bacheca";
+      btn.innerText = id ? "💾 Salva Modifiche Evento" : "Pubblica in Bacheca";
     }
   }
 };
@@ -1851,7 +2098,8 @@ function verificaAlertVariazione() {
 
 /**
  * Calcola se una certa data cade nella Settimana 1 o Settimana 2
- * basandosi sull'ancoraggio del 20 Luglio 2026 (Lunedì Settimana 1)
+ * Ancoraggio impostato a Lunedì 21 Settembre 2026 (Settimana 1: Paella e Saltimbocca alla Romana)
+ * Supporta anche lo scambio dinamico delle settimane impostato dal Master
  */
 function getSettimanaMenu(dataTarget) {
   const dTarget = new Date(dataTarget.getFullYear(), dataTarget.getMonth(), dataTarget.getDate());
@@ -1861,7 +2109,14 @@ function getSettimanaMenu(dataTarget) {
   const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
 
   // modulo ciclico a 2 settimane (gestendo anche date antecedenti l'ancora)
-  const isSettimana1 = Math.abs(diffWeeks) % 2 === 0;
+  let isSettimana1 = Math.abs(diffWeeks) % 2 === 0;
+
+  // Inversione configurata dal Master (salvata in Google Sheets o in locale)
+  const isInvertito = appState.cachedConfig?.Inverti_Ciclo_Menu === "true" || localStorage.getItem("newman_inverti_menu") === "true";
+  if (isInvertito) {
+    isSettimana1 = !isSettimana1;
+  }
+
   return isSettimana1 ? "settimana1" : "settimana2";
 }
 
@@ -4065,6 +4320,24 @@ function renderMasterSection() {
           </div>
         </div>
 
+        <!-- Controllo Ciclo Settimane Menu -->
+        <div class="sub-section" style="margin-top: 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+          <div class="flex-between" style="flex-wrap: wrap; gap: 8px;">
+            <div>
+              <div style="font-weight: 700; font-size: 13.5px; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+                <span>📅</span>
+                <span>Ciclo Menu Attivo: <strong>${getSettimanaMenu(new Date()) === 'settimana1' ? 'Settimana 1 (Paella & Saltimbocca)' : 'Settimana 2 (Gnocchi & Arrosto)'}</strong></span>
+              </div>
+              <span class="text-xs text-muted" style="display: block; margin-top: 2px;">
+                Permette di invertire istantaneamente l'ordine delle due settimane del menu in rotazione.
+              </span>
+            </div>
+            <button type="button" class="btn btn-outline btn-sm" onclick="toggleScambiaSettimaneMenu()" style="font-weight: 700; border-color: #cbd5e1;">
+              🔄 Scambia Settimana 1 ↔ 2
+            </button>
+          </div>
+        </div>
+
         <!-- Form Variazione Straordinaria Menu -->
         <div class="sub-section" style="margin-top: 24px; border-top: 1px dashed #e2e8f0; padding-top: 16px;">
           <h4>📢 Variazione Straordinaria Menu (Alert Banner)</h4>
@@ -4562,6 +4835,27 @@ window.handleMasterAggiungiAppuntamento = async function(e) {
       btn.disabled = false;
       btn.innerText = "➕ Inserisci in Bacheca da Master";
     }
+  }
+};
+
+window.toggleScambiaSettimaneMenu = async function() {
+  const current = appState.cachedConfig?.Inverti_Ciclo_Menu === "true" || localStorage.getItem("newman_inverti_menu") === "true";
+  const nuovoVal = (!current).toString();
+  localStorage.setItem("newman_inverti_menu", nuovoVal);
+  if (!appState.cachedConfig) appState.cachedConfig = {};
+  appState.cachedConfig.Inverti_Ciclo_Menu = nuovoVal;
+
+  try {
+    await callApi("aggiornaConfig", { Inverti_Ciclo_Menu: nuovoVal });
+    mostraToast("✅ Ordine delle settimane scambiato con successo!", "success");
+  } catch (e) {
+    mostraToast("Ordine settimane aggiornato in locale", "info");
+  }
+
+  // Ricarica le viste
+  renderMensaView();
+  if (typeof renderMasterSection === "function") {
+    renderMasterSection();
   }
 };
 

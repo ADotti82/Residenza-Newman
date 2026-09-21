@@ -82,7 +82,7 @@ function setupDatabase() {
     ]);
   }
 
-  // 4. Foglio Manutenzione
+  // 4. Foglio Manutenzione & Servizi Residenza
   let sManutenzione = ss.getSheetByName(SHEET_MANUTENZIONE);
   if (!sManutenzione) {
     sManutenzione = ss.insertSheet(SHEET_MANUTENZIONE);
@@ -92,7 +92,13 @@ function setupDatabase() {
       "Email",
       "Descrizione",
       "Link_Foto",
-      "Stato"
+      "Stato",
+      "Categoria",
+      "Luogo",
+      "Priorita",
+      "Note_Intervento",
+      "Tecnico",
+      "Data_Chiusura"
     ]);
   }
 
@@ -249,6 +255,15 @@ function doPost(e) {
       case "approvaUtente":
         return gestisciApprovazione(payload);
 
+      case "aggiornaRuoliUtente":
+        return gestisciAggiornaRuoliUtente(payload);
+
+      case "importaElencoUtenti":
+        return gestisciImportaElencoUtenti(payload);
+
+      case "eliminaUtente":
+        return gestisciEliminaUtente(payload);
+
       case "prenotaMensa":
         return gestisciPrenotazioneMensa(payload);
 
@@ -275,6 +290,9 @@ function doPost(e) {
 
       case "risolviGuasto":
         return gestisciRisolviGuasto(payload.id);
+
+      case "aggiornaSegnalazione":
+        return gestisciAggiornaSegnalazione(payload);
 
       case "getMasterData":
         return getMasterData(payload.email);
@@ -351,21 +369,30 @@ function gestisciRegistrazione(email, nome) {
     }
   }
 
-  // Inserimento nuovo utente con stato "In Attesa"
+  // Inserimento nuovo utente: all'iscrizione di base è Utente Base abilitato
   sheet.appendRow([
     email,
-    nome,
-    "In Attesa",
-    false, // Perm_Mensa
-    false, // Perm_Manutenzione
-    false, // Perm_Spazi
-    false  // Perm_Admin
+    nome || email.split("@")[0],
+    "Approvato", // Stato Approvato come Utente Base
+    false, // Perm_Mensa (non master mensa)
+    false, // Perm_Manutenzione (non master manutenzione)
+    true,  // Perm_Spazi (abilitato a prenotare Chiesa e Sala TV)
+    false  // Perm_Admin (non supermaster)
   ]);
 
   return rispostaJSON({
     success: true,
-    status: "In Attesa",
-    message: "Registrazione inviata con successo. Attendi l'approvazione del Direttore."
+    status: "Approvato",
+    utente: {
+      email: email,
+      nome: nome || email.split("@")[0],
+      stato: "Approvato",
+      perm_mensa: false,
+      perm_manutenzione: false,
+      perm_spazi: true,
+      perm_admin: false
+    },
+    message: "Registrazione completata con successo come Utente Base!"
   });
 }
 
@@ -374,6 +401,7 @@ function gestisciApprovazione(payload) {
   if (!emailTarget) return rispostaJSON({ success: false, error: "Email target mancante" });
 
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Utenti non trovato" });
   const data = sheet.getDataRange().getValues();
 
   for (let i = 1; i < data.length; i++) {
@@ -388,6 +416,80 @@ function gestisciApprovazione(payload) {
       if (payload.perm_admin !== undefined) sheet.getRange(i + 1, 7).setValue(Boolean(payload.perm_admin));
 
       return rispostaJSON({ success: true, message: "Utente approvato con successo" });
+    }
+  }
+
+  return rispostaJSON({ success: false, error: "Utente non trovato" });
+}
+
+function gestisciAggiornaRuoliUtente(payload) {
+  const emailTarget = String(payload.emailTarget || "").trim().toLowerCase();
+  if (!emailTarget) return rispostaJSON({ success: false, error: "Email target mancante" });
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Utenti non trovato" });
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === emailTarget) {
+      if (payload.stato !== undefined) sheet.getRange(i + 1, 3).setValue(payload.stato);
+      if (payload.perm_mensa !== undefined) sheet.getRange(i + 1, 4).setValue(Boolean(payload.perm_mensa));
+      if (payload.perm_manutenzione !== undefined) sheet.getRange(i + 1, 5).setValue(Boolean(payload.perm_manutenzione));
+      if (payload.perm_spazi !== undefined) sheet.getRange(i + 1, 6).setValue(Boolean(payload.perm_spazi));
+      if (payload.perm_admin !== undefined) sheet.getRange(i + 1, 7).setValue(Boolean(payload.perm_admin));
+
+      return rispostaJSON({ success: true, message: "Ruoli e autorizzazioni aggiornati per " + emailTarget });
+    }
+  }
+
+  return rispostaJSON({ success: false, error: "Utente non trovato" });
+}
+
+function gestisciImportaElencoUtenti(payload) {
+  const lista = payload.utenti || [];
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Utenti non trovato" });
+
+  const data = sheet.getDataRange().getValues();
+  const existingEmails = new Set();
+  for (let i = 1; i < data.length; i++) {
+    existingEmails.add(String(data[i][0]).trim().toLowerCase());
+  }
+
+  let aggiunti = 0;
+  lista.forEach(item => {
+    const email = String(item.email || "").trim().toLowerCase();
+    const nome = String(item.nome || "").trim();
+    if (email && !existingEmails.has(email)) {
+      sheet.appendRow([
+        email,
+        nome || email.split("@")[0],
+        "Approvato",
+        item.perm_mensa !== undefined ? Boolean(item.perm_mensa) : false,
+        item.perm_manutenzione !== undefined ? Boolean(item.perm_manutenzione) : false,
+        item.perm_spazi !== undefined ? Boolean(item.perm_spazi) : true,
+        item.perm_admin !== undefined ? Boolean(item.perm_admin) : false
+      ]);
+      existingEmails.add(email);
+      aggiunti++;
+    }
+  });
+
+  return rispostaJSON({ success: true, aggiunti: aggiunti, message: aggiunti + " residenti importati con successo" });
+}
+
+function gestisciEliminaUtente(payload) {
+  const emailTarget = String(payload.emailTarget || "").trim().toLowerCase();
+  if (!emailTarget) return rispostaJSON({ success: false, error: "Email target mancante" });
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Utenti non trovato" });
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = data.length - 1; i >= 1; i--) {
+    if (String(data[i][0]).trim().toLowerCase() === emailTarget) {
+      sheet.deleteRow(i + 1);
+      return rispostaJSON({ success: true, message: "Residente rimosso con successo" });
     }
   }
 
@@ -643,7 +745,10 @@ function gestisciCaricaGuasto(payload) {
     }
   }
 
-  const id = generaId("GUASTO");
+  const id = payload.id || generaId("GUASTO");
+  const categoria = payload.categoria || "manutenzione";
+  const luogo = payload.luogo || "";
+  const priorita = payload.priorita || "Media";
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_MANUTENZIONE);
   sheet.appendRow([
     id,
@@ -651,7 +756,13 @@ function gestisciCaricaGuasto(payload) {
     email.trim().toLowerCase(),
     descrizione,
     linkFoto,
-    "Da fare"
+    "Da fare",
+    categoria,
+    luogo,
+    priorita,
+    "", // note_intervento
+    "", // tecnico
+    ""  // data_chiusura
   ]);
 
   return rispostaJSON({
@@ -670,11 +781,39 @@ function gestisciRisolviGuasto(id) {
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]) === String(id)) {
       sheet.getRange(i + 1, 6).setValue("Risolto");
+      sheet.getRange(i + 1, 12).setValue(new Date().toISOString());
       return rispostaJSON({ success: true, message: "Guasto contrassegnato come risolto" });
     }
   }
 
   return rispostaJSON({ success: false, error: "Guasto non trovato" });
+}
+
+function gestisciAggiornaSegnalazione(payload) {
+  const { id, stato, priorita, note_intervento, tecnico, categoria, luogo } = payload;
+  if (!id) return rispostaJSON({ success: false, error: "ID segnalazione mancante" });
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_MANUTENZIONE);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Manutenzione non trovato" });
+  const rows = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      if (stato !== undefined) sheet.getRange(i + 1, 6).setValue(stato);
+      if (categoria !== undefined) sheet.getRange(i + 1, 7).setValue(categoria);
+      if (luogo !== undefined) sheet.getRange(i + 1, 8).setValue(luogo);
+      if (priorita !== undefined) sheet.getRange(i + 1, 9).setValue(priorita);
+      if (note_intervento !== undefined) sheet.getRange(i + 1, 10).setValue(note_intervento);
+      if (tecnico !== undefined) sheet.getRange(i + 1, 11).setValue(tecnico);
+      if (stato === "Risolto") {
+        sheet.getRange(i + 1, 12).setValue(new Date().toISOString());
+      } else if (stato !== undefined && stato !== "Risolto") {
+        sheet.getRange(i + 1, 12).setValue("");
+      }
+      return rispostaJSON({ success: true, message: "Segnalazione aggiornata con successo" });
+    }
+  }
+
+  return rispostaJSON({ success: false, error: "Segnalazione non trovata" });
 }
 
 // ----------------------------------------------------------------------------
@@ -815,20 +954,36 @@ function getMasterData(emailRichiedente) {
     }
   }
 
-  // 3. Guasti Manutenzione
+  // 3. Guasti Manutenzione & Servizi Residenza
   const sManutenzione = ss.getSheetByName(SHEET_MANUTENZIONE);
   const guasti = [];
+  const emailNorm = String(emailRichiedente || "").trim().toLowerCase();
+  
+  // Determina se il richiedente è Master o Supermaster
+  const utenteRichiedente = utenti.find(u => String(u.email || "").trim().toLowerCase() === emailNorm);
+  const isMaster = utenteRichiedente ? (utenteRichiedente.perm_admin || utenteRichiedente.perm_manutenzione || utenteRichiedente.perm_mensa) : false;
+
   if (sManutenzione) {
     const rows = sManutenzione.getDataRange().getValues();
     for (let i = 1; i < rows.length; i++) {
-      guasti.push({
-        id: rows[i][0],
-        timestamp: rows[i][1],
-        email: rows[i][2],
-        descrizione: rows[i][3],
-        link_foto: rows[i][4],
-        stato: rows[i][5]
-      });
+      const gEmail = String(rows[i][2] || "").trim().toLowerCase();
+      // Regola di riservatezza: solo i master vedono tutte le segnalazioni, l'utente base vede solo le sue
+      if (isMaster || (emailNorm && gEmail === emailNorm)) {
+        guasti.push({
+          id: String(rows[i][0] || ""),
+          timestamp: rows[i][1] ? String(rows[i][1]) : "",
+          email: rows[i][2] ? String(rows[i][2]) : "",
+          descrizione: rows[i][3] ? String(rows[i][3]) : "",
+          link_foto: rows[i][4] ? String(rows[i][4]) : "",
+          stato: rows[i][5] || "Da fare",
+          categoria: rows[i][6] || "manutenzione",
+          luogo: rows[i][7] || "",
+          priorita: rows[i][8] || "Media",
+          note_intervento: rows[i][9] || "",
+          tecnico: rows[i][10] || "",
+          data_chiusura: rows[i][11] ? String(rows[i][11]) : ""
+        });
+      }
     }
   }
 
@@ -844,6 +999,7 @@ function getMasterData(emailRichiedente) {
 
   return rispostaJSON({
     success: true,
+    isMaster: isMaster,
     utentiInAttesa: utentiInAttesa,
     tuttiUtenti: utenti,
     mensa: mensa,
@@ -854,28 +1010,31 @@ function getMasterData(emailRichiedente) {
 
 function gestisciAggiornaConfig(payload) {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sheet = ss.getSheetByName(SHEET_CONFIG);
-  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Configurazione non trovato" });
+  let sheet = ss.getSheetByName(SHEET_CONFIG);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_CONFIG);
+    sheet.appendRow(["Chiave", "Valore"]);
+  }
 
   const rows = sheet.getDataRange().getValues();
 
   function aggiornaOInserisci(chiave, valore) {
-    if (valore === undefined) return;
+    if (valore === undefined || valore === null) return;
     for (let i = 1; i < rows.length; i++) {
       if (String(rows[i][0]) === chiave) {
-        sheet.getRange(i + 1, 2).setValue(valore);
+        sheet.getRange(i + 1, 2).setValue(String(valore));
         return;
       }
     }
-    sheet.appendRow([chiave, valore]);
+    sheet.appendRow([chiave, String(valore)]);
   }
 
-  if (payload.Info_Regolamento !== undefined) aggiornaOInserisci("Info_Regolamento", payload.Info_Regolamento);
-  if (payload.Info_Contatti !== undefined) aggiornaOInserisci("Info_Contatti", payload.Info_Contatti);
-  if (payload.Data_Variazione_Menu !== undefined) aggiornaOInserisci("Data_Variazione_Menu", payload.Data_Variazione_Menu);
-  if (payload.Testo_Variazione !== undefined) aggiornaOInserisci("Testo_Variazione", payload.Testo_Variazione);
-  if (payload.Pasto_Variazione !== undefined) aggiornaOInserisci("Pasto_Variazione", payload.Pasto_Variazione);
-  if (payload.Variazioni_Per_Data !== undefined) aggiornaOInserisci("Variazioni_Per_Data", payload.Variazioni_Per_Data);
+  // Aggiorna tutti i campi forniti nel payload
+  for (const k in payload) {
+    if (k !== "action" && payload[k] !== undefined) {
+      aggiornaOInserisci(k, payload[k]);
+    }
+  }
 
   return rispostaJSON({ success: true, message: "Configurazione aggiornata con successo" });
 }

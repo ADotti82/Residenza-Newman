@@ -2347,14 +2347,15 @@
         <div class="flex-align">
           <span style="font-size: 24px; margin-right: 8px;">📋</span>
           <div>
-            <h3 class="modal-title" style="margin: 0;">Nuovo Elemento in Bacheca</h3>
-            <span class="text-xs text-muted">Aggiungi compleanno, anniversario, evento o avviso</span>
+            <h3 class="modal-title" id="bacheca-modal-title-text" style="margin: 0;">Nuovo Elemento in Bacheca</h3>
+            <span class="text-xs text-muted">Aggiungi o modifica compleanno, anniversario, evento o avviso</span>
           </div>
         </div>
         <button type="button" class="btn-icon-head" onclick="chiudiModalBacheca()" style="color:#0f172a;">✕</button>
       </div>
 
-      <form onsubmit="handleSalvaAvvisoBacheca(event)">
+      <form id="form-nuovo-avviso-bacheca" onsubmit="handleSalvaAvvisoBacheca(event)">
+        <input type="hidden" id="bacheca-modal-id" value="">
         <div class="form-group">
           <label for="bacheca-modal-tipo">Tipologia</label>
           <select id="bacheca-modal-tipo" class="input-select" required>
