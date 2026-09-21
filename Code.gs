@@ -18,6 +18,7 @@ const SHEET_SPAZI = "Prenotazioni_Spazi";
 const SHEET_MANUTENZIONE = "Manutenzione";
 const SHEET_CONFIG = "Configurazione";
 const SHEET_BACHECA = "Bacheca";
+const SHEET_MENU = "Menu_Base";
 
 /**
  * Funzione di inizializzazione automatica del database.
@@ -166,6 +167,51 @@ function setupDatabase() {
     ]);
   }
 
+  // 7. Foglio Menu_Base (Menu ciclico 14 giorni modificabile nel Google Foglio)
+  let sMenu = ss.getSheetByName(SHEET_MENU);
+  if (!sMenu) {
+    sMenu = ss.insertSheet(SHEET_MENU);
+    sMenu.appendRow([
+      "Settimana", "Giorno", "Pasto", "Primo", "Secondo", "Contorno1", "Contorno2", "Dessert", "OpzioneBusta"
+    ]);
+    const righeMenuDefault = [
+      // Settimana 1
+      ["settimana1", "lunedi", "pranzo", "Paella di carne alla Valenciana", "Saltimbocca alla Romana", "Insalata di cetrioli, pomodori e cipolla", "Spinaci", "Frutta fresca", false],
+      ["settimana1", "lunedi", "cena", "Spaghetti alle vongole", "Scaloppine di Tacchino", "Fagioli", "Insalata mista", "Frutta fresca", false],
+      ["settimana1", "martedi", "pranzo", "Classici di busta", "Classici di busta", "Classici di busta", "Classici di busta", "Frutta / Snack", true],
+      ["settimana1", "martedi", "cena", "Riso basmati con pollo al curry", "Pollo al curry e verdure", "Zucchine trifolate", "Carote julienne", "Dessert dello chef", false],
+      ["settimana1", "mercoledi", "pranzo", "Gnocchi alla Sorrentina", "Cotoletta di Maiale alla milanese", "Patate al forno dorate", "Piselli", "Frutta fresca", false],
+      ["settimana1", "mercoledi", "cena", "Vellutata di zucca con crostini", "Frittata campagnola con formaggio", "Broccoli al vapore", "Insalata verde", "Yogurt", false],
+      ["settimana1", "giovedi", "pranzo", "Classici di busta", "Classici di busta", "Classici di busta", "Classici di busta", "Frutta / Snack", true],
+      ["settimana1", "giovedi", "cena", "Lasagna alla Bolognese tradizionale", "Arista di maiale al latte", "Purè di patate", "Spinaci al burro", "Frutta fresca", false],
+      ["settimana1", "venerdi", "pranzo", "Pasta e lenticchie", "Filetto di Merluzzo in crosta di patate", "Verdure grigliate miste", "Finocchi all'insalata", "Frutta di stagione", false],
+      ["settimana1", "venerdi", "cena", "Minestrone di verdure di stagione", "Platessa dorata al limone", "Insalata russa casereccia", "Pomodori", "Sorbetto al limone", false],
+      ["settimana1", "sabato", "pranzo", "Fusilli al pesto genovese", "Arrosto di vitello al forno", "Patate novelle al rosmarino", "Carote", "Frutta fresca", false],
+      ["settimana1", "sabato", "cena", "Pizza Margherita casalinga", "Supplì e arancini artigianali", "Insalata capricciosa", "Verdure crude", "Dolce della casa", false],
+      ["settimana1", "domenica", "pranzo", "Tagliatelle al ragù festivo", "Cosciotto di agnello o arrosto", "Patate al forno e carciofi", "Insalata ricca", "Torta festiva della domenica", false],
+      ["settimana1", "domenica", "cena", "Passato di verdure con riso", "Tagliere di formaggi e salumi locali", "Insalata mista", "Olive", "Frutta fresca", false],
+
+      // Settimana 2
+      ["settimana2", "lunedi", "pranzo", "Ravioli Burro e Salvia", "Polpette di Carne fatte in casa", "Fagiolini", "Carote novelle", "Frutta fresca", false],
+      ["settimana2", "lunedi", "cena", "Risotto ai funghi porcini", "Petto di pollo alla griglia", "Melanzane a funghetto", "Insalata mista", "Frutta fresca", false],
+      ["settimana2", "martedi", "pranzo", "Classici di busta", "Classici di busta", "Classici di busta", "Classici di busta", "Frutta / Snack", true],
+      ["settimana2", "martedi", "cena", "Pasta all'Amatriciana con guanciale", "Involtini di vitello con prosciutto", "Zucchine grigliate", "Insalata verde", "Frutta fresca", false],
+      ["settimana2", "mercoledi", "pranzo", "Cannelloni ricotta e spinaci", "Bistecca di manzo ai ferri", "Insalata mista", "Patate lesse", "Macedonia di frutta fresca", false],
+      ["settimana2", "mercoledi", "cena", "Crema di piselli e menta", "Tortino di patate e provola", "Peperonata dolce", "Insalata di pomodori", "Budino al cioccolato", false],
+      ["settimana2", "giovedi", "pranzo", "Classici di busta", "Classici di busta", "Classici di busta", "Classici di busta", "Frutta / Snack", true],
+      ["settimana2", "giovedi", "cena", "Pasta e fagioli borlotti alla veneta", "Salsiccia e scamorza al forno", "Friarelli saltati", "Patate al vapore", "Frutta fresca", false],
+      ["settimana2", "venerdi", "pranzo", "Spaghetti al tonno, capperi e olive", "Salmone al forno con erbe", "Insalata verde e pomodorini", "Zucchine", "Frutta fresca", false],
+      ["settimana2", "venerdi", "cena", "Zuppa d'orzo e legumi", "Calamari dorati o seppie in umido", "Caponata di verdure", "Insalata mista", "Gelato o dessert", false],
+      ["settimana2", "sabato", "pranzo", "Penne all'Arrabbiata", "Cosce di pollo al forno con aromi", "Patatine fritte", "Insalata mista", "Frutta fresca", false],
+      ["settimana2", "sabato", "cena", "Focaccia ligure e piadine", "Tagliere di affettati e mozzarella", "Insalata mista", "Sottoli", "Croccante o dolce", false],
+      ["settimana2", "domenica", "pranzo", "Risotto alla Milanese con zafferano", "Filetto di maiale glassato al miele", "Patate al forno e asparagi", "Insalata mista", "Tiramisù della casa", false],
+      ["settimana2", "domenica", "cena", "Brodo di carne con tortellini", "Carpaccio di bresaola, rucola e grana", "Insalata mista", "Finocchi", "Frutta fresca", false]
+    ];
+    for (let r = 0; r < righeMenuDefault.length; r++) {
+      sMenu.appendRow(righeMenuDefault[r]);
+    }
+  }
+
   return "Setup completato con successo!";
 }
 
@@ -305,6 +351,12 @@ function doPost(e) {
 
       case "aggiornaConfig":
         return gestisciAggiornaConfig(payload);
+
+      case "salvaMenuBase":
+        return gestisciSalvaMenuBase(payload);
+
+      case "inizializzaMenuBase":
+        return gestisciInizializzaMenuBase();
 
       default:
         return rispostaJSON({ success: false, error: "Azione non riconosciuta: " + action });
@@ -894,20 +946,118 @@ function getInfoData() {
     }
   }
 
+  // 5. Recupera Menu Base dal foglio Menu_Base (se presente)
+  let menuBase = null;
+  const sMenu = ss.getSheetByName(SHEET_MENU);
+  if (sMenu) {
+    const rowsM = sMenu.getDataRange().getValues();
+    if (rowsM.length > 1) {
+      menuBase = { settimana1: {}, settimana2: {} };
+      for (let i = 1; i < rowsM.length; i++) {
+        const row = rowsM[i];
+        const rawSett = String(row[0] || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const settKey = (rawSett.includes("1") || rawSett === "settimana1") ? "settimana1" : (rawSett.includes("2") || rawSett === "settimana2") ? "settimana2" : "";
+        const rawGiorno = String(row[1] || "").toLowerCase().trim();
+        let giornoKey = "";
+        if (rawGiorno.startsWith("lun")) giornoKey = "lunedi";
+        else if (rawGiorno.startsWith("mar")) giornoKey = "martedi";
+        else if (rawGiorno.startsWith("mer")) giornoKey = "mercoledi";
+        else if (rawGiorno.startsWith("gio")) giornoKey = "giovedi";
+        else if (rawGiorno.startsWith("ven")) giornoKey = "venerdi";
+        else if (rawGiorno.startsWith("sab")) giornoKey = "sabato";
+        else if (rawGiorno.startsWith("dom")) giornoKey = "domenica";
+
+        const pastoKey = String(row[2] || "").toLowerCase().includes("cena") ? "cena" : "pranzo";
+
+        if (settKey && giornoKey) {
+          if (!menuBase[settKey][giornoKey]) menuBase[settKey][giornoKey] = {};
+          menuBase[settKey][giornoKey][pastoKey] = {
+            primo: String(row[3] || "").trim(),
+            secondo: String(row[4] || "").trim(),
+            contorno: String(row[5] || "").trim(),
+            contorno2: String(row[6] || "").trim(),
+            dessert: String(row[7] || "").trim(),
+            busta: Boolean(row[8] === true || String(row[8]).toLowerCase() === "true")
+          };
+        }
+      }
+    }
+  }
+
   return rispostaJSON({
     success: true,
+    menuBase: menuBase,
     config: {
       Data_Variazione_Menu: config["Data_Variazione_Menu"] || "",
       Testo_Variazione: config["Testo_Variazione"] || "",
       Pasto_Variazione: config["Pasto_Variazione"] || "entrambi",
       Variazioni_Per_Data: config["Variazioni_Per_Data"] || "",
-      Info_Regolamento: config["Info_Regolamento"] || "Regolamento in fase di aggiornamento.",
-      Info_Contatti: config["Info_Contatti"] || "Contatti non specificati."
+      Messaggio_Supermaster: config["Messaggio_Supermaster"] || "Cari residenti, benvenuti nel portale digitale della Residenza Newman. Per qualsiasi necessità o urgenza la Direzione è a vostra disposizione.",
+      Info_Regolamento: config["Info_Regolamento"] || "REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN\n1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità è alla base della convivenza.\n2. ORARI DI SILENZIO: Dalle ore 23:00 alle ore 07:30 del mattino è richiesto il silenzio assoluto nei corridoi e nelle aree comuni.\n3. MENSA COMUNITARIA:\n   • Pranzo alle 14:30 (prenotazioni aperte fino alle 13:30, 1h prima).\n   • Cena alle 19:30 (prenotazioni aperte fino alle 18:30, 1h prima).\n   • Martedì e Giovedì a pranzo: sono previsti i classici di busta (pranzo al sacco da asporto).\n4. PRENOTAZIONE SPAZI:\n   • Gli unici spazi soggetti a prenotazione sono la Chiesa / Cappella e la Sala TV.\n   • Gli slot sono di 30 minuti. Non serve conferma preventiva.\n5. MANUTENZIONE: Segnalare tempestivamente qualsiasi anomalia nell'apposita sezione Guasti.",
+      Info_Contatti: config["Info_Contatti"] || "CONTATTI E RECAPITI DELLA RESIDENZA:\n• Portineria / Accoglienza: Tel. +39 06 87654321 (Int. 101) - Attiva 07:00 - 22:30\n• Direzione Generale: direzione@residenzanewman.org (Int. 102)\n• Emergenze Notturne Custode: +39 333 1122334\n• Economato & Servizio Mensa: mensa@residenzanewman.org\n• Assistenza Tecnica Manutenzione: manutenzione@residenzanewman.org"
     },
     prenotazioniSpazi: prenotazioniSpazi,
     prenotazioniMensa: prenotazioniMensa,
     bacheca: bacheca
   });
+}
+
+/**
+ * Salva o aggiorna una riga specifica del foglio Menu_Base
+ */
+function gestisciSalvaMenuBase(payload) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sMenu = ss.getSheetByName(SHEET_MENU);
+  if (!sMenu) {
+    gestisciInizializzaMenuBase();
+    sMenu = ss.getSheetByName(SHEET_MENU);
+  }
+
+  const { settimana, giorno, pasto, primo, secondo, contorno, contorno2, dessert, busta } = payload;
+  const rows = sMenu.getDataRange().getValues();
+  let rigaTrovata = -1;
+  const targetSett = String(settimana || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const targetGiorno = String(giorno || "").toLowerCase().trim();
+  const targetPasto = String(pasto || "").toLowerCase().trim();
+
+  for (let i = 1; i < rows.length; i++) {
+    const s = String(rows[i][0] || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const g = String(rows[i][1] || "").toLowerCase().trim();
+    const p = String(rows[i][2] || "").toLowerCase().trim();
+    if (s === targetSett && g.startsWith(targetGiorno.substring(0, 3)) && p === targetPasto) {
+      rigaTrovata = i + 1;
+      break;
+    }
+  }
+
+  if (rigaTrovata > 0) {
+    sMenu.getRange(rigaTrovata, 4, 1, 6).setValues([[
+      primo || "",
+      secondo || "",
+      contorno || "",
+      contorno2 || "",
+      dessert || "",
+      Boolean(busta)
+    ]]);
+  } else {
+    sMenu.appendRow([
+      settimana, giorno, pasto, primo || "", secondo || "", contorno || "", contorno2 || "", dessert || "", Boolean(busta)
+    ]);
+  }
+
+  return rispostaJSON({ success: true, message: "Menu base aggiornato nel foglio Menu_Base" });
+}
+
+/**
+ * Inizializza o crea il foglio Menu_Base con i 14 giorni di menu standard
+ */
+function gestisciInizializzaMenuBase() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sMenu = ss.getSheetByName(SHEET_MENU);
+  if (!sMenu) {
+    setupDatabase();
+  }
+  return rispostaJSON({ success: true, message: "Foglio Menu_Base pronto e verificato!" });
 }
 
 // ----------------------------------------------------------------------------

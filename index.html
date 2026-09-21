@@ -9,12 +9,21 @@
   <meta property="og:description" content="App mobile-first per la Residenza Card. Newman con Bacheca, Calendario Romano ed eventi del giorno, Mensa, Prenotazione Chiesa e Sala TV, La Residenza (regolamento e orari) e Manutenzione.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#14213d">
-  <link rel="icon" type="image/png" href="/favicon.png">
-  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/jpeg" href="052a904e-e80d-4afb-82d5-ca5c18ebabda.jpg">
+  <link rel="apple-touch-icon" href="052a904e-e80d-4afb-82d5-ca5c18ebabda.jpg">
   <link rel="manifest" href="/manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Residenza Newman">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem("newman_theme") || "light";
+        document.documentElement.setAttribute("data-theme", t);
+      } catch (e) {}
+    })();
+  </script>
 
   <!-- STILI CSS3 PURI E OTTIMIZZATI - ZERO DIPENDENZE ESTERNE -->
   <style>
@@ -51,6 +60,186 @@
       --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
       --shadow-lg: 0 10px 25px rgba(15, 23, 42, 0.12);
       --transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    /* ==========================================================================
+       TEMA SCURO ELEGANTE & AD ALTO CONTRASTO
+       ========================================================================== */
+    [data-theme="dark"] {
+      --primary: #f8fafc;
+      --primary-light: #cbd5e1;
+      --primary-dark: #ffffff;
+      --accent: #f59e0b;
+      --accent-hover: #fbbf24;
+      --accent-soft: rgba(245, 158, 11, 0.18);
+      --bg: #0b1222;
+      --surface: #121c33;
+      --surface-alt: #1a2744;
+      --border: #263859;
+      --border-dark: #374b75;
+      --text-main: #f1f5f9;
+      --text-muted: #94a3b8;
+      --text-light: #64748b;
+      --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+      --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
+      --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.7);
+    }
+
+    [data-theme="dark"] body {
+      background-color: #050811;
+    }
+
+    [data-theme="dark"] .dish-name {
+      color: #f1f5f9;
+    }
+
+    [data-theme="dark"] .dish-type {
+      color: #cbd5e1;
+    }
+
+    [data-theme="dark"] .card-title,
+    [data-theme="dark"] .card-title-sm,
+    [data-theme="dark"] .section-title {
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .day-pill {
+      background: var(--surface);
+      color: var(--text-main);
+      border-color: var(--border);
+    }
+
+    [data-theme="dark"] .day-pill.active {
+      background: #d97706;
+      color: #ffffff;
+      border-color: #d97706;
+    }
+
+    [data-theme="dark"] .day-pill.today:not(.active) {
+      border-color: #f59e0b;
+      background: rgba(245, 158, 11, 0.15);
+    }
+
+    [data-theme="dark"] .bottom-nav {
+      background: #111a30;
+      border-top-color: var(--border);
+    }
+
+    [data-theme="dark"] .bottom-nav-item {
+      color: #94a3b8;
+    }
+
+    [data-theme="dark"] .bottom-nav-item.active {
+      color: #f59e0b;
+    }
+
+    [data-theme="dark"] .bottom-nav-item.active svg {
+      stroke: #f59e0b;
+    }
+
+    [data-theme="dark"] .modal-card {
+      background: var(--surface);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+
+    [data-theme="dark"] .input-text,
+    [data-theme="dark"] .input-date,
+    [data-theme="dark"] .input-select,
+    [data-theme="dark"] .input-textarea {
+      background-color: var(--surface-alt);
+      color: var(--text-main);
+      border-color: var(--border);
+    }
+
+    [data-theme="dark"] .btn-secondary {
+      background: #1e293b;
+      color: #f1f5f9;
+      border-color: var(--border);
+    }
+
+    [data-theme="dark"] .btn-outline {
+      border-color: var(--border);
+      color: var(--text-main);
+    }
+
+    [data-theme="dark"] .btn-outline:hover {
+      background: var(--surface-alt);
+    }
+
+    [data-theme="dark"] .meal-card.card-disabled {
+      background: #11192b;
+      opacity: 0.8;
+    }
+
+    [data-theme="dark"] .week-nav-bar {
+      background: var(--surface-alt);
+      border-color: var(--border);
+    }
+
+    [data-theme="dark"] .week-nav-btn {
+      background: var(--surface);
+      color: var(--text-main);
+      border-color: var(--border);
+    }
+
+    [data-theme="dark"] .residenza-text-box {
+      background: var(--surface-alt);
+      border-color: var(--border);
+      color: var(--text-main);
+    }
+
+    [data-theme="dark"] .slot-btn.available {
+      background: var(--surface-alt);
+      color: var(--text-main);
+      border-color: var(--border);
+    }
+
+    [data-theme="dark"] .slot-btn.mine {
+      background: #1e3a8a;
+      border-color: #3b82f6;
+      color: #ffffff;
+    }
+
+    [data-theme="dark"] .slot-btn.occupied {
+      background: #172033;
+      border-color: #27354f;
+      color: #64748b;
+    }
+
+    [data-theme="dark"] .empty-state-card {
+      background: var(--surface-alt) !important;
+      border-color: var(--border) !important;
+      color: var(--text-muted) !important;
+    }
+
+    [data-theme="dark"] .btn-icon-head {
+      color: #f1f5f9;
+    }
+
+    /* Stili Pulsanti Scelta Tema */
+    .theme-choice-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      border: 2px solid var(--border);
+      background: var(--surface);
+      color: var(--text-main);
+      cursor: pointer;
+      transition: var(--transition);
+    }
+    .theme-choice-btn:hover {
+      border-color: var(--accent);
+    }
+    .theme-choice-btn.active {
+      border-color: var(--accent);
+      background: var(--accent-soft);
+      color: var(--text-main);
+      font-weight: 700;
+      box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.25);
     }
 
     * {
@@ -1949,6 +2138,19 @@
     .text-sm { font-size: 12px; }
     .text-xs { font-size: 11px; }
     .hidden { display: none !important; }
+
+    .residenza-text-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      font-size: 13.5px;
+      line-height: 1.65;
+      color: var(--text-main);
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: inherit;
+    }
   </style>
 </head>
 <body>
@@ -1960,7 +2162,7 @@
     <header class="app-header" id="main-header">
       <div class="header-brand">
         <div class="brand-icon" id="header-brand-icon">
-          <img src="/icon-newman.png" alt="Card. Newman" class="brand-avatar-img">
+          <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.jpg" onerror="this.onerror=null;this.src='/icon-newman.png'" alt="Card. Newman" class="brand-avatar-img">
         </div>
         <div class="brand-titles">
           <span class="brand-title">Residenza Card. Newman</span>
@@ -1970,7 +2172,7 @@
 
       <div class="header-actions">
         <!-- Indicatore stato connessione (GAS Live / Demo Locale) -->
-        <span class="connection-badge live" id="header-connection-badge" onclick="document.getElementById('btn-open-settings').click()">GAS Live</span>
+        <span class="connection-badge live" id="header-connection-badge" onclick="apriModalSettings()">GAS Live</span>
 
         <!-- Badge utente corrente -->
         <div class="user-pill" id="header-user-pill" onclick="mostraModalAuth(true)">
@@ -1981,8 +2183,8 @@
           </div>
         </div>
 
-        <!-- Pulsante Impostazioni Backend -->
-        <button type="button" class="btn-icon-head" id="btn-open-settings" title="Impostazioni Backend Apps Script">
+        <!-- Pulsante Impostazioni e Profilo -->
+        <button type="button" class="btn-icon-head" id="btn-open-settings" title="Impostazioni e Profilo">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3"></circle>
             <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
@@ -2242,49 +2444,112 @@
   </div>
 
   <!-- ======================================================================
-       MODAL CONFIGURAZIONE BACKEND (GOOGLE APPS SCRIPT)
+       MODAL IMPOSTAZIONI & ACCOUNT
        ====================================================================== -->
   <div class="modal-overlay" id="modal-settings" style="display: none;">
-    <div class="modal-card">
-      <div class="flex-between" style="margin-bottom: 16px;">
-        <h3 class="modal-title">Configurazione Sistema</h3>
-        <button type="button" class="btn-icon-head" onclick="document.getElementById('modal-settings').style.display='none'" style="color:#0f172a;">✕</button>
+    <div class="modal-card" style="max-width: 440px;">
+      <!-- Intestazione Modal -->
+      <div class="flex-between" style="margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
+        <div class="flex-align" style="gap: 10px;">
+          <div class="brand-icon" style="width: 36px; height: 36px; border-radius: 50%; overflow: hidden; border: 1px solid var(--border);">
+            <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.jpg" onerror="this.onerror=null;this.src='/icon-newman.png'" alt="Card. Newman" class="brand-avatar-img">
+          </div>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 16px;">Impostazioni &amp; Profilo</h3>
+            <span class="text-xs text-muted">Residenza Cardinal Newman</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalSettings()" style="color: var(--text-main); font-size: 16px; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface-alt); border: 1px solid var(--border);">✕</button>
       </div>
 
-      <div class="form-group">
-        <label for="input-gas-url">URL Web App Google Apps Script</label>
-        <div style="display: flex; gap: 8px;">
-          <input type="url" id="input-gas-url" class="input-text" placeholder="https://script.google.com/macros/s/.../exec" style="flex: 1;">
-          <button type="button" class="btn btn-secondary btn-sm" onclick="testaConnessioneGoogleFogli()" title="Testa la connessione al Web App URL">
-            🔍 Ping
+      <!-- Scheda Profilo Utente Corrente -->
+      <div class="card-inner" id="settings-user-card" style="margin-bottom: 16px; padding: 12px 14px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-md);">
+        <div class="flex-between">
+          <div class="flex-align" style="gap: 12px;">
+            <div id="settings-avatar" style="width: 40px; height: 40px; border-radius: 50%; background: var(--accent); color: #ffffff; font-weight: 700; display: flex; align-items: center; justify-content: center; font-size: 15px;">
+              CN
+            </div>
+            <div>
+              <div id="settings-name" style="font-weight: 700; font-size: 15px; color: var(--text-main);">Ospite</div>
+              <div id="settings-email" style="font-size: 12px; color: var(--text-muted);">Non autenticato</div>
+            </div>
+          </div>
+          <span class="badge" id="settings-role-badge" style="background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 11px;">Ospite</span>
+        </div>
+      </div>
+
+      <!-- Sezione Selezione Tema (Chiaro / Scuro) -->
+      <div style="margin-bottom: 16px;">
+        <label style="font-size: 13px; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 8px;">
+          🌓 Aspetto Visivo
+        </label>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+          <button type="button" id="btn-theme-light" class="theme-choice-btn" onclick="impostaTema('light')">
+            <span style="font-size: 18px;">☀️</span>
+            <span style="font-weight: 600; font-size: 13px;">Tema Chiaro</span>
+          </button>
+          <button type="button" id="btn-theme-dark" class="theme-choice-btn" onclick="impostaTema('dark')">
+            <span style="font-size: 18px;">🌙</span>
+            <span style="font-weight: 600; font-size: 13px;">Tema Scuro</span>
           </button>
         </div>
-        <p class="text-xs text-muted" style="margin-top: 4px;">
-          Incolla qui l'URL generato da <em>Distribuisci &gt; Nuova distribuzione &gt; Applicazione web</em> in Apps Script.
-          Se lasciato vuoto, l'app usa il simulatore database locale ad alte prestazioni.
-        </p>
-        <div id="gas-test-result" style="margin-top: 6px; font-size: 12px; display: none;"></div>
       </div>
 
-      <div class="form-group" style="margin-top: 14px;">
-        <label class="custom-checkbox">
-          <input type="checkbox" id="checkbox-bypass-timelock">
-          <span>Ignora blocchi orari 13:30 / 18:30 (Modalità Valutazione/Test)</span>
+      <!-- Scorciatoie e Azioni Rapide -->
+      <div style="margin-bottom: 16px;">
+        <label style="font-size: 13px; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 8px;">
+          ⚡ Azioni e Navigazione Rapida
         </label>
+        <div style="display: flex; flex-direction: column; gap: 6px;">
+          <!-- Portami alla Residenza -->
+          <a href="https://maps.app.goo.gl/XUH7wqFcZ7jjNJRdA" target="_blank" rel="noopener noreferrer" class="btn btn-outline btn-block" style="display: flex; align-items: center; justify-content: space-between; text-decoration: none; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm);">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 16px;">📍</span>
+              <span style="font-weight: 600;">Portami alla Residenza</span>
+            </div>
+            <span style="font-size: 12px; color: var(--text-muted);">Google Maps ↗</span>
+          </a>
+
+          <!-- Scheda Residenza e Regolamento -->
+          <button type="button" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); switchTab('residenza');" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm);">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 16px;">📜</span>
+              <span style="font-weight: 600;">Regolamento e Contatti</span>
+            </div>
+            <span style="font-size: 12px; color: var(--text-muted);">Vai →</span>
+          </button>
+
+          <!-- Scorciatoia Pannello Master (se admin) -->
+          <button type="button" id="settings-btn-master" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); switchTab('master');" style="display: none; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm); border-color: var(--accent);">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 16px;">👑</span>
+              <span style="font-weight: 600;">Pannello Master &amp; Amministrazione</span>
+            </div>
+            <span style="font-size: 12px; color: var(--accent); font-weight: 600;">Gestione →</span>
+          </button>
+        </div>
       </div>
 
-      <div class="card-inner" style="margin-top: 14px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px;">
-        <div class="text-xs text-muted" style="margin-bottom: 8px;">
-          <strong>Database a 6 fogli:</strong> <code>Utenti</code>, <code>Mensa</code>, <code>Prenotazioni_Spazi</code>, <code>Manutenzione</code>, <code>Configurazione</code>, <code>Bacheca</code>.
+      <!-- Info di Sistema e Sincronizzazione -->
+      <div style="background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 9px 12px; margin-bottom: 14px; font-size: 11.5px; color: var(--text-muted); display: flex; align-items: center; justify-content: space-between;">
+        <div class="flex-align" style="gap: 6px;">
+          <span style="color: var(--success); font-size: 12px;">●</span>
+          <span>Google Sheets Live Connesso</span>
         </div>
-        <button type="button" class="btn btn-outline btn-block btn-sm" onclick="apriModalCodiceGas()" style="font-size: 12px;">
-          📋 Istruzioni Setup &amp; Copia Codice Code.gs
+        <button type="button" class="btn-link text-xs" onclick="chiudiModalSettings(); apriModalCodiceGas();" style="color: var(--accent); font-weight: 600; cursor: pointer; background: none; border: none; padding: 0;">
+          Codice Apps Script ↗
         </button>
       </div>
 
-      <div style="display: flex; gap: 8px; margin-top: 16px;">
-        <button type="button" id="btn-save-settings" class="btn btn-primary btn-block">Salva Impostazioni</button>
-        <button type="button" class="btn btn-outline" onclick="logout()" title="Disconnetti utente">Esci</button>
+      <!-- Pulsanti Azione Logout & Chiudi -->
+      <div style="display: flex; gap: 8px;">
+        <button type="button" class="btn btn-outline btn-block" onclick="chiudiModalSettings()" style="flex: 1;">
+          Chiudi
+        </button>
+        <button type="button" class="btn btn-danger btn-block" onclick="logout()" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 6px; font-weight: 700;">
+          <span>🚪</span>
+          <span>Disconnetti</span>
+        </button>
       </div>
     </div>
   </div>

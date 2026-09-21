@@ -75,9 +75,9 @@ const CLASSICI_BUSTA = [
   { icon: "💧", nome: "Acqua minerale", desc: "Bottiglietta da 50 cl" }
 ];
 
-// Menu ciclico di 14 giorni (Settimana 1 e Settimana 2)
-// Completo di 1° piatto, 2° piatto, contorno 1 e 2, dessert per pranzo e cena
-const MENU_14_GIORNI = {
+// Menu ciclico di 14 giorni (Settimana 1 e Settimana 2) di default
+// Modificabile dinamicamente dal foglio Google "Menu_Base" senza intaccare le variazioni comunicate dalla cucina
+const DEFAULT_MENU_14_GIORNI = {
   settimana1: {
     lunedi: {
       pranzo: {
@@ -311,6 +311,38 @@ const MENU_14_GIORNI = {
     }
   }
 };
+
+// Istanza attiva del Menu 14 giorni (inizializzata con i valori predefiniti e aggiornabile da Google Sheets)
+let MENU_14_GIORNI = JSON.parse(JSON.stringify(DEFAULT_MENU_14_GIORNI));
+
+/**
+ * Applica i dati del menu base provenienti dal foglio Google "Menu_Base".
+ * Questo definisce il menu di base ciclico a 14 giorni, senza toccare né alterare
+ * la logica separata delle variazioni comunicate dalla cucina per giorni specifici.
+ */
+function applicaMenuBaseDaGoogleSheets(menuBase) {
+  if (!menuBase || typeof menuBase !== "object") return;
+  ["settimana1", "settimana2"].forEach(sett => {
+    if (menuBase[sett]) {
+      if (!MENU_14_GIORNI[sett]) MENU_14_GIORNI[sett] = {};
+      Object.keys(menuBase[sett]).forEach(giorno => {
+        if (!MENU_14_GIORNI[sett][giorno]) MENU_14_GIORNI[sett][giorno] = {};
+        if (menuBase[sett][giorno].pranzo) {
+          MENU_14_GIORNI[sett][giorno].pranzo = {
+            ...(MENU_14_GIORNI[sett][giorno].pranzo || {}),
+            ...menuBase[sett][giorno].pranzo
+          };
+        }
+        if (menuBase[sett][giorno].cena) {
+          MENU_14_GIORNI[sett][giorno].cena = {
+            ...(MENU_14_GIORNI[sett][giorno].cena || {}),
+            ...menuBase[sett][giorno].cena
+          };
+        }
+      });
+    }
+  });
+}
 
 // Database Mock Locale iniziale (attivo quando non è configurato un backend GAS)
 const INITIAL_MOCK_DB = {
@@ -946,6 +978,9 @@ async function caricaDatiBackend() {
       if (data.prenotazioniMensa) {
         appState.mensaBookings = data.prenotazioniMensa;
       }
+      if (data.menuBase) {
+        applicaMenuBaseDaGoogleSheets(data.menuBase);
+      }
 
       // Aggiorna viste
       renderBachecaView();
@@ -1496,7 +1531,10 @@ function renderResidenzaView() {
   const container = document.getElementById("residenza-container");
   if (!container) return;
 
-  const regText = appState.cachedConfig.Info_Regolamento || `REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN
+  const rawReg = appState.cachedConfig?.Info_Regolamento;
+  const regText = (rawReg && typeof rawReg === "string" && rawReg.trim().length > 5) 
+    ? rawReg.trim() 
+    : `REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN
 1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità è alla base della convivenza.
 2. ORARI DI SILENZIO: Dalle ore 23:00 alle ore 07:30 del mattino è richiesto il silenzio assoluto nei corridoi e nelle aree comuni.
 3. MENSA COMUNITARIA:
@@ -1509,36 +1547,42 @@ function renderResidenzaView() {
    • Privacy garantita: l'utente e il master visualizzano l'occupante; gli altri residenti vedono lo slot come 'Occupato'.
 5. MANUTENZIONE: Segnalare tempestivamente qualsiasi anomalia nell'apposita sezione Guasti.`;
 
-  const contText = appState.cachedConfig.Info_Contatti || `CONTATTI E RECAPITI DELLA RESIDENZA:
+  const rawCont = appState.cachedConfig?.Info_Contatti;
+  const contText = (rawCont && typeof rawCont === "string" && rawCont.trim().length > 5)
+    ? rawCont.trim()
+    : `CONTATTI E RECAPITI DELLA RESIDENZA:
 • Portineria / Accoglienza: Tel. +39 06 87654321 (Int. 101) - Attiva 07:00 - 22:30
 • Direzione Generale: direzione@residenzanewman.org (Int. 102)
 • Emergenze Notturne Custode: +39 333 1122334
 • Economato & Servizio Mensa: mensa@residenzanewman.org
 • Assistenza Tecnica Manutenzione: manutenzione@residenzanewman.org`;
 
-  const msgSupermaster = appState.cachedConfig.Messaggio_Supermaster || "Cari residenti, benvenuti nel portale digitale della Residenza Newman. Per qualsiasi necessità o urgenza la Direzione è a vostra disposizione.";
+  const rawMsg = appState.cachedConfig?.Messaggio_Supermaster;
+  const msgSupermaster = (rawMsg && typeof rawMsg === "string" && rawMsg.trim().length > 0)
+    ? rawMsg.trim()
+    : "Cari residenti, benvenuti nel portale digitale della Residenza Newman. Per qualsiasi necessità o urgenza la Direzione è a vostra disposizione.";
 
   container.innerHTML = `
     <!-- CARD PORTAMI ALLA RESIDENZA (NAVIGATORE GOOGLE MAPS) -->
-    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; border: 1px solid rgba(255,255,255,0.12); padding: 18px;">
+    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; border: 1px solid rgba(255,255,255,0.15); padding: 18px; border-radius: var(--radius-md); box-shadow: var(--shadow-md);">
       <div class="flex-between" style="flex-wrap: wrap; gap: 12px;">
         <div class="flex-align" style="gap: 12px;">
-          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(22, 163, 74, 0.2); border: 1px solid rgba(22, 163, 74, 0.4); display: flex; align-items: center; justify-content: center; font-size: 24px;">
+          <div style="width: 46px; height: 46px; border-radius: 12px; background: rgba(22, 163, 74, 0.25); border: 1px solid rgba(22, 163, 74, 0.5); display: flex; align-items: center; justify-content: center; font-size: 24px;">
             📍
           </div>
           <div>
-            <h2 class="card-title" style="margin: 0; color: #ffffff; font-size: 17px;">Dove Siamo & Raggiungi la Struttura</h2>
-            <div style="font-size: 12.5px; color: #94a3b8; margin-top: 2px;">Residenza Cardinal Newman • Roma</div>
+            <h2 class="card-title" style="margin: 0; color: #ffffff; font-size: 17px; font-weight: 700;">Dove Siamo &amp; Raggiungi la Struttura</h2>
+            <div style="font-size: 12.5px; color: #94a3b8; margin-top: 2px;">Residenza Cardinal Newman • Via Cardinal Newman</div>
           </div>
         </div>
-        <a href="https://maps.app.goo.gl/dPn1ccwpTPbCG8RX6" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="btn-portami-residenza" style="background: #16a34a; border-color: #16a34a; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px; border-radius: 8px; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.4);">
+        <a href="https://maps.app.goo.gl/XUH7wqFcZ7jjNJRdA" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="btn-portami-residenza" style="background: #16a34a; border-color: #16a34a; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 11px 20px; border-radius: 8px; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.45); font-size: 14px;">
           <span>🗺️</span>
           <span>Portami alla residenza</span>
-          <span style="font-size: 13px;">↗</span>
+          <span style="font-size: 14px;">↗</span>
         </a>
       </div>
-      <p style="font-size: 12.5px; color: #cbd5e1; margin: 12px 0 0 0; line-height: 1.45;">
-        Tocca il pulsante per avviare il navigatore in tempo reale su Google Maps con le indicazioni a piedi, in auto o tramite trasporto pubblico verso la Residenza.
+      <p style="font-size: 12.5px; color: #cbd5e1; margin: 12px 0 0 0; line-height: 1.5;">
+        Tocca il pulsante per avviare subito il navigatore in tempo reale su Google Maps con percorso pedonale, automobilistico o con i mezzi pubblici verso la Residenza Newman.
       </p>
     </div>
 
@@ -2148,8 +2192,8 @@ function verificaAlertVariazione() {
 
 /**
  * Calcola se una certa data cade nella Settimana 1 o Settimana 2
- * Ancoraggio impostato a Lunedì 21 Settembre 2026 (Settimana 1: Paella e Saltimbocca alla Romana)
- * Supporta anche lo scambio dinamico delle settimane impostato dal Master
+ * Ancoraggio impostato a Lunedì 21 Settembre 2026 (Settimana 2: Ravioli burro e salvia)
+ * Supporta anche lo scambio dinamico delle settimane o modifiche da Google Sheets
  */
 function getSettimanaMenu(dataTarget) {
   const dTarget = new Date(dataTarget.getFullYear(), dataTarget.getMonth(), dataTarget.getDate());
@@ -2158,16 +2202,16 @@ function getSettimanaMenu(dataTarget) {
   const diffMs = dTarget.getTime() - dAnchor.getTime();
   const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
 
-  // modulo ciclico a 2 settimane (gestendo anche date antecedenti l'ancora)
-  let isSettimana1 = Math.abs(diffWeeks) % 2 === 0;
+  // Modulo ciclico a 2 settimane: Lunedì 21 Settembre 2026 corrisponde alla Settimana 2 (Ravioli burro e salvia)
+  let isSettimana2 = Math.abs(diffWeeks) % 2 === 0;
 
   // Inversione configurata dal Master (salvata in Google Sheets o in locale)
   const isInvertito = appState.cachedConfig?.Inverti_Ciclo_Menu === "true" || localStorage.getItem("newman_inverti_menu") === "true";
   if (isInvertito) {
-    isSettimana1 = !isSettimana1;
+    isSettimana2 = !isSettimana2;
   }
 
-  return isSettimana1 ? "settimana1" : "settimana2";
+  return isSettimana2 ? "settimana2" : "settimana1";
 }
 
 /**
@@ -5507,30 +5551,12 @@ function setupEventListeners() {
   // Setup Manutenzione foto & form
   setupManutenzioneHandlers();
 
-  // Settings & Backend Modal
-  document.getElementById("btn-open-settings")?.addEventListener("click", () => {
-    document.getElementById("input-gas-url").value = appState.backendUrl;
-    document.getElementById("checkbox-bypass-timelock").checked = appState.bypassTimeLock;
-    document.getElementById("modal-settings").style.display = "flex";
-  });
+  // Menu Impostazioni, Profilo e Selezione Tema
+  document.getElementById("btn-open-settings")?.addEventListener("click", apriModalSettings);
 
-  document.getElementById("btn-save-settings")?.addEventListener("click", () => {
-    const url = document.getElementById("input-gas-url")?.value.trim() || "";
-    const bypass = document.getElementById("checkbox-bypass-timelock")?.checked || false;
-
-    appState.backendUrl = url;
-    appState.bypassTimeLock = bypass;
-    appState.isOfflineMode = !url;
-
-    localStorage.setItem(STORAGE_KEYS.BACKEND_URL, url);
-    localStorage.setItem(STORAGE_KEYS.BYPASS_TIME_LOCK, String(bypass));
-
-    aggiornaIndicatoreConnessione();
-    document.getElementById("modal-settings").style.display = "none";
-    mostraToast("Impostazioni salvate!", "success");
-    caricaDatiBackend();
-    renderMensaView();
-  });
+  // Inizializzazione Tema (Chiaro / Scuro)
+  const savedTheme = localStorage.getItem("newman_theme") || "light";
+  impostaTema(savedTheme);
 
   // Utenti preset per test rapido
   document.querySelectorAll(".quick-login-btn").forEach(b => {
@@ -5558,7 +5584,7 @@ function switchTab(tabId) {
   });
 
   // Toggle views
-  const views = ["info", "mensa", "spazi", "manutenzione", "master"];
+  const views = ["info", "mensa", "spazi", "residenza", "manutenzione", "master"];
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
     if (el) {
@@ -5573,11 +5599,15 @@ function switchTab(tabId) {
   });
 
   // Azioni specifiche per tab
+  if (tabId === "info") renderBachecaView();
   if (tabId === "mensa") renderMensaView();
   if (tabId === "spazi") renderSpaziView();
+  if (tabId === "residenza") renderResidenzaView();
   if (tabId === "manutenzione") caricaGuastiRecenti();
   if (tabId === "master") caricaDatiMaster();
 }
+
+window.switchTab = switchTab;
 
 function aggiornaUIUtente() {
   const avatarText = document.getElementById("header-user-avatar");
@@ -5624,6 +5654,93 @@ window.logout = function() {
   appState.user = null;
   location.reload();
 };
+
+/**
+ * Gestione Tema Visivo (Chiaro / Scuro)
+ */
+function impostaTema(tema) {
+  if (tema !== "dark" && tema !== "light") tema = "light";
+  document.documentElement.setAttribute("data-theme", tema);
+  localStorage.setItem("newman_theme", tema);
+  aggiornaPulsantiTema(tema);
+}
+window.impostaTema = impostaTema;
+
+function aggiornaPulsantiTema(tema) {
+  const current = tema || document.documentElement.getAttribute("data-theme") || "light";
+  const btnLight = document.getElementById("btn-theme-light");
+  const btnDark = document.getElementById("btn-theme-dark");
+  if (btnLight) {
+    if (current === "light") btnLight.classList.add("active");
+    else btnLight.classList.remove("active");
+  }
+  if (btnDark) {
+    if (current === "dark") btnDark.classList.add("active");
+    else btnDark.classList.remove("active");
+  }
+}
+window.aggiornaPulsantiTema = aggiornaPulsantiTema;
+
+/**
+ * Apertura e Chiusura Menu Impostazioni & Profilo (⚙️)
+ */
+function apriModalSettings() {
+  const modal = document.getElementById("modal-settings");
+  if (!modal) return;
+
+  const nameEl = document.getElementById("settings-name");
+  const emailEl = document.getElementById("settings-email");
+  const roleEl = document.getElementById("settings-role-badge");
+  const avatarEl = document.getElementById("settings-avatar");
+  const masterShortcut = document.getElementById("settings-btn-master");
+
+  if (appState.user) {
+    if (nameEl) nameEl.textContent = appState.user.nome || "Utente Newman";
+    if (emailEl) emailEl.textContent = appState.user.email || "";
+    if (roleEl) {
+      if (appState.user.perm_admin) {
+        roleEl.textContent = "Supermaster / Admin";
+        roleEl.style.background = "#fef3c7";
+        roleEl.style.color = "#b45309";
+      } else if (appState.user.perm_mensa || appState.user.perm_manutenzione) {
+        roleEl.textContent = "Staff / Servizi";
+        roleEl.style.background = "#e0f2fe";
+        roleEl.style.color = "#0369a1";
+      } else {
+        roleEl.textContent = "Residente Approvato";
+        roleEl.style.background = "#dcfce7";
+        roleEl.style.color = "#15803d";
+      }
+    }
+    if (avatarEl) {
+      const parts = (appState.user.nome || "CN").trim().split(" ");
+      avatarEl.textContent = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : parts[0].slice(0, 2).toUpperCase();
+    }
+    if (masterShortcut) {
+      masterShortcut.style.display = haPermessiMaster() ? "flex" : "none";
+    }
+  } else {
+    if (nameEl) nameEl.textContent = "Ospite";
+    if (emailEl) emailEl.textContent = "Accesso non effettuato";
+    if (roleEl) {
+      roleEl.textContent = "Ospite";
+      roleEl.style.background = "var(--surface-alt)";
+      roleEl.style.color = "var(--text-muted)";
+    }
+    if (avatarEl) avatarEl.textContent = "CN";
+    if (masterShortcut) masterShortcut.style.display = "none";
+  }
+
+  aggiornaPulsantiTema();
+  modal.style.display = "flex";
+}
+window.apriModalSettings = apriModalSettings;
+
+function chiudiModalSettings() {
+  const modal = document.getElementById("modal-settings");
+  if (modal) modal.style.display = "none";
+}
+window.chiudiModalSettings = chiudiModalSettings;
 
 // ----------------------------------------------------------------------------
 // UTILITY FUNCTIONS
