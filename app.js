@@ -15,6 +15,10 @@ const STORAGE_KEYS = {
   BYPASS_TIME_LOCK: "newman_bypass_time_lock"
 };
 
+// URL predefinito del Backend Google Apps Script per tutti i residenti
+// Quando inserito, l'app si collegherà automaticamente in diretta al Foglio Google
+const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbwGOPkCRL8gIHEcvv_yTmmlSWwyt2r5_jqrU7JMqzNorN6By4hccBIwB-GhvmLwoY3pTw/exec";
+
 // Bindings globali immediati per gli eventi inline HTML onclick
 window.mostraModalAuth = function(mostra) {
   const modal = document.getElementById("modal-auth");
@@ -464,7 +468,12 @@ document.addEventListener("DOMContentLoaded", () => {
  * Inizializza impostazioni dal localStorage
  */
 function initStorage() {
-  appState.backendUrl = localStorage.getItem(STORAGE_KEYS.BACKEND_URL) || "";
+  let storedBackendUrl = localStorage.getItem(STORAGE_KEYS.BACKEND_URL);
+  if (!storedBackendUrl && DEFAULT_GAS_URL) {
+    storedBackendUrl = DEFAULT_GAS_URL;
+    localStorage.setItem(STORAGE_KEYS.BACKEND_URL, DEFAULT_GAS_URL);
+  }
+  appState.backendUrl = storedBackendUrl || DEFAULT_GAS_URL || "";
   appState.bypassTimeLock = localStorage.getItem(STORAGE_KEYS.BYPASS_TIME_LOCK) === "true";
   appState.selectedBachecaDate = new Date();
   appState.selectedSpazioData = formatYMD(new Date());
