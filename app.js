@@ -28,6 +28,16 @@ window.mostraModalAuth = function(mostra) {
     document.getElementById("auth-step-email")?.classList.remove("hidden");
     document.getElementById("auth-step-register")?.classList.add("hidden");
     document.getElementById("auth-step-waiting")?.classList.add("hidden");
+    const inp = document.getElementById("auth-input-email");
+    if (inp) setTimeout(() => inp.focus(), 100);
+  }
+};
+
+window.gestisciClickUserPill = function() {
+  if (appState.user) {
+    apriModalSettings();
+  } else {
+    window.mostraModalAuth(true);
   }
 };
 
@@ -556,12 +566,11 @@ function checkAuthAndLoad() {
       return;
     } catch (e) {
       console.error("Errore parse utente:", e);
+      localStorage.removeItem(STORAGE_KEYS.USER);
     }
   }
-  // Se nessun utente salvato, accedi automaticamente con il profilo Don Andrea Dotti (Master / Direzione)
-  const defaultUser = INITIAL_MOCK_DB.utenti[0];
-  appState.user = { ...defaultUser };
-  localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+  // Nessun utente salvato in sessione: stato ospite non autenticato
+  appState.user = null;
   aggiornaUIUtente();
   caricaDatiBackend();
 }
@@ -5458,6 +5467,10 @@ function mostraModalAuth(mostra) {
     document.getElementById("auth-step-email")?.classList.remove("hidden");
     document.getElementById("auth-step-register")?.classList.add("hidden");
     document.getElementById("auth-step-waiting")?.classList.add("hidden");
+    const inp = document.getElementById("auth-input-email");
+    if (inp) {
+      setTimeout(() => inp.focus(), 150);
+    }
   }
 }
 
@@ -5557,18 +5570,6 @@ function setupEventListeners() {
   // Inizializzazione Tema (Chiaro / Scuro)
   const savedTheme = localStorage.getItem("newman_theme") || "light";
   impostaTema(savedTheme);
-
-  // Utenti preset per test rapido
-  document.querySelectorAll(".quick-login-btn").forEach(b => {
-    b.addEventListener("click", () => {
-      const em = b.getAttribute("data-email");
-      const inp = document.getElementById("auth-input-email");
-      if (inp) {
-        inp.value = em;
-        inp.focus();
-      }
-    });
-  });
 }
 
 function switchTab(tabId) {
@@ -5617,7 +5618,7 @@ function aggiornaUIUtente() {
 
   if (appState.user) {
     if (avatarText) {
-      const parts = (appState.user.nome || "CN").split(" ");
+      const parts = (appState.user.nome || "CN").trim().split(" ");
       avatarText.innerText = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : parts[0].slice(0, 2).toUpperCase();
     }
     if (userName) userName.innerText = appState.user.nome;
@@ -5631,6 +5632,13 @@ function aggiornaUIUtente() {
 
     if (masterNav) {
       masterNav.style.display = haPermessiMaster() ? "flex" : "none";
+    }
+  } else {
+    if (avatarText) avatarText.innerText = "👤";
+    if (userName) userName.innerText = "Ospite";
+    if (userRole) userRole.innerText = "Accedi";
+    if (masterNav) {
+      masterNav.style.display = "none";
     }
   }
 }
@@ -5652,7 +5660,19 @@ function aggiornaIndicatoreConnessione() {
 window.logout = function() {
   localStorage.removeItem(STORAGE_KEYS.USER);
   appState.user = null;
-  location.reload();
+  chiudiModalSettings();
+  aggiornaUIUtente();
+  if (appState.currentTab === "master") {
+    switchTab("info");
+  } else {
+    renderBachecaView();
+    renderMensaView();
+    renderSpaziView();
+  }
+  const inp = document.getElementById("auth-input-email");
+  if (inp) inp.value = "";
+  mostraToast("Disconnessione effettuata con successo", "info");
+  mostraModalAuth(true);
 };
 
 /**
@@ -5727,8 +5747,24 @@ function apriModalSettings() {
       roleEl.style.background = "var(--surface-alt)";
       roleEl.style.color = "var(--text-muted)";
     }
-    if (avatarEl) avatarEl.textContent = "CN";
+    if (avatarEl) avatarEl.textContent = "👤";
     if (masterShortcut) masterShortcut.style.display = "none";
+  }
+
+  const logoutBtn = document.getElementById("btn-settings-logout");
+  if (logoutBtn) {
+    if (appState.user) {
+      logoutBtn.innerHTML = `<span>🚪</span><span>Disconnetti</span>`;
+      logoutBtn.className = "btn btn-danger btn-block";
+      logoutBtn.onclick = () => window.logout();
+    } else {
+      logoutBtn.innerHTML = `<span>🔑</span><span>Accedi</span>`;
+      logoutBtn.className = "btn btn-primary btn-block";
+      logoutBtn.onclick = () => {
+        chiudiModalSettings();
+        window.mostraModalAuth(true);
+      };
+    }
   }
 
   aggiornaPulsantiTema();
