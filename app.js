@@ -739,6 +739,17 @@ function mockBackendExecution(action, params) {
       return { success: false, error: "Utente non trovato" };
     }
 
+    case "eliminaUtente": {
+      const emailTarget = String(params.emailTarget || "").trim().toLowerCase();
+      const idx = db.utenti.findIndex(u => u.email.toLowerCase() === emailTarget);
+      if (idx !== -1) {
+        db.utenti.splice(idx, 1);
+        localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        return { success: true, message: "Residente rimosso con successo!" };
+      }
+      return { success: false, error: "Utente non trovato" };
+    }
+
     case "importaElencoUtenti": {
       const lista = params.utenti || [];
       let aggiunti = 0;
@@ -3914,9 +3925,14 @@ function renderMasterSection() {
                   <label><input type="checkbox" id="p-spazi-${escapeHtml(u.email)}" checked> Spazi</label>
                   <label><input type="checkbox" id="p-admin-${escapeHtml(u.email)}"> Admin</label>
                 </div>
-                <button type="button" class="btn btn-success btn-sm" onclick="approvaUtente('${escapeHtml(u.email)}')" style="font-weight: 700;">
-                  ✅ Approva & Attiva
-                </button>
+                <div style="display: flex; gap: 6px; align-items: center;">
+                  <button type="button" class="btn btn-success btn-sm" onclick="approvaUtente('${escapeHtml(u.email)}')" style="font-weight: 700;">
+                    ✅ Approva & Attiva
+                  </button>
+                  <button type="button" class="btn btn-outline btn-sm" onclick="eliminaUtente('${escapeHtml(u.email)}', '${escapeHtml(u.nome)}')" style="font-weight: 600; color: #dc2626; border-color: #fca5a5;" title="Rifiuta o elimina richiesta">
+                    🗑️ Rifiuta
+                  </button>
+                </div>
               </div>
             `).join("")}
           </div>
@@ -3965,9 +3981,14 @@ function renderMasterSection() {
                       <input type="checkbox" id="edit-p-admin-${escapeHtml(u.email)}" ${u.perm_admin ? 'checked' : ''} title="Permesso Superamministratore">
                     </td>
                     <td>
-                      <button type="button" class="btn btn-secondary btn-sm" onclick="salvaRuoliUtente('${escapeHtml(u.email)}')" style="font-size: 11px; padding: 4px 8px; font-weight: 600;">
-                        💾 Salva Ruoli
-                      </button>
+                      <div style="display: flex; gap: 4px; align-items: center;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="salvaRuoliUtente('${escapeHtml(u.email)}')" style="font-size: 11px; padding: 4px 8px; font-weight: 600;" title="Salva modifiche ruoli">
+                          💾 Salva
+                        </button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="eliminaUtente('${escapeHtml(u.email)}', '${escapeHtml(u.nome || u.email)}')" style="font-size: 11px; padding: 4px 8px; font-weight: 600; color: #dc2626; border-color: #fca5a5;" title="Rimuovi utente dal sistema e dal foglio Google">
+                          🗑️ Elimina
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 `).join("")}
@@ -4610,6 +4631,28 @@ window.salvaRuoliUtente = async function(email) {
     }
   } catch (err) {
     mostraToast("Errore di rete nell'aggiornamento dei ruoli", "error");
+  }
+};
+
+window.eliminaUtente = async function(email, nome) {
+  if (!email) return;
+  const label = nome ? `"${nome}" (${email})` : email;
+  const confermato = window.confirm(`Sei sicuro di voler eliminare il residente ${label}?\n\nL'utente verrà rimosso dall'elenco del sistema e dal Foglio Google.`);
+  if (!confermato) return;
+
+  try {
+    const res = await callApi("eliminaUtente", { emailTarget: email });
+    if (res && res.success) {
+      mostraToast(`✅ Residente ${email} rimosso con successo!`, "success");
+      await caricaDatiMaster();
+      if (appState.currentTab === "master") {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore durante l'eliminazione: " + (res?.error || "Errore sconosciuto"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante l'eliminazione: " + err.message, "error");
   }
 };
 
