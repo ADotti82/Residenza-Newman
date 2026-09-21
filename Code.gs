@@ -39,7 +39,8 @@ function setupDatabase() {
       "Perm_Mensa",
       "Perm_Manutenzione",
       "Perm_Spazi",
-      "Perm_Admin"
+      "Perm_Admin",
+      "Password"
     ]);
     // Aggiungi utente di default con pieni permessi
     sUtenti.appendRow([
@@ -49,8 +50,15 @@ function setupDatabase() {
       true,
       true,
       true,
-      true
+      true,
+      "newman2026"
     ]);
+  } else {
+    // Se la colonna 8 per la Password non è ancora presente, aggiungila all'intestazione
+    const lastCol = sUtenti.getLastColumn();
+    if (lastCol < 8) {
+      sUtenti.getRange(1, 8).setValue("Password");
+    }
   }
 
   // 2. Foglio Mensa
@@ -293,10 +301,16 @@ function doPost(e) {
         return gestisciInizializzaDati(payload);
 
       case "login":
-        return gestisciLogin(payload.email);
+        return gestisciLogin(payload);
 
       case "registraUtente":
-        return gestisciRegistrazione(payload.email, payload.nome);
+        return gestisciRegistrazione(payload.email, payload.nome, payload.password);
+
+      case "cambiaPassword":
+        return gestisciCambiaPassword(payload);
+
+      case "resetPasswordUtente":
+        return gestisciResetPasswordUtente(payload);
 
       case "approvaUtente":
         return gestisciApprovazione(payload);
@@ -370,17 +384,44 @@ function doPost(e) {
 // GESTIONE UTENTI
 // ----------------------------------------------------------------------------
 
-function gestisciLogin(email) {
+function gestisciLogin(payload) {
+  const email = (typeof payload === "string" ? payload : (payload && payload.email ? payload.email : "")).trim().toLowerCase();
+  const password = payload && payload.password ? String(payload.password).trim() : "";
   if (!email) return rispostaJSON({ success: false, error: "Email obbligatoria" });
-  email = email.trim().toLowerCase();
 
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Utenti non trovato" });
   const data = sheet.getDataRange().getValues();
 
   // data[0] sono le intestazioni
   for (let i = 1; i < data.length; i++) {
     const row = data[i];
     if (String(row[0]).trim().toLowerCase() === email) {
+      const storedPass = String(row[7] || "").trim();
+
+      // Se l'utente ha una password impostata, verificala
+      if (storedPass) {
+        if (!password) {
+          return rispostaJSON({
+            success: false,
+            requirePassword: true,
+            error: "Inserisci la tua password per accedere"
+          });
+        }
+        if (password !== storedPass) {
+          return rispostaJSON({
+            success: false,
+            requirePassword: true,
+            error: "Password errata. Riprova o chiedi il reset alla Direzione."
+          });
+        }
+      } else {
+        // Se non ha ancora una password nel foglio e l'ha fornita al login, salvala come password iniziale
+        if (password) {
+          sheet.getRange(i + 1, 8).setValue(password);
+        }
+      }
+
       return rispostaJSON({
         success: true,
         utente: {
@@ -390,7 +431,8 @@ function gestisciLogin(email) {
           perm_mensa: Boolean(row[3]),
           perm_manutenzione: Boolean(row[4]),
           perm_spazi: Boolean(row[5]),
-          perm_admin: Boolean(row[6])
+          perm_admin: Boolean(row[6]),
+          hasPassword: Boolean(storedPass || password)
         }
       });
     }
@@ -404,14 +446,16 @@ function gestisciLogin(email) {
   });
 }
 
-function gestisciRegistrazione(email, nome) {
+function gestisciRegistrazione(email, nome, password) {
   if (!email || !nome) {
     return rispostaJSON({ success: false, error: "Email e Nome obbligatori" });
   }
   email = email.trim().toLowerCase();
   nome = nome.trim();
+  password = String(password || "newman2026").trim();
 
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Utenti non trovato" });
   const data = sheet.getDataRange().getValues();
 
   // Verifica se esiste già
@@ -432,7 +476,8 @@ function gestisciRegistrazione(email, nome) {
     false, // Perm_Mensa (non master mensa)
     false, // Perm_Manutenzione (non master manutenzione)
     true,  // Perm_Spazi (abilitato a prenotare Chiesa e Sala TV)
-    false  // Perm_Admin (non supermaster)
+    false, // Perm_Admin (non supermaster)
+    password // Password utente
   ]);
 
   return rispostaJSON({
@@ -445,10 +490,64 @@ function gestisciRegistrazione(email, nome) {
       perm_mensa: false,
       perm_manutenzione: false,
       perm_spazi: true,
-      perm_admin: false
+      perm_admin: false,
+      hasPassword: true
     },
     message: "Registrazione completata con successo come Utente Base!"
   });
+}
+
+function gestisciCambiaPassword(payload) {
+  const email = String(payload.email || "").trim().toLowerCase();
+  const passwordAttuale = String(payload.passwordAttuale || "").trim();
+  const nuovaPassword = String(payload.nuovaPassword || "").trim();
+
+  if (!email) return rispostaJSON({ success: false, error: "Email utente mancante" });
+  if (!nuovaPassword || nuovaPassword.length < 4) {
+    return rispostaJSON({ success: false, error: "La nuova password deve contenere almeno 4 caratteri" });
+  }
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Utenti non trovato" });
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === email) {
+      const passNelFoglio = String(data[i][7] || "").trim();
+      // Se c'è già una password nel foglio, verifica che quella attuale corrisponda
+      if (passNelFoglio && passNelFoglio !== passwordAttuale) {
+        return rispostaJSON({ success: false, error: "La password attuale inserita non è corretta." });
+      }
+
+      sheet.getRange(i + 1, 8).setValue(nuovaPassword);
+      return rispostaJSON({ success: true, message: "Password aggiornata con successo nel database!" });
+    }
+  }
+
+  return rispostaJSON({ success: false, error: "Utente non trovato nel sistema" });
+}
+
+function gestisciResetPasswordUtente(payload) {
+  const emailTarget = String(payload.emailTarget || "").trim().toLowerCase();
+  const nuovaPassword = String(payload.nuovaPassword || "newman2026").trim();
+
+  if (!emailTarget) return rispostaJSON({ success: false, error: "Email residente mancante" });
+
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Utenti non trovato" });
+  const data = sheet.getDataRange().getValues();
+
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === emailTarget) {
+      sheet.getRange(i + 1, 8).setValue(nuovaPassword);
+      return rispostaJSON({
+        success: true,
+        message: "Password per " + emailTarget + " reimpostata con successo a: " + nuovaPassword
+      });
+    }
+  }
+
+  return rispostaJSON({ success: false, error: "Utente non trovato" });
 }
 
 function gestisciApprovazione(payload) {
@@ -523,7 +622,8 @@ function gestisciImportaElencoUtenti(payload) {
         item.perm_mensa !== undefined ? Boolean(item.perm_mensa) : false,
         item.perm_manutenzione !== undefined ? Boolean(item.perm_manutenzione) : false,
         item.perm_spazi !== undefined ? Boolean(item.perm_spazi) : true,
-        item.perm_admin !== undefined ? Boolean(item.perm_admin) : false
+        item.perm_admin !== undefined ? Boolean(item.perm_admin) : false,
+        String(item.password || "newman2026").trim()
       ]);
       existingEmails.add(email);
       aggiunti++;
@@ -1081,7 +1181,8 @@ function getMasterData(emailRichiedente) {
         perm_mensa: Boolean(rows[i][3]),
         perm_manutenzione: Boolean(rows[i][4]),
         perm_spazi: Boolean(rows[i][5]),
-        perm_admin: Boolean(rows[i][6])
+        perm_admin: Boolean(rows[i][6]),
+        password: rows[i][7] ? String(rows[i][7]) : ""
       };
       utenti.push(u);
       if (u.stato === "In Attesa") utentiInAttesa.push(u);

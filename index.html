@@ -2389,17 +2389,27 @@
           </svg>
         </div>
         <h3 class="modal-title">Accesso Residente</h3>
-        <p class="modal-subtitle">Inserisci la tua email per accedere ai servizi della Residenza.</p>
+        <p class="modal-subtitle">Inserisci la tua email e la password per accedere ai servizi della Residenza.</p>
       </div>
 
-      <!-- Step 1: Inserimento Email -->
+      <!-- Step 1: Inserimento Email e Password -->
       <div id="auth-step-email">
         <form id="form-auth-email">
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom: 12px;">
             <label for="auth-input-email">Indirizzo Email</label>
             <input type="email" id="auth-input-email" class="input-text" placeholder="nome@residenza.it" required autocomplete="email">
           </div>
-          <button type="submit" id="btn-check-email" class="btn btn-primary btn-block">Continua</button>
+          <div class="form-group" style="margin-bottom: 14px;">
+            <div class="flex-between" style="margin-bottom: 4px;">
+              <label for="auth-input-password" style="font-size: 13px; font-weight: 600;">Password</label>
+              <button type="button" onclick="toggleVisibilitaPassword('auth-input-password', this)" style="background: none; border: none; font-size: 12px; color: var(--accent); cursor: pointer; padding: 0;">👁️ Mostra</button>
+            </div>
+            <input type="password" id="auth-input-password" class="input-text" placeholder="Inserisci la password" autocomplete="current-password">
+            <div class="text-xs text-muted" style="margin-top: 5px; line-height: 1.4;">
+              🔑 Password fornita dalla Direzione (predefinita: <code>newman2026</code>). Potrai cambiarla dal tuo profilo.
+            </div>
+          </div>
+          <button type="submit" id="btn-check-email" class="btn btn-primary btn-block">Accedi</button>
         </form>
       </div>
 
@@ -2416,6 +2426,10 @@
           <div class="form-group">
             <label for="reg-input-nome">Nome Completo</label>
             <input type="text" id="reg-input-nome" class="input-text" placeholder="Es. Don Mario Rossi" required>
+          </div>
+          <div class="form-group">
+            <label for="reg-input-password">Scegli una Password</label>
+            <input type="password" id="reg-input-password" class="input-text" placeholder="Minimo 4 caratteri" value="newman2026">
           </div>
           <button type="submit" id="btn-submit-register" class="btn btn-accent btn-block">Invia Richiesta di Registrazione</button>
           <button type="button" class="btn btn-outline btn-block" style="margin-top: 8px;" onclick="mostraModalAuth(true)">Indietro</button>
@@ -2520,6 +2534,42 @@
             </div>
             <span style="font-size: 12px; color: var(--accent); font-weight: 600;">Gestione →</span>
           </button>
+        </div>
+      </div>
+
+      <!-- Sezione Sicurezza e Cambio Password -->
+      <div id="settings-password-section" style="margin-bottom: 16px; display: none;">
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <label style="font-size: 13px; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px;">
+            <span>🔐</span> Sicurezza &amp; Password
+          </label>
+          <button type="button" id="btn-toggle-box-password" class="btn btn-outline btn-sm" onclick="toggleBoxCambioPassword()" style="font-size: 11px; padding: 3px 8px; font-weight: 600;">
+            ✏️ Modifica
+          </button>
+        </div>
+        <div id="box-cambio-password" style="display: none; background: var(--surface-alt); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px; margin-top: 6px;">
+          <form id="form-cambia-password" onsubmit="handleCambiaPasswordUtente(event)">
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label for="input-pass-attuale" style="font-size: 11.5px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 2px;">Password Attuale o Iniziale:</label>
+              <input type="password" id="input-pass-attuale" class="input-text" style="padding: 7px 10px; font-size: 13px;" placeholder="Password attuale o assegnata" required autocomplete="current-password">
+            </div>
+            <div class="form-group" style="margin-bottom: 8px;">
+              <label for="input-pass-nuova" style="font-size: 11.5px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 2px;">Nuova Password Personale:</label>
+              <input type="password" id="input-pass-nuova" class="input-text" style="padding: 7px 10px; font-size: 13px;" placeholder="Minimo 4 caratteri" required autocomplete="new-password">
+            </div>
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label for="input-pass-conferma" style="font-size: 11.5px; font-weight: 600; color: var(--text-main); display: block; margin-bottom: 2px;">Conferma Nuova Password:</label>
+              <input type="password" id="input-pass-conferma" class="input-text" style="padding: 7px 10px; font-size: 13px;" placeholder="Ripeti la nuova password" required autocomplete="new-password">
+            </div>
+            <div style="display: flex; gap: 6px;">
+              <button type="submit" id="btn-salva-nuova-pass" class="btn btn-primary btn-sm" style="flex: 1; font-weight: 700;">
+                💾 Salva Nuova Password
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="toggleBoxCambioPassword(false)">
+                Annulla
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 

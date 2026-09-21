@@ -357,10 +357,10 @@ function applicaMenuBaseDaGoogleSheets(menuBase) {
 // Database Mock Locale iniziale (attivo quando non è configurato un backend GAS)
 const INITIAL_MOCK_DB = {
   utenti: [
-    { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true },
-    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false },
-    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false },
-    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false }
+    { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true, password: "newman2026" },
+    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, password: "newman2026" },
+    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, password: "newman2026" },
+    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false, password: "newman2026" }
   ],
   mensa: [
     { id: "M_001", data: "2026-09-16", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, note: "Piatto standard", timestamp: "2026-09-16T09:00:00Z" },
@@ -638,24 +638,72 @@ function mockBackendExecution(action, params) {
   switch (action) {
     case "login": {
       const email = String(params.email || "").trim().toLowerCase();
+      const password = String(params.password || "").trim();
       const utente = db.utenti.find(u => u.email.toLowerCase() === email);
-      if (utente) {
-        return { success: true, utente };
+      if (!utente) {
+        return { success: false, notFound: true, message: "Utente non presente" };
       }
-      return { success: false, notFound: true, message: "Utente non presente" };
+      // Se l'utente ha una password nel database
+      if (utente.password) {
+        if (!password) {
+          return { success: false, requirePassword: true, error: "Inserisci la tua password per accedere" };
+        }
+        if (utente.password !== password) {
+          return { success: false, requirePassword: true, error: "Password errata. Riprova o chiedi il reset alla Direzione." };
+        }
+      } else {
+        // Se non aveva una password salvata e l'ha inserita, diventa la sua password iniziale
+        if (password) {
+          utente.password = password;
+          localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        }
+      }
+      return { success: true, utente: { ...utente, hasPassword: Boolean(utente.password) } };
     }
 
     case "registraUtente": {
       const email = String(params.email || "").trim().toLowerCase();
       const nome = String(params.nome || "").trim();
+      const password = String(params.password || "newman2026").trim();
       const exists = db.utenti.some(u => u.email.toLowerCase() === email);
       if (exists) return { success: false, error: "Email già registrata" };
 
       // Ogni residente ha il permesso per prenotare gli spazi comuni (Chiesa e Sala TV)
-      const nuovo = { email, nome, stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false };
+      const nuovo = { email, nome, stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false, password };
       db.utenti.push(nuovo);
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
-      return { success: true, status: "Approvato", message: "Registrazione completata con successo!" };
+      return { success: true, status: "Approvato", message: "Registrazione completata con successo!", utente: nuovo };
+    }
+
+    case "cambiaPassword": {
+      const email = String(params.email || "").trim().toLowerCase();
+      const passwordAttuale = String(params.passwordAttuale || "").trim();
+      const nuovaPassword = String(params.nuovaPassword || "").trim();
+
+      const utente = db.utenti.find(u => u.email.toLowerCase() === email);
+      if (!utente) return { success: false, error: "Utente non trovato" };
+
+      if (utente.password && utente.password !== passwordAttuale) {
+        return { success: false, error: "La password attuale inserita non è corretta." };
+      }
+      if (!nuovaPassword || nuovaPassword.length < 4) {
+        return { success: false, error: "La nuova password deve contenere almeno 4 caratteri." };
+      }
+
+      utente.password = nuovaPassword;
+      localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+      return { success: true, message: "Password aggiornata con successo!" };
+    }
+
+    case "resetPasswordUtente": {
+      const emailTarget = String(params.emailTarget || "").trim().toLowerCase();
+      const nuovaPassword = String(params.nuovaPassword || "newman2026").trim();
+      const utente = db.utenti.find(u => u.email.toLowerCase() === emailTarget);
+      if (!utente) return { success: false, error: "Utente non trovato" };
+
+      utente.password = nuovaPassword;
+      localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+      return { success: true, message: `Password per ${emailTarget} reimpostata con successo a: ${nuovaPassword}` };
     }
 
     case "approvaUtente": {
@@ -814,7 +862,8 @@ function mockBackendExecution(action, params) {
             perm_mensa: item.perm_mensa !== undefined ? Boolean(item.perm_mensa) : true,
             perm_manutenzione: item.perm_manutenzione !== undefined ? Boolean(item.perm_manutenzione) : false,
             perm_spazi: item.perm_spazi !== undefined ? Boolean(item.perm_spazi) : true,
-            perm_admin: item.perm_admin !== undefined ? Boolean(item.perm_admin) : false
+            perm_admin: item.perm_admin !== undefined ? Boolean(item.perm_admin) : false,
+            password: item.password || "newman2026"
           });
           aggiunti++;
         }
@@ -4016,11 +4065,12 @@ function renderMasterSection() {
                   <th>Manutenzione / Servizi</th>
                   <th>Spazi Comuni</th>
                   <th>Supermaster (Admin)</th>
+                  <th>Password</th>
                   <th>Azione</th>
                 </tr>
               </thead>
               <tbody>
-                ${tuttiUtenti.length === 0 ? '<tr><td colspan="7" style="text-align:center; padding: 14px; color: #64748b;">Nessun utente caricato.</td></tr>' : ''}
+                ${tuttiUtenti.length === 0 ? '<tr><td colspan="8" style="text-align:center; padding: 14px; color: #64748b;">Nessun utente caricato.</td></tr>' : ''}
                 ${tuttiUtenti.map(u => `
                   <tr>
                     <td>
@@ -4042,13 +4092,19 @@ function renderMasterSection() {
                     <td style="text-align: center;">
                       <input type="checkbox" id="edit-p-admin-${escapeHtml(u.email)}" ${u.perm_admin ? 'checked' : ''} title="Permesso Superamministratore">
                     </td>
+                    <td style="font-size: 11px; white-space: nowrap;">
+                      ${u.password ? `<span style="font-family: monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-weight: 600; color: #0f172a; border: 1px solid #e2e8f0;">${escapeHtml(u.password)}</span>` : '<span class="text-xs text-muted">newman2026</span>'}
+                    </td>
                     <td>
                       <div style="display: flex; gap: 4px; align-items: center;">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="salvaRuoliUtente('${escapeHtml(u.email)}')" style="font-size: 11px; padding: 4px 8px; font-weight: 600;" title="Salva modifiche ruoli">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="salvaRuoliUtente('${escapeHtml(u.email)}')" style="font-size: 11px; padding: 4px 7px; font-weight: 600;" title="Salva modifiche ruoli">
                           💾 Salva
                         </button>
-                        <button type="button" class="btn btn-outline btn-sm" onclick="eliminaUtente('${escapeHtml(u.email)}', '${escapeHtml(u.nome || u.email)}')" style="font-size: 11px; padding: 4px 8px; font-weight: 600; color: #dc2626; border-color: #fca5a5;" title="Rimuovi utente dal sistema e dal foglio Google">
-                          🗑️ Elimina
+                        <button type="button" class="btn btn-outline btn-sm" onclick="resetPasswordUtenteMaster('${escapeHtml(u.email)}', '${escapeHtml(u.nome || u.email)}')" style="font-size: 11px; padding: 4px 7px; font-weight: 600; color: #b45309; border-color: #fde68a;" title="Reimposta la password per questo utente">
+                          🔑 Reset
+                        </button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="eliminaUtente('${escapeHtml(u.email)}', '${escapeHtml(u.nome || u.email)}')" style="font-size: 11px; padding: 4px 7px; font-weight: 600; color: #dc2626; border-color: #fca5a5;" title="Rimuovi utente dal sistema e dal foglio Google">
+                          🗑️
                         </button>
                       </div>
                     </td>
@@ -4065,11 +4121,11 @@ function renderMasterSection() {
             <span>📋</span> <strong>Importa o Inserisci Elenco Residenti Pre-Approvati</strong>
           </h4>
           <p class="text-xs text-muted" style="margin-bottom: 10px;">
-            Puoi inserire o incollare un elenco di residenti (uno per riga) nel formato: <code>email, Nome Cognome</code>.<br>
-            Verranno registrati ed approvati automaticamente con i permessi standard di residente (Spazi e Mensa abilitati).
+            Puoi inserire o incollare un elenco di residenti (uno per riga) nel formato: <code>email, Nome Cognome, eventuale_password</code>.<br>
+            Se omessa, la password iniziale sarà automaticamente <code>newman2026</code>.
           </p>
           <form onsubmit="importaElencoUtentiMaster(event)">
-            <textarea id="import-utenti-textarea" class="input-textarea" rows="3" style="font-size: 12.5px; font-family: monospace;" placeholder="donmario@newman.it, Don Mario Rossi&#10;francesco@newman.it, Francesco Bianchi"></textarea>
+            <textarea id="import-utenti-textarea" class="input-textarea" rows="3" style="font-size: 12.5px; font-family: monospace;" placeholder="donmario@newman.it, Don Mario Rossi, pass123&#10;francesco@newman.it, Francesco Bianchi"></textarea>
             <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
               <button type="submit" class="btn btn-primary btn-sm" style="background: #ea580c; border-color: #c2410c; font-weight: 700;">
                 ➕ Importa & Abilita Tutti i Residenti
@@ -4718,6 +4774,38 @@ window.eliminaUtente = async function(email, nome) {
   }
 };
 
+window.resetPasswordUtenteMaster = async function(email, nome) {
+  if (!email) return;
+  const label = nome ? `"${nome}" (${email})` : email;
+  const nuovaPass = window.prompt(`Imposta una nuova password per ${label}:\n\n(L'utente potrà poi personalizzarla in ogni momento dal menu Impostazioni/Profilo)`, "newman2026");
+  
+  if (nuovaPass === null) return; // annullato dall'utente
+  const passwordPulita = nuovaPass.trim();
+  if (!passwordPulita || passwordPulita.length < 3) {
+    mostraToast("La password deve contenere almeno 3 caratteri", "warning");
+    return;
+  }
+
+  try {
+    const res = await callApi("resetPasswordUtente", {
+      emailTarget: email,
+      nuovaPassword: passwordPulita
+    });
+
+    if (res && res.success) {
+      mostraToast(`✅ Password per ${email} reimpostata a: ${passwordPulita}`, "success");
+      await caricaDatiMaster();
+      if (appState.currentTab === "master") {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore: " + (res?.error || "Impossibile reimpostare la password"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete: " + err.message, "error");
+  }
+};
+
 // ----------------------------------------------------------------------------
 // HANDLER MASTER: IMPORTAZIONE BATCH UTENTI
 // ----------------------------------------------------------------------------
@@ -4741,8 +4829,9 @@ window.importaElencoUtentiMaster = async function(e) {
     const parts = r.split(/[,;\t]/);
     const email = (parts[0] || "").trim();
     const nome = (parts[1] || "").trim() || email.split("@")[0];
+    const password = (parts[2] || "").trim() || "newman2026";
     if (email && email.includes("@")) {
-      utentiDaImportare.push({ email, nome });
+      utentiDaImportare.push({ email, nome, password });
     }
   }
 
@@ -5467,6 +5556,8 @@ function mostraModalAuth(mostra) {
     document.getElementById("auth-step-email")?.classList.remove("hidden");
     document.getElementById("auth-step-register")?.classList.add("hidden");
     document.getElementById("auth-step-waiting")?.classList.add("hidden");
+    const passInp = document.getElementById("auth-input-password");
+    if (passInp) passInp.value = "";
     const inp = document.getElementById("auth-input-email");
     if (inp) {
       setTimeout(() => inp.focus(), 150);
@@ -5490,6 +5581,7 @@ function setupEventListeners() {
     formEmail.addEventListener("submit", async (e) => {
       e.preventDefault();
       const email = document.getElementById("auth-input-email")?.value.trim().toLowerCase();
+      const password = document.getElementById("auth-input-password")?.value.trim() || "";
       if (!email) return;
 
       const btn = document.getElementById("btn-check-email");
@@ -5497,7 +5589,7 @@ function setupEventListeners() {
       btn.innerText = "Verifica in corso...";
 
       try {
-        const res = await callApi("login", { email });
+        const res = await callApi("login", { email, password });
         if (res.success && res.utente) {
           if (res.utente.stato === "Approvato") {
             // Utente approvato -> Salva e sblocca
@@ -5513,11 +5605,20 @@ function setupEventListeners() {
             document.getElementById("auth-step-waiting").classList.remove("hidden");
             document.getElementById("waiting-user-email").innerText = email;
           }
+        } else if (res.requirePassword) {
+          mostraToast(res.error || "Password richiesta per accedere", "warning");
+          const passInp = document.getElementById("auth-input-password");
+          if (passInp) {
+            passInp.focus();
+            passInp.select();
+          }
         } else if (res.notFound) {
           // Non registrato -> Mostra form registrazione
           document.getElementById("auth-step-email").classList.add("hidden");
           document.getElementById("auth-step-register").classList.remove("hidden");
           document.getElementById("reg-input-email").value = email;
+          const regPass = document.getElementById("reg-input-password");
+          if (regPass && password) regPass.value = password;
         } else {
           mostraToast("Errore: " + (res.error || "Accesso non riuscito"), "error");
         }
@@ -5525,7 +5626,7 @@ function setupEventListeners() {
         mostraToast("Errore di connessione", "error");
       } finally {
         btn.disabled = false;
-        btn.innerText = "Continua";
+        btn.innerText = "Accedi";
       }
     });
   }
@@ -5536,6 +5637,7 @@ function setupEventListeners() {
       e.preventDefault();
       const email = document.getElementById("reg-input-email")?.value.trim().toLowerCase();
       const nome = document.getElementById("reg-input-nome")?.value.trim();
+      const password = document.getElementById("reg-input-password")?.value.trim() || "newman2026";
       if (!email || !nome) return;
 
       const btn = document.getElementById("btn-submit-register");
@@ -5543,7 +5645,7 @@ function setupEventListeners() {
       btn.innerText = "Invio richiesta...";
 
       try {
-        const res = await callApi("registraUtente", { email, nome });
+        const res = await callApi("registraUtente", { email, nome, password });
         if (res.success) {
           document.getElementById("auth-step-register").classList.add("hidden");
           document.getElementById("auth-step-waiting").classList.remove("hidden");
@@ -5767,6 +5869,17 @@ function apriModalSettings() {
     }
   }
 
+  // Gestione visibilità sezione cambio password
+  const passSection = document.getElementById("settings-password-section");
+  const boxPass = document.getElementById("box-cambio-password");
+  if (passSection) {
+    passSection.style.display = appState.user ? "block" : "none";
+  }
+  if (boxPass) {
+    boxPass.style.display = "none";
+    document.getElementById("form-cambia-password")?.reset();
+  }
+
   aggiornaPulsantiTema();
   modal.style.display = "flex";
 }
@@ -5777,6 +5890,100 @@ function chiudiModalSettings() {
   if (modal) modal.style.display = "none";
 }
 window.chiudiModalSettings = chiudiModalSettings;
+
+// Toggle visibilità campo password (mostra/nascondi testo)
+window.toggleVisibilitaPassword = function(inputId, btnEl) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  if (inp.type === "password") {
+    inp.type = "text";
+    if (btnEl) btnEl.innerText = "🙈 Nascondi";
+  } else {
+    inp.type = "password";
+    if (btnEl) btnEl.innerText = "👁️ Mostra";
+  }
+};
+
+// Toggle box cambio password nelle impostazioni
+window.toggleBoxCambioPassword = function(force) {
+  const box = document.getElementById("box-cambio-password");
+  if (!box) return;
+  if (typeof force === "boolean") {
+    box.style.display = force ? "block" : "none";
+  } else {
+    box.style.display = box.style.display === "none" ? "block" : "none";
+  }
+  if (box.style.display === "block") {
+    const inp = document.getElementById("input-pass-attuale");
+    if (inp) setTimeout(() => inp.focus(), 100);
+  }
+};
+
+// Salvataggio cambio password utente
+window.handleCambiaPasswordUtente = async function(e) {
+  if (e) e.preventDefault();
+  if (!appState.user) return;
+
+  const passAttuale = document.getElementById("input-pass-attuale")?.value.trim() || "";
+  const passNuova = document.getElementById("input-pass-nuova")?.value.trim() || "";
+  const passConferma = document.getElementById("input-pass-conferma")?.value.trim() || "";
+
+  if (!passAttuale) {
+    mostraToast("Inserisci la tua password attuale o iniziale", "warning");
+    return;
+  }
+  if (!passNuova || passNuova.length < 4) {
+    mostraToast("La nuova password deve contenere almeno 4 caratteri", "warning");
+    return;
+  }
+  if (passNuova !== passConferma) {
+    mostraToast("La conferma della nuova password non coincide", "warning");
+    return;
+  }
+
+  const btn = document.getElementById("btn-salva-nuova-pass");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "Salvataggio...";
+  }
+
+  try {
+    const res = await callApi("cambiaPassword", {
+      email: appState.user.email,
+      passwordAttuale: passAttuale,
+      nuovaPassword: passNuova
+    });
+
+    if (res && res.success) {
+      mostraToast("✅ Password aggiornata con successo!", "success");
+      // Aggiorna stato locale dell'utente
+      appState.user.password = passNuova;
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+      
+      // Se presente nel DB mock locale, aggiorna anche lì
+      const db = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || "{}");
+      if (db.utenti) {
+        const u = db.utenti.find(item => item.email.toLowerCase() === appState.user.email.toLowerCase());
+        if (u) {
+          u.password = passNuova;
+          localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        }
+      }
+
+      toggleBoxCambioPassword(false);
+      document.getElementById("form-cambia-password")?.reset();
+    } else {
+      mostraToast("Errore: " + (res?.error || "Impossibile aggiornare la password"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante l'aggiornamento della password", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = "💾 Salva Nuova Password";
+    }
+  }
+};
 
 // ----------------------------------------------------------------------------
 // UTILITY FUNCTIONS
