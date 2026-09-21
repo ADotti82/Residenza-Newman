@@ -2034,26 +2034,34 @@
       </section>
 
       <!-- ====================================================================
-           VISTA 5: MANUTENZIONE
+           VISTA 5: SEGNALAZIONI (MANUTENZIONE & SERVIZI)
            ==================================================================== -->
       <section class="view-container" id="view-manutenzione">
         <div class="card">
-          <h2 class="card-title">Segnalazione Guasti</h2>
-          <p class="card-desc">Segnala un problema tecnico nella tua camera o nelle aree comuni con foto opzionale.</p>
+          <h2 class="card-title">Segnalazioni di Residenza</h2>
+          <p class="card-desc">Invia una segnalazione per problemi di manutenzione tecnica o per i servizi della Residenza.</p>
 
           <form id="form-segnala-guasto">
+            <div class="form-group">
+              <label for="manutenzione-categoria">Ambito della Segnalazione</label>
+              <select id="manutenzione-categoria" class="input-select" required>
+                <option value="manutenzione" selected>🛠️ Manutenzione Tecnica (Idraulica, Luce, Clima, Porte, Arredi)</option>
+                <option value="servizi">🧹 Servizi di Residenza (Pulizie, Lavanderia, Rifiuti, Wi-Fi, Portineria)</option>
+              </select>
+            </div>
+
             <div class="form-group">
               <label for="manutenzione-luogo">Ubicazione / Stanza</label>
               <input type="text" id="manutenzione-luogo" class="input-text" placeholder="Es. Stanza 204, Bagno Piano 2, Lavanderia..." required>
             </div>
 
             <div class="form-group">
-              <label for="manutenzione-descrizione">Descrizione del Problema</label>
-              <textarea id="manutenzione-descrizione" class="input-textarea" rows="3" placeholder="Descrivi in dettaglio il guasto riscontrato..." required></textarea>
+              <label for="manutenzione-descrizione">Descrizione Dettagliata</label>
+              <textarea id="manutenzione-descrizione" class="input-textarea" rows="3" placeholder="Descrivi in dettaglio la problematica riscontrata..." required></textarea>
             </div>
 
             <div class="form-group">
-              <label>Fotografia del Guasto (Opzionale)</label>
+              <label>Fotografia Opzionale</label>
               <div class="photo-upload-zone" onclick="document.getElementById('manutenzione-foto-input').click()">
                 <div style="font-size: 26px; margin-bottom: 4px;">📷</div>
                 <div style="font-size: 13px; font-weight: 600;">Scatta una foto o scegli dalla galleria</div>
@@ -2069,16 +2077,22 @@
             </div>
 
             <button type="submit" id="btn-submit-guasto" class="btn btn-primary btn-block">
-              Invia Segnalazione Guasto
+              Invia Segnalazione
             </button>
           </form>
         </div>
 
-        <!-- Feed dei guasti segnalati di recente -->
-        <div class="card">
-          <h3 class="card-title-sm">Segnalazioni Recenti</h3>
-          <div id="manutenzione-recenti-list">
-            <p class="empty-state-text">Caricamento storico guasti...</p>
+        <!-- Box informativo privacy & lista riservata all'utente -->
+        <div class="card" id="card-segnalazioni-utente">
+          <div class="flex-between">
+            <h3 class="card-title-sm" id="titolo-mie-segnalazioni">Le Tue Segnalazioni</h3>
+            <span class="badge" style="background:#f1f5f9; font-size:11px;">🔒 Riservato</span>
+          </div>
+          <p class="text-xs text-muted" style="margin-top: 4px; line-height: 1.4;">
+            Per motivi di riservatezza, lo storico globale e le riparazioni sono visibili esclusivamente ai Master incaricati e alla Direzione. Qui vedi unicamente il riepilogo delle segnalazioni da te inviate.
+          </p>
+          <div id="manutenzione-recenti-list" style="margin-top: 12px;">
+            <p class="empty-state-text">Nessuna segnalazione inviata da te finora.</p>
           </div>
         </div>
       </section>
@@ -2139,12 +2153,12 @@
         <span>Residenza</span>
       </button>
 
-      <!-- Tab Manutenzione -->
+      <!-- Tab Segnalazioni -->
       <button type="button" class="bottom-nav-item" data-tab="manutenzione" id="nav-tab-manutenzione">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
           <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
         </svg>
-        <span>Guasti</span>
+        <span>Segnalazioni</span>
       </button>
 
       <!-- Tab Master (visibile solo se ha permessi) -->

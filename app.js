@@ -15,6 +15,50 @@ const STORAGE_KEYS = {
   BYPASS_TIME_LOCK: "newman_bypass_time_lock"
 };
 
+// Bindings globali immediati per gli eventi inline HTML onclick
+window.mostraModalAuth = function(mostra) {
+  const modal = document.getElementById("modal-auth");
+  if (!modal) return;
+  modal.style.display = mostra ? "flex" : "none";
+  if (mostra) {
+    document.getElementById("auth-step-email")?.classList.remove("hidden");
+    document.getElementById("auth-step-register")?.classList.add("hidden");
+    document.getElementById("auth-step-waiting")?.classList.add("hidden");
+  }
+};
+
+window.testaConnessioneGoogleFogli = async function() {
+  const urlInput = document.getElementById("input-gas-url");
+  if (urlInput && urlInput.value.trim()) {
+    appState.backendUrl = urlInput.value.trim();
+    localStorage.setItem(STORAGE_KEYS.BACKEND_URL, appState.backendUrl);
+    if (typeof aggiornaIndicatoreConnessione === "function") {
+      aggiornaIndicatoreConnessione();
+    }
+  }
+  const resEl = document.getElementById("gas-test-result");
+  if (resEl) {
+    resEl.style.display = "block";
+    resEl.innerHTML = `<span style="color:#0284c7;">🔄 Test di connessione in corso...</span>`;
+  }
+  if (typeof window.testaConnessioneGAS === "function") {
+    await window.testaConnessioneGAS();
+  }
+  if (resEl) {
+    if (appState.backendUrl) {
+      resEl.innerHTML = `<span style="color:#166534; font-weight:600;">✅ URL Google Apps Script configurato e testato!</span>`;
+    } else {
+      resEl.innerHTML = `<span style="color:#92400e;">⚠️ Modalità Stand-alone Locale attiva (nessun URL specificato).</span>`;
+    }
+  }
+};
+
+window.switchTab = function(tabId) {
+  if (typeof switchTab === "function") {
+    switchTab(tabId);
+  }
+};
+
 // Data di ancoraggio per la Settimana 1 del Menu: 20 Luglio 2026
 const MENU_ANCHOR_DATE = new Date("2026-07-20T00:00:00");
 
@@ -27,66 +71,238 @@ const CLASSICI_BUSTA = [
 ];
 
 // Menu ciclico di 14 giorni (Settimana 1 e Settimana 2)
-// NOTA: Il martedì e il giovedì a pranzo non c'è un menù cotto, sono previsti i classici di busta (salvo variazione della cuoca).
+// Completo di 1° piatto, 2° piatto, contorno 1 e 2, dessert per pranzo e cena
 const MENU_14_GIORNI = {
   settimana1: {
     lunedi: {
-      pranzo: { primo: "Pasta al pomodoro e basilico fresco", secondo: "Arista di maiale al forno con patate", contorno: "Insalata mista di stagione", dessert: "Frutta fresca" },
-      cena: { primo: "Minestrone di verdure con crostoni", secondo: "Frittata campagnola con zucchine", contorno: "Carote novelle al vapore", dessert: "Yogurt artigianale" }
+      pranzo: {
+        primo: "Paella di carne alla Valenciana",
+        secondo: "Saltimbocca alla Romana",
+        contorno: "Insalata di cetrioli, pomodori e cipolla",
+        contorno2: "Spinaci",
+        dessert: "Frutta fresca"
+      },
+      cena: {
+        primo: "Spaghetti alle vongole",
+        secondo: "Scaloppine di Tacchino",
+        contorno: "Fagioli",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      }
     },
     martedi: {
-      pranzo: { isBustaClassica: true, bustaOnly: true, note: "Martedì: Classici di busta (salvo variazione cuoca)" },
-      cena: { primo: "Risotto allo zafferano e parmigiano", secondo: "Petto di pollo alla piastra con limone", contorno: "Spinaci saltati con pinoli", dessert: "Frutta fresca" }
+      pranzo: {
+        primo: "Tortellini alla Boscaiola",
+        secondo: "Cotolette di Pollo (panate)",
+        contorno: "Finocchi Julienne al Forno",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca",
+        opzioneBustaDisponibile: true
+      },
+      cena: {
+        primo: "Linguine al profumo di mare",
+        secondo: "Salmone al Forno",
+        contorno: "Piselli all'olio",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      }
     },
     mercoledi: {
-      pranzo: { primo: "Fusilli al pesto genovese", secondo: "Merluzzo al pomodoro e olive taggiasche", contorno: "Fagiolini all'agro", dessert: "Budino alla vaniglia" },
-      cena: { primo: "Passato di zucca e carote", secondo: "Caciotta fresca con pomodori", contorno: "Verdure grigliate", dessert: "Frutta fresca" }
+      pranzo: {
+        primo: "Paccheri al salmone e pomodorini",
+        secondo: "Cotoletta alla milanese",
+        contorno: "Zucchine ripassate",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      },
+      cena: {
+        primo: "Risotto al radicchio",
+        secondo: "Straccetti con rucola",
+        contorno: "Insalata di pomodori e cetrioli",
+        contorno2: "Patate gratinate",
+        dessert: "Frutta fresca"
+      }
     },
     giovedi: {
-      pranzo: { isBustaClassica: true, bustaOnly: true, note: "Giovedì: Classici di busta (salvo variazione cuoca)" },
-      cena: { primo: "Gnocchi alla sorrentina con mozzarella", secondo: "Scaloppine ai funghi trifolati", contorno: "Insalata mista", dessert: "Gelato fior di latte" }
+      pranzo: {
+        primo: "Pasta cacio e pepe",
+        secondo: "Insalata di pollo saporita",
+        contorno: "Carote Julienne ripassate",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca",
+        opzioneBustaDisponibile: true
+      },
+      cena: {
+        primo: "Pasta allo zafferano e gorgonzola",
+        secondo: "Sovracoscia di Tacchino",
+        contorno: "Patatine fritte",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      }
     },
     venerdi: {
-      pranzo: { primo: "Penne all'arrabbiata", secondo: "Orata al cartoccio con erbe aromatiche", contorno: "Patate lesse prezzemolate", dessert: "Macedonia di stagione" },
-      cena: { primo: "Zuppa di lenticchie e farro", secondo: "Tortino di uova e bietole", contorno: "Finocchi in insalata con arance", dessert: "Frutta fresca" }
+      pranzo: {
+        primo: "Risotto alla Marinara",
+        secondo: "Frittura di Calamari",
+        contorno: "Melanzane al Forno",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      },
+      cena: {
+        primo: "Paccheri al sugo di calamari",
+        secondo: "Pesce Spada grigliato con pomodori e olive",
+        contorno: "Carciofi ripassati",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      }
     },
     sabato: {
-      pranzo: { primo: "Pasta al forno gratinata", secondo: "Bocconcini di vitello con piselli", contorno: "Insalata capricciosa", dessert: "Frutta fresca" },
-      cena: { primo: "Crema di patate e porri", secondo: "Mozzarella di bufala e prosciutto crudo", contorno: "Pomodori ramati all'origano", dessert: "Dolce della casa" }
+      pranzo: {
+        primo: "Pasta al ragù di carne",
+        secondo: "Straccetti con rucola",
+        contorno: "Zucchine ripassate",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      },
+      cena: {
+        primo: "Supplì e arancini",
+        secondo: "Insalata di patate tonnate con uova sode",
+        contorno: "Finocchi Julienne",
+        contorno2: "Insalata mista",
+        dessert: "Dolce della casa"
+      }
     },
     domenica: {
-      pranzo: { primo: "Lasagne alla bolognese della tradizione", secondo: "Arrosto di vitello con salsa delicata", contorno: "Patate rustiche al rosmarino", dessert: "Tiramisù classico" },
-      cena: { primo: "Brodo caldo con tortellini", secondo: "Formaggi tipici e miele", contorno: "Insalata mista", dessert: "Frutta fresca" }
+      pranzo: {
+        primo: "Fettuccine alla papalina",
+        secondo: "Bistecca di manzo alla griglia",
+        contorno: "Patate al forno",
+        contorno2: "Insalata mista",
+        dessert: "Dolce festivo"
+      },
+      cena: {
+        primo: "Spaghetti aglio olio e peperoncino",
+        secondo: "Pollo tonnato",
+        contorno: "Pomodori rossi",
+        contorno2: "Carote",
+        dessert: "Frutta fresca"
+      }
     }
   },
   settimana2: {
     lunedi: {
-      pranzo: { primo: "Spaghetti alla carbonara delicata", secondo: "Polpette della nonna al sugo", contorno: "Piselli stufati con cipolla", dessert: "Frutta fresca" },
-      cena: { primo: "Vellutata di piselli e menta", secondo: "Ricotta fresca con olio e pepe", contorno: "Zucchine trifolate", dessert: "Mela cotta alla cannella" }
+      pranzo: {
+        primo: "Ravioli Burro e Salvia",
+        secondo: "Polpette di Carne fatte in casa",
+        contorno: "Fagiolini",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      },
+      cena: {
+        primo: "Pasta al pesto",
+        secondo: "Gamberoni in Padella",
+        contorno: "Pomodori e basilico all'olio",
+        contorno2: "Biete",
+        dessert: "Frutta fresca"
+      }
     },
     martedi: {
-      pranzo: { isBustaClassica: true, bustaOnly: true, note: "Martedì: Classici di busta (salvo variazione cuoca)" },
-      cena: { primo: "Pasta e ceci alla romana", secondo: "Fesa di tacchino arrosto con erbe", contorno: "Purè di patate soffice", dessert: "Frutta fresca" }
+      pranzo: {
+        primo: "Spaghetti allo scoglio",
+        secondo: "Polpo con patate",
+        contorno: "Carciofi",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca",
+        opzioneBustaDisponibile: true
+      },
+      cena: {
+        primo: "Spaghetti alle Cozze",
+        secondo: "Salmone gratinato",
+        contorno: "Carote Prezzemolate",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      }
     },
     mercoledi: {
-      pranzo: { primo: "Rigatoni all'amatriciana", secondo: "Filetto di platessa dorato", contorno: "Insalata mista con mais", dessert: "Panna cotta ai frutti di bosco" },
-      cena: { primo: "Minestra di riso e verdure", secondo: "Stracchino e affettato magro", contorno: "Carciofi alla romana", dessert: "Frutta fresca" }
+      pranzo: {
+        primo: "Parmigiana al ragù",
+        secondo: "Saltimbocca alla Romana",
+        contorno: "Melanzane",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      },
+      cena: {
+        primo: "Risotto Asparagi e Speck",
+        secondo: "Arrosto",
+        contorno: "Fagioli",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      }
     },
     giovedi: {
-      pranzo: { isBustaClassica: true, bustaOnly: true, note: "Giovedì: Classici di busta (salvo variazione cuoca)" },
-      cena: { primo: "Risotto con radicchio e provola", secondo: "Cosce di pollo al forno con timo", contorno: "Broccoli ripassati", dessert: "Frutta fresca" }
+      pranzo: {
+        primo: "Pasta alle Vongole",
+        secondo: "Pollo sovracoscia o cosce di pollo",
+        contorno: "Pomodori rossi",
+        contorno2: "Patate lesse",
+        dessert: "Frutta fresca",
+        opzioneBustaDisponibile: true
+      },
+      cena: {
+        primo: "Linguine al pomodoro fresco di stagione",
+        secondo: "Straccetti con rucola",
+        contorno: "Tris di Verdure estive",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      }
     },
     venerdi: {
-      pranzo: { primo: "Tagliatelle al salmone affumicato (o sugo vegetale)", secondo: "Calamari in umido con piselli", contorno: "Insalata mista", dessert: "Sorbetto al limone" },
-      cena: { primo: "Zuppa toscana di fagioli cannellini", secondo: "Uova in camicia su crostone integrale", contorno: "Bietole all'agro", dessert: "Frutta fresca" }
+      pranzo: {
+        primo: "Riso alla cantonese",
+        secondo: "Spigola al forno",
+        contorno: "Bieta ripassata",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      },
+      cena: {
+        primo: "Farfalle al Salmone",
+        secondo: "Branzino al cartoccio",
+        contorno: "Insalata di cetrioli pomodori e cipolla",
+        contorno2: "Melanzane gratinate o al forno con mozzarella",
+        dessert: "Frutta fresca"
+      }
     },
     sabato: {
-      pranzo: { primo: "Pasta con crema di zucchine e speck", secondo: "Lonza di maiale all'arancia", contorno: "Patate sabbiate al forno", dessert: "Frutta fresca" },
-      cena: { primo: "Passato di verdure miste", secondo: "Piatto freddo di bresaola, rucola e grana", contorno: "Verdure al vapore", dessert: "Torta di mele" }
+      pranzo: {
+        primo: "Pasta alla Carbonara",
+        secondo: "Arista di maiale",
+        contorno: "Tris di verdure estive",
+        contorno2: "Insalata mista",
+        dessert: "Frutta fresca"
+      },
+      cena: {
+        primo: "Torta salata",
+        secondo: "Insalata di tonno",
+        contorno: "Insalata di carote",
+        contorno2: "Insalata mista",
+        dessert: "Dolce della casa"
+      }
     },
     domenica: {
-      pranzo: { primo: "Cannelloni ricotta e spinaci", secondo: "Spezzatino di manzo con funghi", contorno: "Patate novelle al forno", dessert: "Profiteroles al cioccolato" },
-      cena: { primo: "Vellutata di funghi champignon con crostini", secondo: "Selezione formaggi con mostarda", contorno: "Insalata valeriana e noci", dessert: "Frutta fresca" }
+      pranzo: {
+        primo: "Cannelloni di carne al forno",
+        secondo: "Pollo arrosto o petto di pollo alla norma",
+        contorno: "Patate caramellate",
+        contorno2: "Insalata mista",
+        dessert: "Dolce festivo"
+      },
+      cena: {
+        primo: "Tagliatelle paglia e fieno",
+        secondo: "Braciole di maiale",
+        contorno: "Pomodori rossi",
+        contorno2: "Finocchi al forno",
+        dessert: "Frutta fresca"
+      }
     }
   }
 };
@@ -151,10 +367,37 @@ const INITIAL_MOCK_DB = {
     }
   ],
   manutenzione: [
-    { id: "G_001", timestamp: "2026-09-14T11:20:00Z", email: "donrocco@newman.it", descrizione: "Perdita d'acqua dal rubinetto del lavabo al piano 2", link_foto: "", stato: "Da fare" },
-    { id: "G_002", timestamp: "2026-09-12T16:00:00Z", email: "donandreadotti@gmail.com", descrizione: "Sostituita lampadina nel corridoio est", link_foto: "", stato: "Risolto" }
+    {
+      id: "SEG_001",
+      timestamp: "2026-09-14T11:20:00Z",
+      email: "donrocco@newman.it",
+      categoria: "manutenzione",
+      luogo: "Bagno Piano 2",
+      descrizione: "Perdita d'acqua dal rubinetto del lavabo al piano 2",
+      link_foto: "",
+      priorita: "Alta",
+      stato: "In Lavorazione",
+      note_intervento: "Contattato idraulico convenzionato per sostituzione guarnizione",
+      tecnico: "Idraulico Mario",
+      data_chiusura: ""
+    },
+    {
+      id: "SEG_002",
+      timestamp: "2026-09-12T16:00:00Z",
+      email: "donandreadotti@gmail.com",
+      categoria: "servizi",
+      luogo: "Lavanderia Comune",
+      descrizione: "Mancanza detersivi e richiesta sanificazione cestelli lavatrice 2",
+      link_foto: "",
+      priorita: "Media",
+      stato: "Risolto",
+      note_intervento: "Riforniti flaconi detersivo e igienizzati i cestelli dalla cooperativa",
+      tecnico: "Impresa Pulizie",
+      data_chiusura: "2026-09-13T10:00:00Z"
+    }
   ],
   configurazione: {
+    Messaggio_Supermaster: "Cari sacerdoti e residenti, benvenuti nella nostra Residenza. Ricordo a tutti che gli orari di mensa vanno rispettati per agevolare il servizio della cuoca. Per qualsiasi esigenza pastorale o accademica la porta della Direzione è sempre aperta.",
     Data_Variazione_Menu: "2026-09-16",
     Testo_Variazione: "Oggi a pranzo dessert sostituito con Gelato artigianale offerto dalla Direzione per la festa della Residenza!",
     Pasto_Variazione: "pranzo",
@@ -197,7 +440,9 @@ const appState = {
   selectedSpazioData: "",      // Data selezionata per prenotazione spazi (YYYY-MM-DD)
   selectedSpazioFascia: "tutti", // Filtro fascia: tutti | mattina | pomeriggio | sera
   mensaBookings: [],           // Prenotazioni mensa
-  guasti: [],                  // Lista guasti
+  guasti: [],                  // Lista segnalazioni / guasti
+  manutenzioneList: [],        // Alias per garantire compatibilità ovunque
+  tuttiUtenti: [],             // Elenco completo residenti (per Admin)
   utentiInAttesa: [],          // Lista utenti in attesa (per Admin)
   compressedImageBase64: null, // Stringa JPEG compressa dal canvas
   isOfflineMode: false,
@@ -428,28 +673,92 @@ function mockBackendExecution(action, params) {
     }
 
     case "caricaGuasto": {
-      const { email, descrizione, fotoBase64 } = params;
+      const { email, descrizione, fotoBase64, categoria, luogo } = params;
       const guasto = {
-        id: "G_" + Date.now(),
+        id: "SEG_" + Date.now().toString().slice(-6),
         timestamp: new Date().toISOString(),
         email,
-        descrizione,
+        categoria: categoria || "manutenzione",
+        luogo: luogo || "",
+        descrizione: descrizione || "",
         link_foto: fotoBase64 ? fotoBase64 : "",
-        stato: "Da fare"
+        priorita: params.priorita || "Media",
+        stato: "Da fare",
+        note_intervento: "",
+        tecnico: "",
+        data_chiusura: ""
       };
       db.manutenzione.unshift(guasto);
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
-      return { success: true, id: guasto.id, linkFoto: guasto.link_foto, message: "Guasto salvato" };
+      return { success: true, id: guasto.id, linkFoto: guasto.link_foto, message: "Segnalazione salvata nel database" };
     }
 
     case "risolviGuasto": {
       const g = db.manutenzione.find(item => String(item.id) === String(params.id));
       if (g) {
         g.stato = "Risolto";
+        g.data_chiusura = new Date().toISOString();
         localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
         return { success: true };
       }
-      return { success: false, error: "Guasto non trovato" };
+      return { success: false, error: "Segnalazione non trovata" };
+    }
+
+    case "aggiornaSegnalazione": {
+      const g = db.manutenzione.find(item => String(item.id) === String(params.id));
+      if (g) {
+        if (params.stato !== undefined) g.stato = params.stato;
+        if (params.priorita !== undefined) g.priorita = params.priorita;
+        if (params.note_intervento !== undefined) g.note_intervento = params.note_intervento;
+        if (params.tecnico !== undefined) g.tecnico = params.tecnico;
+        if (params.categoria !== undefined) g.categoria = params.categoria;
+        if (params.luogo !== undefined) g.luogo = params.luogo;
+        if (g.stato === "Risolto" && !g.data_chiusura) {
+          g.data_chiusura = new Date().toISOString();
+        } else if (g.stato !== "Risolto") {
+          g.data_chiusura = "";
+        }
+        localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        return { success: true, message: "Segnalazione aggiornata con successo!" };
+      }
+      return { success: false, error: "Segnalazione non trovata" };
+    }
+
+    case "aggiornaRuoliUtente": {
+      const emailTarget = String(params.emailTarget || "").trim().toLowerCase();
+      const utente = db.utenti.find(u => u.email.toLowerCase() === emailTarget);
+      if (utente) {
+        if (params.perm_mensa !== undefined) utente.perm_mensa = Boolean(params.perm_mensa);
+        if (params.perm_manutenzione !== undefined) utente.perm_manutenzione = Boolean(params.perm_manutenzione);
+        if (params.perm_spazi !== undefined) utente.perm_spazi = Boolean(params.perm_spazi);
+        if (params.perm_admin !== undefined) utente.perm_admin = Boolean(params.perm_admin);
+        localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        return { success: true, message: "Ruoli aggiornati per " + emailTarget };
+      }
+      return { success: false, error: "Utente non trovato" };
+    }
+
+    case "importaElencoUtenti": {
+      const lista = params.utenti || [];
+      let aggiunti = 0;
+      lista.forEach(item => {
+        const email = String(item.email || "").trim().toLowerCase();
+        const nome = String(item.nome || "").trim();
+        if (email && !db.utenti.some(u => u.email.toLowerCase() === email)) {
+          db.utenti.push({
+            email,
+            nome: nome || email.split("@")[0],
+            stato: "Approvato",
+            perm_mensa: item.perm_mensa !== undefined ? Boolean(item.perm_mensa) : true,
+            perm_manutenzione: item.perm_manutenzione !== undefined ? Boolean(item.perm_manutenzione) : false,
+            perm_spazi: item.perm_spazi !== undefined ? Boolean(item.perm_spazi) : true,
+            perm_admin: item.perm_admin !== undefined ? Boolean(item.perm_admin) : false
+          });
+          aggiunti++;
+        }
+      });
+      localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+      return { success: true, aggiunti, message: `${aggiunti} utenti aggiunti ed abilitati con successo!` };
     }
 
     case "cancellaPrenotazioneSpazio": {
@@ -531,6 +840,7 @@ function mockBackendExecution(action, params) {
     }
 
     case "aggiornaConfig": {
+      if (params.Messaggio_Supermaster !== undefined) db.configurazione.Messaggio_Supermaster = params.Messaggio_Supermaster;
       if (params.Info_Regolamento !== undefined) db.configurazione.Info_Regolamento = params.Info_Regolamento;
       if (params.Info_Contatti !== undefined) db.configurazione.Info_Contatti = params.Info_Contatti;
       if (params.Data_Variazione_Menu !== undefined) db.configurazione.Data_Variazione_Menu = params.Data_Variazione_Menu;
@@ -1141,7 +1451,53 @@ function renderResidenzaView() {
 • Economato & Servizio Mensa: mensa@residenzanewman.org
 • Assistenza Tecnica Manutenzione: manutenzione@residenzanewman.org`;
 
+  const msgSupermaster = appState.cachedConfig.Messaggio_Supermaster || "Cari residenti, benvenuti nel portale digitale della Residenza Newman. Per qualsiasi necessità o urgenza la Direzione è a vostra disposizione.";
+
   container.innerHTML = `
+    <!-- CARD PORTAMI ALLA RESIDENZA (NAVIGATORE GOOGLE MAPS) -->
+    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; border: 1px solid rgba(255,255,255,0.12); padding: 18px;">
+      <div class="flex-between" style="flex-wrap: wrap; gap: 12px;">
+        <div class="flex-align" style="gap: 12px;">
+          <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(22, 163, 74, 0.2); border: 1px solid rgba(22, 163, 74, 0.4); display: flex; align-items: center; justify-content: center; font-size: 24px;">
+            📍
+          </div>
+          <div>
+            <h2 class="card-title" style="margin: 0; color: #ffffff; font-size: 17px;">Dove Siamo & Raggiungi la Struttura</h2>
+            <div style="font-size: 12.5px; color: #94a3b8; margin-top: 2px;">Residenza Cardinal Newman • Roma</div>
+          </div>
+        </div>
+        <a href="https://maps.app.goo.gl/dPn1ccwpTPbCG8RX6" target="_blank" rel="noopener noreferrer" class="btn btn-primary" id="btn-portami-residenza" style="background: #16a34a; border-color: #16a34a; font-weight: 700; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 10px 18px; border-radius: 8px; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.4);">
+          <span>🗺️</span>
+          <span>Portami alla residenza</span>
+          <span style="font-size: 13px;">↗</span>
+        </a>
+      </div>
+      <p style="font-size: 12.5px; color: #cbd5e1; margin: 12px 0 0 0; line-height: 1.45;">
+        Tocca il pulsante per avviare il navigatore in tempo reale su Google Maps con le indicazioni a piedi, in auto o tramite trasporto pubblico verso la Residenza.
+      </p>
+    </div>
+
+    <!-- CARD SPAZIO TESTO DEL SUPERMASTER / COMUNICAZIONE DIREZIONE -->
+    <div class="card" style="border-left: 4px solid #f59e0b;">
+      <div class="flex-between" style="margin-bottom: 8px;">
+        <div class="flex-align" style="gap: 8px;">
+          <span style="font-size: 22px;">👑</span>
+          <div>
+            <h2 class="card-title" style="margin: 0;">Comunicazione della Direzione (Supermaster)</h2>
+            <span class="text-xs text-muted">Messaggio ufficiale del Superamministratore per tutti i residenti</span>
+          </div>
+        </div>
+        ${haPermessiMaster() ? `
+          <button type="button" class="btn btn-secondary btn-sm" onclick="apriModalMessaggioSupermaster()">
+            ✏️ Modifica
+          </button>
+        ` : ''}
+      </div>
+      <div class="residenza-text-box" style="background: #fffbeb; border-color: #fde68a; color: #78350f; font-size: 13.5px; line-height: 1.5;">
+        ${escapeHtml(msgSupermaster)}
+      </div>
+    </div>
+
     <!-- CARD ORARI COMUNITARI GIORNALIERI -->
     <div class="card">
       <div class="flex-align" style="margin-bottom: 8px;">
@@ -1243,6 +1599,75 @@ function renderResidenzaView() {
     </div>
   `;
 }
+
+// ----------------------------------------------------------------------------
+// MODAL GESTIONE MESSAGGIO SUPERMASTER / DIREZIONE
+// ----------------------------------------------------------------------------
+window.apriModalMessaggioSupermaster = function() {
+  const currentMsg = appState.cachedConfig.Messaggio_Supermaster || "Cari residenti, benvenuti nel portale digitale della Residenza Newman. Per qualsiasi necessità o urgenza la Direzione è a vostra disposizione.";
+  
+  let modal = document.getElementById("modal-messaggio-supermaster");
+  if (!modal) {
+    modal = document.createElement("div");
+    modal.id = "modal-messaggio-supermaster";
+    modal.className = "modal-overlay";
+    modal.innerHTML = `
+      <div class="modal-card" style="max-width: 520px;">
+        <div class="modal-header">
+          <div style="font-size: 32px; margin-bottom: 6px;">👑</div>
+          <h3 class="modal-title" style="margin: 0;">Spazio Testo del Supermaster</h3>
+          <p class="modal-subtitle">Aggiorna la comunicazione ufficiale della Direzione visibile a tutti i residenti.</p>
+        </div>
+        <form onsubmit="salvaMessaggioSupermaster(event)">
+          <div class="form-group">
+            <label for="textarea-messaggio-supermaster" style="font-weight: 700;">Testo del Messaggio / Avviso Ufficiale:</label>
+            <textarea id="textarea-messaggio-supermaster" class="input-textarea" rows="6" style="font-size: 13.5px; line-height: 1.5;" required placeholder="Scrivi la comunicazione della Direzione..."></textarea>
+          </div>
+          <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
+            <button type="button" class="btn btn-secondary" onclick="chiudiModalMessaggioSupermaster()">Annulla</button>
+            <button type="submit" class="btn btn-primary" style="background: #f59e0b; border-color: #d97706; color: #000; font-weight: 700;">💾 Salva & Pubblica per Tutti</button>
+          </div>
+        </form>
+      </div>
+    `;
+    document.body.appendChild(modal);
+  }
+
+  const textarea = document.getElementById("textarea-messaggio-supermaster");
+  if (textarea) textarea.value = currentMsg;
+  modal.style.display = "flex";
+};
+
+window.chiudiModalMessaggioSupermaster = function() {
+  const modal = document.getElementById("modal-messaggio-supermaster");
+  if (modal) modal.style.display = "none";
+};
+
+window.salvaMessaggioSupermaster = async function(event) {
+  if (event) event.preventDefault();
+  const textarea = document.getElementById("textarea-messaggio-supermaster");
+  if (!textarea) return;
+
+  const nuovoTesto = textarea.value.trim();
+  if (!nuovoTesto) {
+    mostraToast("Il testo non può essere vuoto", "warning");
+    return;
+  }
+
+  try {
+    const res = await callApi("aggiornaConfig", { Messaggio_Supermaster: nuovoTesto });
+    if (res.success) {
+      appState.cachedConfig.Messaggio_Supermaster = nuovoTesto;
+      mostraToast("✅ Messaggio del Supermaster aggiornato!", "success");
+      chiudiModalMessaggioSupermaster();
+      renderResidenzaView();
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore durante il salvataggio", "error");
+  }
+};
 
 // ----------------------------------------------------------------------------
 // MODAL GESTIONE BACHECA (NUOVO AVVISO / COMPLEANNO)
@@ -1710,43 +2135,29 @@ function renderWeeklyScrollView(lunediDate) {
           </div>
 
           <div class="weekly-meal-dishes">
+            <div>
+              <strong>1°:</strong> ${escapeHtml(menuGiorno.pranzo?.primo || '-')} • 
+              <strong>2°:</strong> ${escapeHtml(menuGiorno.pranzo?.secondo || '-')} • 
+              <strong>Cont.:</strong> ${escapeHtml(menuGiorno.pranzo?.contorno || '-')}${menuGiorno.pranzo?.contorno2 ? ' • ' + escapeHtml(menuGiorno.pranzo.contorno2) : ''} • 
+              <strong>Dessert:</strong> ${escapeHtml(menuGiorno.pranzo?.dessert || '-')}
+            </div>
             ${isTuesdayOrThursday ? `
-              <div>
-                <span style="color: #c2410c; font-weight: 700;">🥪 Classici di Busta:</span>
-                <span style="font-size: 12px; color: #475569;"> Panino imbottito • Frutta di stagione • Snack • Acqua</span>
+              <div style="margin-top: 3px; font-size: 11px; color: #c2410c;">
+                🥪 <em>Opzione Busta da asporto sempre selezionabile</em>
               </div>
-              ${variazionePranzo ? `
-                <div class="cuoca-inline-variation">
-                  👩‍🍳 <strong>Variazione Pranzo:</strong> ${escapeHtml(variazionePranzo)}
-                </div>
-              ` : ''}
-              ${isMaster ? `
-                <div style="margin-top: 4px;">
-                  <button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">
-                    👩‍🍳 ${variazionePranzo ? 'Modifica Variazione Pranzo' : '+ Variazione Pranzo'}
-                  </button>
-                </div>
-              ` : ''}
-            ` : `
-              <div>
-                <strong>1°:</strong> ${menuGiorno.pranzo?.primo || '-'} • 
-                <strong>2°:</strong> ${menuGiorno.pranzo?.secondo || '-'} • 
-                <strong>Cont.:</strong> ${menuGiorno.pranzo?.contorno || '-'} • 
-                <strong>Dessert:</strong> ${menuGiorno.pranzo?.dessert || '-'}
+            ` : ''}
+            ${variazionePranzo ? `
+              <div class="cuoca-inline-variation">
+                👩‍🍳 <strong>Variazione Pranzo:</strong> ${escapeHtml(variazionePranzo)}
               </div>
-              ${variazionePranzo ? `
-                <div class="cuoca-inline-variation">
-                  👩‍🍳 <strong>Variazione Pranzo:</strong> ${escapeHtml(variazionePranzo)}
-                </div>
-              ` : ''}
-              ${isMaster ? `
-                <div style="margin-top: 4px;">
-                  <button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">
-                    👩‍🍳 ${variazionePranzo ? 'Modifica Variazione Pranzo' : '+ Variazione Pranzo'}
-                  </button>
-                </div>
-              ` : ''}
-            `}
+            ` : ''}
+            ${isMaster ? `
+              <div style="margin-top: 4px;">
+                <button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">
+                  👩‍🍳 ${variazionePranzo ? 'Modifica Variazione Pranzo' : '+ Variazione Pranzo'}
+                </button>
+              </div>
+            ` : ''}
           </div>
 
           <div class="booking-inline-controls">
@@ -1794,10 +2205,10 @@ function renderWeeklyScrollView(lunediDate) {
 
           <div class="weekly-meal-dishes">
             <div>
-              <strong>1°:</strong> ${menuGiorno.cena?.primo || '-'} • 
-              <strong>2°:</strong> ${menuGiorno.cena?.secondo || '-'} • 
-              <strong>Cont.:</strong> ${menuGiorno.cena?.contorno || '-'} • 
-              <strong>Dessert:</strong> ${menuGiorno.cena?.dessert || '-'}
+              <strong>1°:</strong> ${escapeHtml(menuGiorno.cena?.primo || '-')} • 
+              <strong>2°:</strong> ${escapeHtml(menuGiorno.cena?.secondo || '-')} • 
+              <strong>Cont.:</strong> ${escapeHtml(menuGiorno.cena?.contorno || '-')}${menuGiorno.cena?.contorno2 ? ' • ' + escapeHtml(menuGiorno.cena.contorno2) : ''} • 
+              <strong>Dessert:</strong> ${escapeHtml(menuGiorno.cena?.dessert || '-')}
             </div>
             ${variazioneCena ? `
               <div class="cuoca-inline-variation">
@@ -1897,14 +2308,27 @@ function renderDailyDetailedView(dataSel) {
       </div>
 
       <div class="meal-menu-body">
+        <div class="dish-list">
+          <div class="dish-item"><span class="dish-type">Primo:</span> <span class="dish-name">${escapeHtml(menuGiorno.pranzo?.primo || '-')}</span></div>
+          <div class="dish-item"><span class="dish-type">Secondo:</span> <span class="dish-name">${escapeHtml(menuGiorno.pranzo?.secondo || '-')}</span></div>
+          <div class="dish-item">
+            <span class="dish-type">Contorno:</span> 
+            <span class="dish-name">
+              ${escapeHtml(menuGiorno.pranzo?.contorno || '-')}
+              ${menuGiorno.pranzo?.contorno2 ? ` • ${escapeHtml(menuGiorno.pranzo.contorno2)}` : ''}
+            </span>
+          </div>
+          <div class="dish-item"><span class="dish-type">Dessert:</span> <span class="dish-name">${escapeHtml(menuGiorno.pranzo?.dessert || '-')}</span></div>
+        </div>
+
         ${isTuesdayOrThursday ? `
-          <div class="busta-classici-container">
+          <div class="busta-classici-container" style="margin-top: 12px;">
             <div class="busta-classici-header">
-              <span style="font-size: 26px;">🥪</span>
+              <span style="font-size: 24px;">🥪</span>
               <div>
-                <strong style="color: #9a3412; font-size: 14px;">Pranzo al Sacco — Classici di Busta</strong>
-                <p style="margin: 2px 0 0 0; font-size: 12px; color: #7c2d12;">
-                  Il ${nomeGiornoFormat} a pranzo non c'è menù cotto: sono previsti i classici di busta, con possibilità di variazione della cuoca.
+                <strong style="color: #9a3412; font-size: 13px;">Disponibile opzione Busta da asporto</strong>
+                <p style="margin: 2px 0 0 0; font-size: 11px; color: #7c2d12;">
+                  Puoi richiedere la busta al sacco spuntando la casella sottostante.
                 </p>
               </div>
             </div>
@@ -1920,66 +2344,31 @@ function renderDailyDetailedView(dataSel) {
                 </div>
               `).join("")}
             </div>
+          </div>
+        ` : ''}
 
-            <!-- Variazione Cuoca per pranzo -->
-            ${variazionePranzo ? `
-              <div class="cuoca-var-box has-var">
-                <div class="flex-between">
-                  <div class="flex-align">
-                    <span style="font-size: 18px;">👩‍🍳</span>
-                    <strong style="color: #92400e; font-size: 13px;">Variazione della Cuoca per il Pranzo:</strong>
-                  </div>
-                  ${isMaster ? `
-                    <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">Modifica</button>
-                  ` : ''}
-                </div>
-                <p style="margin: 6px 0 0 0; font-size: 13px; color: #78350f; line-height: 1.4;">
-                  ${escapeHtml(variazionePranzo)}
-                </p>
+        ${variazionePranzo ? `
+          <div class="cuoca-var-box has-var" style="margin-top: 10px;">
+            <div class="flex-between">
+              <div class="flex-align">
+                <span style="font-size: 18px;">👩‍🍳</span>
+                <strong style="color: #92400e; font-size: 13px;">Variazione della Cuoca per il Pranzo:</strong>
               </div>
-            ` : `
-              <div class="cuoca-var-box no-var">
-                <div class="flex-between">
-                  <span style="font-size: 12px; color: #64748b;">
-                    👩‍🍳 <em>Nessuna variazione speciale per il pranzo: valgono i classici di busta.</em>
-                  </span>
-                  ${isMaster ? `
-                    <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">+ Aggiungi Variazione Pranzo</button>
-                  ` : ''}
-                </div>
-              </div>
-            `}
-          </div>
-        ` : `
-          <div class="dish-list">
-            <div class="dish-item"><span class="dish-type">Primo:</span> <span class="dish-name">${menuGiorno.pranzo?.primo || '-'}</span></div>
-            <div class="dish-item"><span class="dish-type">Secondo:</span> <span class="dish-name">${menuGiorno.pranzo?.secondo || '-'}</span></div>
-            <div class="dish-item"><span class="dish-type">Contorno:</span> <span class="dish-name">${menuGiorno.pranzo?.contorno || '-'}</span></div>
-            <div class="dish-item"><span class="dish-type">Dessert:</span> <span class="dish-name">${menuGiorno.pranzo?.dessert || '-'}</span></div>
-          </div>
-          ${variazionePranzo ? `
-            <div class="cuoca-var-box has-var" style="margin-top: 10px;">
-              <div class="flex-between">
-                <div class="flex-align">
-                  <span style="font-size: 18px;">👩‍🍳</span>
-                  <strong style="color: #92400e; font-size: 13px;">Variazione della Cuoca per il Pranzo:</strong>
-                </div>
-                ${isMaster ? `
-                  <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">Modifica</button>
-                ` : ''}
-              </div>
-              <p style="margin: 6px 0 0 0; font-size: 13px; color: #78350f; line-height: 1.4;">
-                ${escapeHtml(variazionePranzo)}
-              </p>
+              ${isMaster ? `
+                <button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">Modifica</button>
+              ` : ''}
             </div>
-          ` : (isMaster ? `
-            <div style="margin-top: 8px; text-align: right;">
-              <button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">
-                👩‍🍳 + Aggiungi Variazione Cuoca per il Pranzo
-              </button>
-            </div>
-          ` : '')}
-        `}
+            <p style="margin: 6px 0 0 0; font-size: 13px; color: #78350f; line-height: 1.4;">
+              ${escapeHtml(variazionePranzo)}
+            </p>
+          </div>
+        ` : (isMaster ? `
+          <div style="margin-top: 8px; text-align: right;">
+            <button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">
+              👩‍🍳 + Aggiungi Variazione Cuoca per il Pranzo
+            </button>
+          </div>
+        ` : '')}
       </div>
 
       <form id="form-prenota-pranzo" onsubmit="handlePrenotazioneMensa(event, 'pranzo')">
@@ -2034,10 +2423,16 @@ function renderDailyDetailedView(dataSel) {
 
       <div class="meal-menu-body">
         <div class="dish-list">
-          <div class="dish-item"><span class="dish-type">Primo:</span> <span class="dish-name">${menuGiorno.cena?.primo || '-'}</span></div>
-          <div class="dish-item"><span class="dish-type">Secondo:</span> <span class="dish-name">${menuGiorno.cena?.secondo || '-'}</span></div>
-          <div class="dish-item"><span class="dish-type">Contorno:</span> <span class="dish-name">${menuGiorno.cena?.contorno || '-'}</span></div>
-          <div class="dish-item"><span class="dish-type">Dessert:</span> <span class="dish-name">${menuGiorno.cena?.dessert || '-'}</span></div>
+          <div class="dish-item"><span class="dish-type">Primo:</span> <span class="dish-name">${escapeHtml(menuGiorno.cena?.primo || '-')}</span></div>
+          <div class="dish-item"><span class="dish-type">Secondo:</span> <span class="dish-name">${escapeHtml(menuGiorno.cena?.secondo || '-')}</span></div>
+          <div class="dish-item">
+            <span class="dish-type">Contorno:</span> 
+            <span class="dish-name">
+              ${escapeHtml(menuGiorno.cena?.contorno || '-')}
+              ${menuGiorno.cena?.contorno2 ? ` • ${escapeHtml(menuGiorno.cena.contorno2)}` : ''}
+            </span>
+          </div>
+          <div class="dish-item"><span class="dish-type">Dessert:</span> <span class="dish-name">${escapeHtml(menuGiorno.cena?.dessert || '-')}</span></div>
         </div>
         ${variazioneCena ? `
           <div class="cuoca-var-box has-var" style="margin-top: 10px;">
@@ -2971,29 +3366,34 @@ function setupManutenzioneHandlers() {
         return;
       }
 
-      const descrizione = document.getElementById("manutenzione-descrizione")?.value.trim();
-      const luogo = document.getElementById("manutenzione-luogo")?.value.trim();
+      const categoria = document.getElementById("manutenzione-categoria")?.value || "manutenzione";
+      const luogo = document.getElementById("manutenzione-luogo")?.value.trim() || "";
+      const descrizione = document.getElementById("manutenzione-descrizione")?.value.trim() || "";
 
       if (!descrizione) {
-        mostraToast("Inserisci una descrizione del guasto", "warning");
+        mostraToast("Inserisci una descrizione della segnalazione", "warning");
         return;
       }
 
       const testoCompleto = luogo ? `[${luogo}] ${descrizione}` : descrizione;
       const submitBtn = document.getElementById("btn-submit-guasto");
-      submitBtn.disabled = true;
-      submitBtn.innerText = "Invio in corso...";
+      if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerText = "Invio in corso...";
+      }
 
       try {
         const res = await callApi("caricaGuasto", {
           email: appState.user.email,
+          categoria,
+          luogo,
           descrizione: testoCompleto,
           fotoBase64: appState.compressedImageBase64 || "",
           mimeType: "image/jpeg"
         });
 
         if (res.success) {
-          mostraToast("Segnalazione inviata con successo!", "success");
+          mostraToast("✅ Segnalazione inviata ai Masters con successo!", "success");
           form.reset();
           appState.compressedImageBase64 = null;
           if (previewBox) previewBox.style.display = "none";
@@ -3003,10 +3403,12 @@ function setupManutenzioneHandlers() {
           mostraToast("Errore invio: " + (res.error || "Impossibile salvare"), "error");
         }
       } catch (err) {
-        mostraToast("Errore di rete nell'invio del guasto", "error");
+        mostraToast("Errore di rete nell'invio della segnalazione", "error");
       } finally {
-        submitBtn.disabled = false;
-        submitBtn.innerText = "Invia Segnalazione Guasto";
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.innerText = "Invia Segnalazione";
+        }
       }
     });
   }
@@ -3016,36 +3418,82 @@ async function caricaGuastiRecenti() {
   const feed = document.getElementById("manutenzione-recenti-list");
   if (!feed) return;
 
-  // Mostra i guasti attuali salvati
   const data = await callApi("getMasterData", { email: appState.user ? appState.user.email : "" });
   if (data && data.guasti) {
     appState.guasti = data.guasti;
-    renderFeedGuasti(feed, appState.guasti.slice(0, 5));
+    appState.manutenzioneList = data.guasti;
   }
+
+  // Riservatezza: gli utenti normali vedono ESCLUSIVAMENTE le proprie segnalazioni
+  let listToShow = appState.guasti || [];
+  if (!haPermessiMaster()) {
+    listToShow = listToShow.filter(g => g.email && appState.user && g.email.toLowerCase() === appState.user.email.toLowerCase());
+  }
+
+  renderFeedGuasti(feed, listToShow.slice(0, 10));
 }
 
 function renderFeedGuasti(container, guastiList) {
   if (!guastiList || guastiList.length === 0) {
-    container.innerHTML = `<p class="empty-state-text">Nessun guasto segnalato recentemente.</p>`;
+    const isMaster = haPermessiMaster();
+    container.innerHTML = `
+      <div class="empty-state-card card-inner" style="text-align: center; padding: 24px; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;">
+        <div style="font-size: 28px; margin-bottom: 6px;">📋</div>
+        <p style="margin: 0; font-weight: 600;">${isMaster ? 'Nessuna segnalazione registrata al momento.' : 'Non hai inviato ancora nessuna segnalazione.'}</p>
+        <span class="text-xs text-muted" style="display: block; margin-top: 4px;">
+          ${isMaster ? 'Le segnalazioni dei residenti compariranno qui e nel Pannello Master.' : 'Per motivi di riservatezza, puoi visualizzare solo le segnalazioni inviate dal tuo account.'}
+        </span>
+      </div>
+    `;
     return;
   }
 
   container.innerHTML = guastiList.map(g => {
     const isRisolto = g.stato === "Risolto";
+    const isServizi = g.categoria === "servizi";
+    const priorita = g.priorita || "Media";
+    let prioritaBadge = `<span class="badge" style="background:#e0e7ff; color:#3730a3; font-size:11px;">Priorità: ${priorita}</span>`;
+    if (priorita === "Alta" || priorita === "Urgente") {
+      prioritaBadge = `<span class="badge" style="background:#fee2e2; color:#991b1b; font-weight:700; font-size:11px;">⚠️ ${priorita}</span>`;
+    }
+
     return `
-      <div class="guasto-card card-inner">
-        <div class="flex-between">
-          <span class="badge ${isRisolto ? 'badge-success' : 'badge-danger'}">${g.stato}</span>
-          <span class="text-xs text-muted">${new Date(g.timestamp).toLocaleDateString("it-IT")}</span>
+      <div class="guasto-card card-inner" style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+        <div class="flex-between" style="flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <span class="badge" style="font-weight: 700; background: ${isServizi ? '#e0f2fe' : '#fef3c7'}; color: ${isServizi ? '#0369a1' : '#92400e'};">
+              ${isServizi ? '🧹 Servizi Residenza' : '🛠️ Manutenzione Tecnica'}
+            </span>
+            ${g.id ? `<span class="badge" style="background: #f1f5f9; color: #475569; font-size: 11px;">ID: ${escapeHtml(g.id)}</span>` : ''}
+            ${prioritaBadge}
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <span class="badge ${isRisolto ? 'badge-success' : 'badge-danger'}" style="font-weight: 700;">${g.stato || 'Da fare'}</span>
+            <span class="text-xs text-muted">${g.timestamp ? new Date(g.timestamp).toLocaleDateString("it-IT") : ''}</span>
+          </div>
         </div>
-        <p class="guasto-desc">${escapeHtml(g.descrizione)}</p>
-        ${g.link_foto ? `
-          <div class="guasto-thumb-wrap">
-            <img src="${g.link_foto}" alt="Foto guasto" class="guasto-thumb" onclick="apriFotoInNuovaScheda('${g.link_foto}')">
-            <span class="text-xs text-muted">Clicca per ingrandire</span>
+
+        ${g.luogo ? `<div style="font-size: 12px; color: #0284c7; font-weight: 700; margin-bottom: 4px;">📍 Luogo: ${escapeHtml(g.luogo)}</div>` : ''}
+        <p class="guasto-desc" style="font-size: 13.5px; line-height: 1.5; color: #1e293b; margin: 4px 0 8px 0;">${escapeHtml(g.descrizione)}</p>
+
+        ${g.note_intervento ? `
+          <div style="background: #f0fdf4; border-left: 3px solid #16a34a; padding: 6px 10px; border-radius: 4px; font-size: 12px; color: #166534; margin: 8px 0;">
+            <strong>Nota Tecnico/Master:</strong> ${escapeHtml(g.note_intervento)}
+            ${g.tecnico ? `<span style="display: block; font-size: 11px; color: #15803d; margin-top: 2px;">Incaricato: ${escapeHtml(g.tecnico)}</span>` : ''}
           </div>
         ` : ''}
-        <div class="text-xs text-muted">Segnalato da: ${escapeHtml(g.email)}</div>
+
+        ${g.link_foto ? `
+          <div class="guasto-thumb-wrap" style="margin: 8px 0;">
+            <img src="${g.link_foto}" alt="Foto allegata" class="guasto-thumb" style="max-height: 100px; border-radius: 6px; cursor: pointer;" onclick="apriFotoInNuovaScheda('${g.link_foto}')">
+            <span class="text-xs text-muted" style="display: block; margin-top: 2px;">Clicca sulla foto per ingrandirla</span>
+          </div>
+        ` : ''}
+
+        <div class="text-xs text-muted" style="margin-top: 8px; border-top: 1px dashed #f1f5f9; padding-top: 6px;">
+          Segnalato da: <strong>${escapeHtml(g.email)}</strong>
+          ${g.data_chiusura ? ` • <span style="color: #16a34a; font-weight: 600;">Chiuso il ${new Date(g.data_chiusura).toLocaleDateString("it-IT")}</span>` : ''}
+        </div>
       </div>
     `;
   }).join("");
@@ -3081,34 +3529,56 @@ async function caricaDatiMaster() {
   }
 
   try {
-    const res = await callApi("getMasterData", { email: appState.user.email });
-    if (res.success) {
+    const res = await callApi("getMasterData", { email: appState.user ? appState.user.email : "" });
+    if (res && res.success) {
       appState.utentiInAttesa = res.utentiInAttesa || [];
+      appState.tuttiUtenti = res.tuttiUtenti || [];
       appState.mensaBookings = res.mensa || [];
       appState.guasti = res.guasti || [];
-      appState.cachedConfig = res.config || appState.cachedConfig;
-
-      renderMasterSection();
+      appState.manutenzioneList = appState.guasti;
+      appState.cachedConfig = res.config || appState.cachedConfig || {};
+      if (res.bacheca) appState.bacheca = res.bacheca;
+      if (res.prenotazioniSpazi) appState.prenotazioniSpazi = res.prenotazioniSpazi;
     }
+    renderMasterSection();
   } catch (err) {
     console.error("Errore caricamento Master Data:", err);
+    renderMasterSection();
   }
 }
+
+// Filtri attivi per la visualizzazione Master Segnalazioni
+let masterSegnalazioniFiltroCategoria = "tutte";
+let masterSegnalazioniFiltroStato = "tutte";
+
+window.filtraMasterSegnalazioni = function(categoria, stato) {
+  if (categoria !== undefined) masterSegnalazioniFiltroCategoria = categoria;
+  if (stato !== undefined) masterSegnalazioniFiltroStato = stato;
+  renderMasterSection();
+};
 
 function renderMasterSection() {
   const container = document.getElementById("master-dynamic-content");
   if (!container || !appState.user) return;
 
   const { perm_admin, perm_mensa, perm_manutenzione } = appState.user;
+  const tuttiUtenti = appState.tuttiUtenti || [];
+  const utentiInAttesa = appState.utentiInAttesa || [];
+  const mensaBookings = appState.mensaBookings || [];
+  const prenotazioniSpazi = appState.prenotazioniSpazi || [];
+  const tutteSegnalazioni = appState.guasti || appState.manutenzioneList || [];
+  const bachecaItems = appState.bacheca || [];
 
   let html = `
     <!-- BARRA DI COMANDO RAPIDO MASTER -->
-    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.12); padding: 16px;">
+    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.12); padding: 18px; border-radius: 10px;">
       <div class="flex-between" style="flex-wrap: wrap; gap: 12px;">
         <div>
-          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #f59e0b; font-weight: 700;">Amministrazione Residenza</div>
-          <h2 style="font-size: 20px; font-weight: 800; color: #fff; margin: 2px 0 4px 0;">👑 Pannello Master & Gestione Globale</h2>
-          <p style="font-size: 13px; color: #94a3b8; margin: 0;">Gestione appuntamenti comunitari, controllo prenotazioni Chiesa & Sala TV e Database Google Fogli.</p>
+          <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #f59e0b; font-weight: 700;">Amministrazione & Direzione Residenza</div>
+          <h2 style="font-size: 21px; font-weight: 800; color: #fff; margin: 2px 0 4px 0;">👑 Pannello Master & Gestione Globale</h2>
+          <p style="font-size: 13px; color: #94a3b8; margin: 0;">
+            Gestione ruoli residenti, appuntamenti, prenotazioni Chiesa e Sala TV, segnalazioni e sincronizzazione Google Fogli.
+          </p>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="btn btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; display: flex; align-items: center; gap: 6px; font-weight: 700;">
@@ -3122,72 +3592,196 @@ function renderMasterSection() {
     </div>
   `;
 
-  // 1. SUB-PANNELLO ADMIN: Utenti in attesa & Modifica Regolamento/Contatti
+  // ==========================================================================
+  // 1. SUB-PANNELLO ADMIN (SUPERAMMINISTRATORE)
+  // ==========================================================================
   if (perm_admin) {
     html += `
-      <div class="master-block card">
-        <div class="master-header">
-          <span class="master-tag">ADMIN</span>
-          <h3 class="card-title">Gestione Utenti & Approvazioni</h3>
+      <!-- GESTIONE UTENTI E RUOLI ESCLUSIVA SUPERAMMINISTRATORE -->
+      <div class="master-block card" style="border-top: 4px solid #f59e0b;">
+        <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 22px;">👑</span>
+            <div>
+              <h3 class="card-title" style="margin: 0;">Gestione Ruoli Residenti & Approvazioni (Superamministratore)</h3>
+              <span class="text-xs text-muted">Solo il Superamministratore può assegnare o revocare i ruoli Master e Admin</span>
+            </div>
+          </div>
+          <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700;">Ruolo: Superamministratore</span>
         </div>
 
-        <div class="sub-section">
-          <h4>Utenti in Attesa di Registrazione (${appState.utentiInAttesa.length})</h4>
+        <!-- 1.1 UTENTI IN ATTESA DI APPROVAZIONE -->
+        <div class="sub-section" style="margin-top: 14px;">
+          <div class="flex-between" style="margin-bottom: 8px;">
+            <h4 style="margin: 0; font-size: 14px; font-weight: 700;">⏳ Utenti in Attesa di Registrazione (${utentiInAttesa.length})</h4>
+          </div>
           <div id="admin-utenti-attesa-list">
-            ${appState.utentiInAttesa.length === 0 ? '<p class="empty-state-text">Nessun utente in attesa di approvazione.</p>' : ''}
-            ${appState.utentiInAttesa.map(u => `
-              <div class="user-approval-row card-inner">
+            ${utentiInAttesa.length === 0 ? '<p class="empty-state-text" style="background: #f8fafc; padding: 12px; border-radius: 6px; border: 1px dashed #cbd5e1; font-size: 13px;">Nessun utente in attesa di approvazione.</p>' : ''}
+            ${utentiInAttesa.map(u => `
+              <div class="user-approval-row card-inner" style="display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; padding: 12px; margin-bottom: 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
                 <div class="user-info">
                   <strong>${escapeHtml(u.nome)}</strong>
-                  <span class="text-muted text-sm">${escapeHtml(u.email)}</span>
+                  <span class="text-muted text-sm" style="display: block;">${escapeHtml(u.email)}</span>
                 </div>
-                <div class="permessi-grid">
+                <div class="permessi-grid" style="display: flex; gap: 10px; font-size: 12px; font-weight: 600;">
                   <label><input type="checkbox" id="p-mensa-${escapeHtml(u.email)}"> Mensa</label>
-                  <label><input type="checkbox" id="p-manut-${escapeHtml(u.email)}"> Manut.</label>
+                  <label><input type="checkbox" id="p-manut-${escapeHtml(u.email)}"> Manutenzione/Servizi</label>
                   <label><input type="checkbox" id="p-spazi-${escapeHtml(u.email)}" checked> Spazi</label>
                   <label><input type="checkbox" id="p-admin-${escapeHtml(u.email)}"> Admin</label>
                 </div>
-                <button type="button" class="btn btn-success btn-sm" onclick="approvaUtente('${escapeHtml(u.email)}')">
-                  Approva Accesso
+                <button type="button" class="btn btn-success btn-sm" onclick="approvaUtente('${escapeHtml(u.email)}')" style="font-weight: 700;">
+                  ✅ Approva & Attiva
                 </button>
               </div>
             `).join("")}
           </div>
         </div>
 
-        <div class="sub-section" style="margin-top: 24px;">
-          <h4>Modifica Testi Bacheca Istituzionale</h4>
+        <!-- 1.2 ELENCO TUTTI GLI UTENTI REGISTRATI & ASSEGNAZIONE RUOLI -->
+        <div class="sub-section" style="margin-top: 20px;">
+          <div class="flex-between" style="margin-bottom: 8px;">
+            <h4 style="margin: 0; font-size: 14px; font-weight: 700;">👥 Elenco Residenti Registrati & Modifica Ruoli Master (${tuttiUtenti.length})</h4>
+            <span class="text-xs text-muted">Assegna i ruoli di Master Mensa, Master Manutenzione o Admin</span>
+          </div>
+          <div class="table-responsive">
+            <table class="master-table">
+              <thead>
+                <tr>
+                  <th>Residente</th>
+                  <th>Stato</th>
+                  <th>Mensa</th>
+                  <th>Manutenzione / Servizi</th>
+                  <th>Spazi Comuni</th>
+                  <th>Supermaster (Admin)</th>
+                  <th>Azione</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${tuttiUtenti.length === 0 ? '<tr><td colspan="7" style="text-align:center; padding: 14px; color: #64748b;">Nessun utente caricato.</td></tr>' : ''}
+                ${tuttiUtenti.map(u => `
+                  <tr>
+                    <td>
+                      <strong>${escapeHtml(u.nome || u.email)}</strong>
+                      <div class="text-xs text-muted">${escapeHtml(u.email)}</div>
+                    </td>
+                    <td>
+                      <span class="badge ${u.stato === 'Approvato' ? 'badge-success' : 'badge-warning'}">${escapeHtml(u.stato || 'Attivo')}</span>
+                    </td>
+                    <td style="text-align: center;">
+                      <input type="checkbox" id="edit-p-mensa-${escapeHtml(u.email)}" ${u.perm_mensa ? 'checked' : ''} title="Permesso Master Mensa">
+                    </td>
+                    <td style="text-align: center;">
+                      <input type="checkbox" id="edit-p-manut-${escapeHtml(u.email)}" ${u.perm_manutenzione ? 'checked' : ''} title="Permesso Master Manutenzione e Servizi">
+                    </td>
+                    <td style="text-align: center;">
+                      <input type="checkbox" id="edit-p-spazi-${escapeHtml(u.email)}" ${u.perm_spazi ? 'checked' : ''} title="Permesso Prenotazione Chiesa e Sala TV">
+                    </td>
+                    <td style="text-align: center;">
+                      <input type="checkbox" id="edit-p-admin-${escapeHtml(u.email)}" ${u.perm_admin ? 'checked' : ''} title="Permesso Superamministratore">
+                    </td>
+                    <td>
+                      <button type="button" class="btn btn-secondary btn-sm" onclick="salvaRuoliUtente('${escapeHtml(u.email)}')" style="font-size: 11px; padding: 4px 8px; font-weight: 600;">
+                        💾 Salva Ruoli
+                      </button>
+                    </td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 1.3 INSERIMENTO / IMPORTAZIONE RAPIDA ELENCO RESIDENTI -->
+        <div class="sub-section" style="margin-top: 20px; background: #fdf8f6; border: 1px solid #fed7aa; padding: 14px; border-radius: 8px;">
+          <h4 style="margin: 0 0 6px 0; font-size: 14px; color: #9a3412; display: flex; align-items: center; gap: 6px;">
+            <span>📋</span> <strong>Importa o Inserisci Elenco Residenti Pre-Approvati</strong>
+          </h4>
+          <p class="text-xs text-muted" style="margin-bottom: 10px;">
+            Puoi inserire o incollare un elenco di residenti (uno per riga) nel formato: <code>email, Nome Cognome</code>.<br>
+            Verranno registrati ed approvati automaticamente con i permessi standard di residente (Spazi e Mensa abilitati).
+          </p>
+          <form onsubmit="importaElencoUtentiMaster(event)">
+            <textarea id="import-utenti-textarea" class="input-textarea" rows="3" style="font-size: 12.5px; font-family: monospace;" placeholder="donmario@newman.it, Don Mario Rossi&#10;francesco@newman.it, Francesco Bianchi"></textarea>
+            <div style="display: flex; justify-content: flex-end; margin-top: 8px;">
+              <button type="submit" class="btn btn-primary btn-sm" style="background: #ea580c; border-color: #c2410c; font-weight: 700;">
+                ➕ Importa & Abilita Tutti i Residenti
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- 1.4 SPAZIO TESTO DEL SUPERMASTER -->
+        <div class="sub-section" style="margin-top: 24px; border-top: 1px dashed #e2e8f0; padding-top: 16px;">
+          <div class="flex-between" style="margin-bottom: 8px;">
+            <h4 style="margin: 0; font-size: 14px; font-weight: 700;">👑 Spazio Testo del Supermaster (Messaggio ai Residenti)</h4>
+            <button type="button" class="btn btn-outline btn-sm" onclick="apriModalMessaggioSupermaster()">✏️ Modifica con Modal</button>
+          </div>
+          <form onsubmit="handleSalvaMessaggioSupermasterRapido(event)">
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label for="admin-messaggio-supermaster" style="font-size: 12px; font-weight: 600;">Comunicazione Ufficiale della Direzione visibile a tutti i residenti nella pagina della Residenza:</label>
+              <textarea id="admin-messaggio-supermaster" class="input-textarea" rows="3" style="font-size: 13px;">${escapeHtml(appState.cachedConfig.Messaggio_Supermaster || '')}</textarea>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm" style="background: #f59e0b; border-color: #d97706; color: #000; font-weight: 700;">
+              💾 Salva Messaggio della Direzione
+            </button>
+          </form>
+        </div>
+
+        <!-- 1.5 REGOLAMENTO E CONTATTI -->
+        <div class="sub-section" style="margin-top: 20px; border-top: 1px dashed #e2e8f0; padding-top: 16px;">
+          <h4 style="margin: 0 0 10px 0; font-size: 14px; font-weight: 700;">📜 Modifica Regolamento & Contatti Ufficiali</h4>
           <form onsubmit="handleAggiornaTestiBacheca(event)">
             <div class="form-group">
-              <label for="admin-regolamento">Info_Regolamento</label>
-              <textarea id="admin-regolamento" class="input-textarea" rows="4">${escapeHtml(appState.cachedConfig.Info_Regolamento || '')}</textarea>
+              <label for="admin-regolamento" style="font-size: 12px; font-weight: 600;">Info_Regolamento</label>
+              <textarea id="admin-regolamento" class="input-textarea" rows="4" style="font-size: 12.5px;">${escapeHtml(appState.cachedConfig.Info_Regolamento || '')}</textarea>
             </div>
             <div class="form-group">
-              <label for="admin-contatti">Info_Contatti</label>
-              <textarea id="admin-contatti" class="input-textarea" rows="3">${escapeHtml(appState.cachedConfig.Info_Contatti || '')}</textarea>
+              <label for="admin-contatti" style="font-size: 12px; font-weight: 600;">Info_Contatti</label>
+              <textarea id="admin-contatti" class="input-textarea" rows="3" style="font-size: 12.5px;">${escapeHtml(appState.cachedConfig.Info_Contatti || '')}</textarea>
             </div>
-            <button type="submit" class="btn btn-primary btn-block">Salva Modifiche Bacheca</button>
+            <button type="submit" class="btn btn-primary btn-block">Salva Regolamento & Contatti</button>
           </form>
         </div>
       </div>
 
-      <!-- GESTIONE BACHECA & APPUNTAMENTI MASTER -->
-      <div class="master-block card">
+      <!-- ==================================================================
+           GESTIONE CALENDARIO & DATE DA GOOGLE FOGLI (GUIDA & SINCRONIZZAZIONE)
+           ================================================================== -->
+      <div class="master-block card" id="master-calendario-card" style="border-top: 4px solid #0284c7;">
         <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
-          <div class="flex-align">
-            <span class="master-tag" style="background:#0284c7; color:#fff;">MASTER BACHECA</span>
-            <h3 class="card-title" style="margin: 0;">Gestione Appuntamenti, Ricorrenze & Avvisi</h3>
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 22px;">📅</span>
+            <div>
+              <h3 class="card-title" style="margin: 0;">Gestione Calendario, Date da Google Fogli & Eventi</h3>
+              <span class="text-xs text-muted">Come sincronizzare le date dal Foglio "Bacheca" e aggiungere eventi dall'App</span>
+            </div>
           </div>
-          <span class="badge" style="background:#f1f5f9; font-weight:700;">${(appState.bacheca || []).length} appuntamenti attivi</span>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="scaricaModelloCalendarioCSV()" style="font-size: 11px; padding: 5px 10px;">
+              📥 Scarica Modello Fogli (CSV)
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="sincronizzaTuttoDaGoogleFogli()" style="font-size: 11px; padding: 5px 10px;">
+              🔄 Sincronizza Date da Fogli
+            </button>
+          </div>
         </div>
-        <p class="card-desc" style="margin-top: 4px; font-size: 13px;">
-          Da questa sezione puoi pubblicare direttamente in Bacheca nuovi appuntamenti comunitari, compleanni sacerdotali o di residenti, ricorrenze e ritiri spirituali, oppure consultare ed eliminare quelli esistenti.
-        </p>
+
+        <!-- GUIDA ESPLICATIVA PASSO PASSO -->
+        <div class="card-inner" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 14px; margin: 12px 0;">
+          <h4 style="margin: 0 0 8px 0; color: #1e40af; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+            <span>ℹ️</span> <strong>Come inserire date ed eventi dal Foglio Google e dall'App:</strong>
+          </h4>
+          <ol style="margin: 0; padding-left: 18px; font-size: 12.5px; line-height: 1.6; color: #1e3a8a;">
+            <li><strong>Dal Foglio Google:</strong> Nel foglio denominato <code>Bacheca</code> puoi compilare direttamente le righe con: <em>ID, Data (formato YYYY-MM-DD, es. 2026-10-04), Tipo (compleanno, anniversario, evento, speciale, avviso), Titolo, Descrizione, Autore, Priorita (normale o alta)</em>.</li>
+            <li><strong>Dall'App:</strong> Usa il modulo sottostante oppure il pulsante rapido <em>"➕ Inserisci Appuntamento Master"</em> per pubblicare subito una data senza aprire il foglio.</li>
+            <li><strong>Sincronizzazione Automatica:</strong> Cliccando su <em>"Sincronizza Date da Fogli"</em> l'app ricarica tutte le ricorrenze e le festività che hai inserito nel foglio!</li>
+          </ol>
+        </div>
 
         <!-- FORM RAPIDO INSERIMENTO MASTER -->
         <div class="card-inner" style="background: #f8fafc; border: 1px solid #e2e8f0; margin-bottom: 18px; border-radius: 8px; padding: 14px;">
           <h4 style="margin: 0 0 12px 0; font-size: 14px; color: #0f172a; display: flex; align-items: center; gap: 6px;">
-            <span>➕</span> <strong>Nuovo Appuntamento / Avviso per la Bacheca</strong>
+            <span>➕</span> <strong>Aggiungi Nuovo Evento / Data dall'App</strong>
           </h4>
           <form onsubmit="handleMasterAggiungiAppuntamento(event)">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 10px;">
@@ -3196,25 +3790,25 @@ function renderMasterSection() {
                 <select id="master-bacheca-tipo" class="input-select" style="padding: 7px 10px; font-size: 13px;">
                   <option value="avviso">📢 Avviso Comunitario / Direzione</option>
                   <option value="compleanno">🎂 Compleanno</option>
-                  <option value="anniversario">🔔 Anniversario Sacerdotale / Professione</option>
+                  <option value="anniversario">🔔 Anniversario Sacerdotale / Ordinazione</option>
                   <option value="evento">📆 Incontro / Serata Comunitaria</option>
                   <option value="speciale">⛪ Celebrazione Speciale / Ritiro</option>
                 </select>
               </div>
               <div class="form-group" style="margin: 0;">
-                <label for="master-bacheca-data" style="font-size: 12px; font-weight: 600;">Data dell'Evento</label>
+                <label for="master-bacheca-data" style="font-size: 12px; font-weight: 600;">Data dell'Evento (YYYY-MM-DD)</label>
                 <input type="date" id="master-bacheca-data" class="input-date" style="padding: 6px 10px; font-size: 13px;" value="${formatYMD(new Date())}" required>
               </div>
             </div>
 
             <div class="form-group" style="margin-bottom: 10px;">
-              <label for="master-bacheca-titolo" style="font-size: 12px; font-weight: 600;">Titolo dell'Appuntamento</label>
-              <input type="text" id="master-bacheca-titolo" class="input-text" style="padding: 7px 10px; font-size: 13px;" placeholder="Es. Compleanno Don Andrea Dotti, Serata Fraterna, Ritiro Spirituale..." required>
+              <label for="master-bacheca-titolo" style="font-size: 12px; font-weight: 600;">Titolo dell'Appuntamento o Ricorrenza</label>
+              <input type="text" id="master-bacheca-titolo" class="input-text" style="padding: 7px 10px; font-size: 13px;" placeholder="Es. Compleanno Don Andrea Dotti, Memoria San Newman, Serata Sala TV..." required>
             </div>
 
             <div class="form-group" style="margin-bottom: 10px;">
               <label for="master-bacheca-desc" style="font-size: 12px; font-weight: 600;">Dettagli / Programma / Luogo (opzionale)</label>
-              <textarea id="master-bacheca-desc" class="input-textarea" rows="2" style="font-size: 13px;" placeholder="Es. Ore 20:45 in Sala TV o Cappella..."></textarea>
+              <textarea id="master-bacheca-desc" class="input-textarea" rows="2" style="font-size: 13px;" placeholder="Es. S. Messa ore 07:00 in Cappella, incontro ore 20:45 in Sala TV..."></textarea>
             </div>
 
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin-bottom: 12px;">
@@ -3232,15 +3826,15 @@ function renderMasterSection() {
             </div>
 
             <button type="submit" id="btn-master-pubblica-bacheca" class="btn btn-primary btn-block">
-              ➕ Inserisci in Bacheca da Master
+              ➕ Inserisci nel Calendario & Salva su Fogli
             </button>
           </form>
         </div>
 
-        <!-- ELENCO APPUNTAMENTI IN BACHECA -->
+        <!-- ELENCO APPUNTAMENTI ATTIVI -->
         <div class="sub-section">
           <div class="flex-between" style="margin-bottom: 8px;">
-            <h4 style="margin: 0; font-size: 14px;">Elenco Appuntamenti Attivi (${(appState.bacheca || []).length})</h4>
+            <h4 style="margin: 0; font-size: 14px; font-weight: 700;">Elenco Date & Appuntamenti Attivi (${bachecaItems.length})</h4>
           </div>
           <div class="table-responsive">
             <table class="master-table">
@@ -3254,8 +3848,8 @@ function renderMasterSection() {
                 </tr>
               </thead>
               <tbody>
-                ${(appState.bacheca || []).length === 0 ? `<tr><td colspan="5" style="text-align:center; padding: 18px; color: #64748b;">Nessun appuntamento presente in bacheca. Compila il modulo sopra per pubblicarne uno.</td></tr>` : ''}
-                ${(appState.bacheca || []).map(b => {
+                ${bachecaItems.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding: 18px; color: #64748b;">Nessun appuntamento presente. Compila il modulo sopra o sincronizza con Google Fogli.</td></tr>` : ''}
+                ${bachecaItems.map(b => {
                   let badgeType = "badge-primary";
                   let icon = "📢";
                   if (b.tipo === "compleanno") { badgeType = "badge-accent"; icon = "🎂"; }
@@ -3288,7 +3882,7 @@ function renderMasterSection() {
       </div>
 
       <!-- ==================================================================
-           GESTIONE AMBIENTI E APPUNTAMENTI MASTER (CHIESA E SALA TV)
+           GESTIONE AMBIENTI (CHIESA E SALA TV)
            ================================================================== -->
       <div class="master-block card" id="master-spazi-management-card" style="border-top: 4px solid #9d174d;">
         <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
@@ -3296,92 +3890,62 @@ function renderMasterSection() {
             <span style="font-size: 22px;">⛪</span>
             <div>
               <h3 class="card-title" style="margin: 0;">Gestione Appuntamenti & Prenotazioni Ambienti (Chiesa & Sala TV)</h3>
-              <span class="text-xs text-muted">Controlla tutti gli slot riservati, inserisci celebrazioni o libera spazi</span>
+              <span class="text-xs text-muted">Controlla gli slot riservati, inserisci celebrazioni o libera spazi</span>
             </div>
           </div>
-          <div style="display: flex; gap: 6px;">
-            <button type="button" class="btn btn-sm btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; font-weight: 700;">
-              ➕ Inserisci Appuntamento
-            </button>
-          </div>
+          <button type="button" class="btn btn-sm btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; font-weight: 700;">
+            ➕ Inserisci Appuntamento
+          </button>
         </div>
 
-        <p class="card-desc" style="font-size: 13px; margin: 6px 0 12px 0;">
-          Come Master puoi inserire appuntamenti comunitari, sante messe o adorazioni (che bloccano gli slot per i residenti ed evitano sovrapposizioni) e liberare qualunque prenotazione con un clic.
-        </p>
-
-        <div class="table-responsive">
+        <div class="table-responsive" style="margin-top: 12px;">
           <table class="master-table">
             <thead>
               <tr>
                 <th>Ambiente</th>
                 <th>Data</th>
                 <th>Orario / Slot</th>
-                <th>Riservato da / Titolo</th>
+                <th>Riservato da</th>
                 <th>Azione Master</th>
               </tr>
             </thead>
             <tbody>
-              ${(() => {
-                const list = (appState.prenotazioniSpazi || []).slice().sort((a, b) => {
-                  const da = formattaDataConfronto(a.data) + (a.slot_orario || "");
-                  const db = formattaDataConfronto(b.data) + (b.slot_orario || "");
-                  return da.localeCompare(db);
-                });
-                if (list.length === 0) {
-                  return `
-                    <tr>
-                      <td colspan="5" style="text-align: center; padding: 18px; color: #64748b;">
-                        Nessuna prenotazione presente per Chiesa o Sala TV. Clicca su "Inserisci Appuntamento" per programmarne uno.
-                      </td>
-                    </tr>
-                  `;
-                }
-                return list.map(p => {
-                  const isChiesa = p.risorsa === "Chiesa";
-                  const isMasterBooking = String(p.email).startsWith("Master");
-                  return `
-                    <tr>
-                      <td>
-                        <span class="badge ${isChiesa ? 'badge-primary' : 'badge-info'}" style="${isChiesa ? 'background:#831843; color:#fff;' : ''}">
-                          ${isChiesa ? '⛪ Chiesa' : '📺 Sala TV'}
-                        </span>
-                      </td>
-                      <td><strong>${formattaDataConfronto(p.data)}</strong></td>
-                      <td><strong style="color: #0f172a;">${escapeHtml(p.slot_orario)}</strong></td>
-                      <td>
-                        ${isMasterBooking ? `
-                          <span class="badge" style="background:#fdf2f8; color:#9d174d; border: 1px solid #fbcfe8; font-weight: 700;">
-                            👑 ${escapeHtml(p.email)}
-                          </span>
-                        ` : `
-                          <span class="text-sm font-semibold">${escapeHtml(p.email)}</span>
-                        `}
-                      </td>
-                      <td>
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="eliminaPrenotazioneSpazioMaster('${escapeHtml(p.id)}')" style="color: #dc2626; border-color: #fca5a5; padding: 4px 8px; font-size: 11px;">
-                          🗑️ Libera
-                        </button>
-                      </td>
-                    </tr>
-                  `;
-                }).join("");
-              })()}
+              ${prenotazioniSpazi.length === 0 ? '<tr><td colspan="5" style="text-align:center; padding: 18px; color: #64748b;">Nessuna prenotazione attiva per Chiesa o Sala TV.</td></tr>' : ''}
+              ${prenotazioniSpazi.map(p => {
+                const isChiesa = p.risorsa === "Chiesa";
+                return `
+                  <tr>
+                    <td>
+                      <span class="badge ${isChiesa ? 'badge-primary' : 'badge-info'}" style="${isChiesa ? 'background:#831843; color:#fff;' : ''}">
+                        ${isChiesa ? '⛪ Chiesa' : '📺 Sala TV'}
+                      </span>
+                    </td>
+                    <td><strong>${formattaDataConfronto(p.data)}</strong></td>
+                    <td><strong style="color: #0f172a;">${escapeHtml(p.slot_orario)}</strong></td>
+                    <td><span class="text-sm font-semibold">${escapeHtml(p.email)}</span></td>
+                    <td>
+                      <button type="button" class="btn btn-secondary btn-sm" onclick="eliminaPrenotazioneSpazioMaster('${escapeHtml(p.id)}')" style="color: #dc2626; border-color: #fca5a5; padding: 4px 8px; font-size: 11px;">
+                        🗑️ Libera
+                      </button>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
             </tbody>
           </table>
         </div>
       </div>
 
       <!-- ==================================================================
-           GESTIONE GOOGLE FOGLIO DATABASE (SPREADSHEET & APPS SCRIPT)
+           CONFIGURAZIONE GOOGLE SPREADSHEET (APPS SCRIPT LIVE)
            ================================================================== -->
-      <div class="master-block card" id="master-google-sheets-card" style="border-top: 4px solid #0284c7;">
+      <div class="master-block card" id="master-google-sheets-card" style="border-top: 4px solid #059669;">
         <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
           <div class="flex-align" style="gap: 8px;">
             <span style="font-size: 22px;">📊</span>
             <div>
               <h3 class="card-title" style="margin: 0;">Database Google Fogli (Cloud Spreadsheet)</h3>
-              <span class="text-xs text-muted">Collegamento e sincronizzazione con Google Apps Script e i 6 Fogli di lavoro</span>
+              <span class="text-xs text-muted">Collegamento e sincronizzazione con Google Apps Script</span>
             </div>
           </div>
           <div>
@@ -3391,18 +3955,13 @@ function renderMasterSection() {
               </span>
             ` : `
               <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; border: 1px solid #fde68a; padding: 5px 10px;">
-                🟡 Modalità Stand-alone Locale (Pronto per Google Sheets)
+                🟡 Modalità Stand-alone Locale
               </span>
             `}
           </div>
         </div>
 
-        <p class="card-desc" style="font-size: 13px; margin: 8px 0 14px 0;">
-          Il sistema salva e sincronizza in tempo reale tutti i dati su Google Fogli attraverso il backend <strong>Google Apps Script</strong> distribuito come Web App.
-        </p>
-
-        <!-- SELEZIONE/CONFIGURAZIONE URL APPS SCRIPT -->
-        <div class="card-inner" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 14px; margin-bottom: 14px; border-radius: 8px;">
+        <div class="card-inner" style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 12px 14px; margin: 12px 0; border-radius: 8px;">
           <label for="master-gas-url-input" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">
             URL Web App Google Apps Script (terminante in <code>/exec</code>):
           </label>
@@ -3412,73 +3971,28 @@ function renderMasterSection() {
               💾 Salva URL
             </button>
             <button type="button" class="btn btn-secondary btn-sm" onclick="testaConnessioneGAS()" style="font-weight: 600;">
-              🔍 Test Connessione (Ping)
+              🔍 Test Connessione
             </button>
           </div>
           <div id="master-gas-test-result" style="margin-top: 8px;"></div>
         </div>
 
-        <!-- BOTTONI AZIONE SUL DATABASE -->
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 16px;">
-          <button type="button" class="btn btn-outline btn-sm" onclick="sincronizzaTuttoDaGoogleFogli()" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
-            <span>🔄</span> <strong>Sincronizza / Scarica Dati</strong>
-          </button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="inizializzaGoogleFogli()" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
-            <span>📤</span> <strong>Inizializza Struttura Fogli</strong>
-          </button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="apriModalCodiceGas()" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
-            <span>📋</span> <strong>Codice Code.gs & Guida</strong>
-          </button>
-          <button type="button" class="btn btn-outline btn-sm" onclick="esportaBackupLocale()" style="display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px;">
-            <span>📥</span> <strong>Esporta Backup JSON</strong>
-          </button>
-        </div>
-
-        <!-- RIEPILOGO DEI 6 FOGLI -->
-        <div class="sub-section">
-          <h4 style="font-size: 13px; margin: 0 0 8px 0; color: #334155; font-weight: 700;">I 6 Fogli del Database Google Fogli:</h4>
-          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px;">
-            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
-              <div style="font-weight: 700; color: #0284c7;">👥 1. Utenti</div>
-              <div class="text-muted" style="font-size: 11px;">Residenti, ruoli e permessi</div>
-              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">${(appState.utentiInAttesa.length + 5)} registrati</div>
-            </div>
-            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
-              <div style="font-weight: 700; color: #16a34a;">🍽️ 2. Mensa</div>
-              <div class="text-muted" style="font-size: 11px;">Pranzi (14:30), cene, buste</div>
-              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">${appState.mensaBookings.length} pasti salvati</div>
-            </div>
-            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
-              <div style="font-weight: 700; color: #9d174d;">⛪ 3. Prenotazioni_Spazi</div>
-              <div class="text-muted" style="font-size: 11px;">Slot 30 min Chiesa e Sala TV</div>
-              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">${appState.prenotazioniSpazi.length} slot occupati</div>
-            </div>
-            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
-              <div style="font-weight: 700; color: #d97706;">🛠️ 4. Manutenzione</div>
-              <div class="text-muted" style="font-size: 11px;">Guasti con foto e stato</div>
-              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">${appState.manutenzioneList.length} segnalazioni</div>
-            </div>
-            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
-              <div style="font-weight: 700; color: #7c3aed;">📢 5. Bacheca</div>
-              <div class="text-muted" style="font-size: 11px;">Avvisi, ricorrenze, eventi</div>
-              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">${appState.bacheca.length} pubblicati</div>
-            </div>
-            <div class="card-inner" style="padding: 8px 10px; font-size: 12px; background: #ffffff;">
-              <div style="font-weight: 700; color: #475569;">⚙️ 6. Configurazione</div>
-              <div class="text-muted" style="font-size: 11px;">Regolamento, contatti, menu</div>
-              <div style="font-weight: 800; font-size: 14px; margin-top: 3px;">Configurata</div>
-            </div>
-          </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="sincronizzaTuttoDaGoogleFogli()">🔄 Sincronizza Dati</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="inizializzaGoogleFogli()">📤 Inizializza Fogli</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="apriModalCodiceGas()">📋 Codice Code.gs</button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="esportaBackupLocale()">📥 Esporta Backup</button>
         </div>
       </div>
-    </div>
-  `;
-}
+    `;
+  }
 
-  // 2. SUB-PANNELLO MENSA: Totali presenti, buste, note e variazione straordinaria
+  // ==========================================================================
+  // 2. SUB-PANNELLO MENSA (MASTER MENSA)
+  // ==========================================================================
   if (perm_mensa) {
     const dataFiltroYMD = appState.masterMensaDate || formatYMD(new Date());
-    const prenotazioniGiorno = appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dataFiltroYMD);
+    const prenotazioniGiorno = mensaBookings.filter(m => String(m.data).split("T")[0] === dataFiltroYMD);
 
     const countPranzo = prenotazioniGiorno.filter(m => m.tipo_pasto === "pranzo").length;
     const countCena = prenotazioniGiorno.filter(m => m.tipo_pasto === "cena").length;
@@ -3486,7 +4000,7 @@ function renderMasterSection() {
     const countRitardi = prenotazioniGiorno.filter(m => m.ritardo).length;
 
     html += `
-      <div class="master-block card">
+      <div class="master-block card" style="border-top: 4px solid var(--primary);">
         <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
           <div class="flex-align">
             <span class="master-tag">MENSA</span>
@@ -3498,7 +4012,6 @@ function renderMasterSection() {
           </div>
         </div>
 
-        <!-- Metric Cards -->
         <div class="metrics-grid">
           <div class="metric-card" style="border-top: 3px solid var(--primary);">
             <span class="metric-val" style="color: var(--primary);">${countPranzo}</span>
@@ -3518,7 +4031,6 @@ function renderMasterSection() {
           </div>
         </div>
 
-        <!-- Elenco Nominativi e Note Pasti del Giorno -->
         <div class="sub-section" style="margin-top: 16px;">
           <div class="flex-between" style="margin-bottom: 8px;">
             <h4 style="margin: 0;">Elenco Presenti (${dataFiltroYMD}) — Totale: ${prenotazioniGiorno.length}</h4>
@@ -3538,7 +4050,7 @@ function renderMasterSection() {
                 </tr>
               </thead>
               <tbody>
-                ${prenotazioniGiorno.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding: 18px; color: #64748b;">Nessuna presenza segnata per il ${dataFiltroYMD}.</td></tr>` : ''}
+                ${prenotazioniGiorno.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding: 18px; color: #64748b;">Nessuna presenza registrata per il ${dataFiltroYMD}.</td></tr>` : ''}
                 ${prenotazioniGiorno.map(p => `
                   <tr>
                     <td><strong>${escapeHtml(p.email)}</strong></td>
@@ -3554,12 +4066,12 @@ function renderMasterSection() {
         </div>
 
         <!-- Form Variazione Straordinaria Menu -->
-        <div class="sub-section" style="margin-top: 24px;">
-          <h4>Variazione Straordinaria Menu (Alert Banner)</h4>
+        <div class="sub-section" style="margin-top: 24px; border-top: 1px dashed #e2e8f0; padding-top: 16px;">
+          <h4>📢 Variazione Straordinaria Menu (Alert Banner)</h4>
           <form onsubmit="handleSalvaVariazioneMenu(event)">
             <div class="form-group">
               <label for="admin-data-variazione">Data di Applicazione dell'Alert</label>
-              <input type="date" id="admin-data-variazione" class="input-date" value="${appState.cachedConfig.Data_Variazione_Menu || oggiYMD}">
+              <input type="date" id="admin-data-variazione" class="input-date" value="${appState.cachedConfig.Data_Variazione_Menu || formatYMD(new Date())}">
             </div>
             <div class="form-group">
               <label for="admin-pasto-variazione">Pasto di Applicazione</label>
@@ -3580,61 +4092,366 @@ function renderMasterSection() {
     `;
   }
 
-  // 3. SUB-PANNELLO MANUTENZIONE: Feed visivo guasti con foto e tasto "Segna come Risolto"
+  // ==========================================================================
+  // 3. SUB-PANNELLO MANUTENZIONE & SERVIZI (MASTER MANUTENZIONE)
+  // ==========================================================================
   if (perm_manutenzione) {
-    const guastiDaFare = appState.guasti.filter(g => g.stato !== "Risolto");
-    const guastiRisolti = appState.guasti.filter(g => g.stato === "Risolto");
+    // Filtraggio per categoria e per stato
+    let filteredSegnalazioni = tutteSegnalazioni.slice();
+    if (masterSegnalazioniFiltroCategoria !== "tutte") {
+      filteredSegnalazioni = filteredSegnalazioni.filter(g => (g.categoria || "manutenzione") === masterSegnalazioniFiltroCategoria);
+    }
+    if (masterSegnalazioniFiltroStato === "aperte") {
+      filteredSegnalazioni = filteredSegnalazioni.filter(g => g.stato !== "Risolto");
+    } else if (masterSegnalazioniFiltroStato === "risolte") {
+      filteredSegnalazioni = filteredSegnalazioni.filter(g => g.stato === "Risolto");
+    } else if (masterSegnalazioniFiltroStato === "lavorazione") {
+      filteredSegnalazioni = filteredSegnalazioni.filter(g => g.stato === "In Lavorazione");
+    }
+
+    const aperteCount = tutteSegnalazioni.filter(g => g.stato !== "Risolto").length;
+    const risolteCount = tutteSegnalazioni.filter(g => g.stato === "Risolto").length;
+    const manutenzioneCount = tutteSegnalazioni.filter(g => (g.categoria || "manutenzione") === "manutenzione").length;
+    const serviziCount = tutteSegnalazioni.filter(g => g.categoria === "servizi").length;
 
     html += `
-      <div class="master-block card">
-        <div class="master-header">
-          <span class="master-tag">MANUTENZIONE</span>
-          <h3 class="card-title">Feed Lavori & Interventi Tecnici</h3>
-        </div>
-
-        <h4>Guasti Aperti (${guastiDaFare.length})</h4>
-        <div class="guasti-feed-grid">
-          ${guastiDaFare.length === 0 ? '<p class="empty-state-text">Nessun guasto aperto al momento! Ottimo lavoro.</p>' : ''}
-          ${guastiDaFare.map(g => `
-            <div class="guasto-master-card card-inner">
-              <div class="flex-between">
-                <span class="badge badge-danger">Da fare</span>
-                <span class="text-xs text-muted">${new Date(g.timestamp).toLocaleString("it-IT")}</span>
-              </div>
-              <p class="guasto-desc"><strong>Descrizione:</strong> ${escapeHtml(g.descrizione)}</p>
-              ${g.link_foto ? `
-                <div class="guasto-photo-box">
-                  <img src="${g.link_foto}" alt="Foto guasto" class="guasto-photo-img" onclick="apriFotoInNuovaScheda('${g.link_foto}')">
-                </div>
-              ` : '<div class="text-xs text-muted" style="margin: 8px 0;">Nessuna foto allegata</div>'}
-              <div class="text-xs text-muted" style="margin-bottom: 12px;">Segnalato da: ${escapeHtml(g.email)}</div>
-              <button type="button" class="btn btn-success btn-block btn-sm" onclick="segnaGuastoRisolto('${escapeHtml(g.id)}')">
-                ✅ Segna come Risolto
-              </button>
-            </div>
-          `).join("")}
-        </div>
-
-        ${guastiRisolti.length > 0 ? `
-          <h4 style="margin-top: 24px;">Ultimi Risolti (${guastiRisolti.length})</h4>
-          <div class="mini-list">
-            ${guastiRisolti.slice(0, 4).map(g => `
-              <div class="mini-item flex-between">
-                <div>
-                  <span>${escapeHtml(g.descrizione)}</span>
-                  <div class="text-xs text-muted">${new Date(g.timestamp).toLocaleDateString("it-IT")} • ${escapeHtml(g.email)}</div>
-                </div>
-                <span class="badge badge-success">Risolto</span>
-              </div>
-            `).join("")}
+      <div class="master-block card" style="border-top: 4px solid #d97706;">
+        <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
+          <div>
+            <span class="master-tag" style="background:#d97706; color:#fff;">MASTER SEGNALAZIONI</span>
+            <h3 class="card-title" style="margin: 4px 0 0 0;">Gestione Segnalazioni & Riparazioni (Manutenzione & Servizi)</h3>
+            <p class="text-xs text-muted" style="margin: 2px 0 0 0;">
+              Riservato ai Master autorizzati. Gestione priorità, ditte incaricate, note di intervento e chiusura riparazioni.
+            </p>
           </div>
-        ` : ''}
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <span class="badge" style="background:#fef3c7; color:#92400e; font-weight:700;">Aperte: ${aperteCount}</span>
+            <span class="badge" style="background:#dcfce7; color:#166534; font-weight:700;">Risolte: ${risolteCount}</span>
+          </div>
+        </div>
+
+        <!-- BARRA FILTRI CATEGORIA E STATO -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;">
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <span style="font-size: 12px; font-weight: 700; color: #475569;">Categoria:</span>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroCategoria === 'tutte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni('tutte', undefined)" style="padding: 3px 8px; font-size: 11px;">
+              Tutte (${tutteSegnalazioni.length})
+            </button>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroCategoria === 'manutenzione' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni('manutenzione', undefined)" style="padding: 3px 8px; font-size: 11px;">
+              🛠️ Manutenzione (${manutenzioneCount})
+            </button>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroCategoria === 'servizi' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni('servizi', undefined)" style="padding: 3px 8px; font-size: 11px;">
+              🧹 Servizi Residenza (${serviziCount})
+            </button>
+          </div>
+
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <span style="font-size: 12px; font-weight: 700; color: #475569;">Stato:</span>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'tutte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'tutte')" style="padding: 3px 8px; font-size: 11px;">
+              Tutti
+            </button>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'aperte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'aperte')" style="padding: 3px 8px; font-size: 11px;">
+              Da fare (${aperteCount})
+            </button>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'lavorazione' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'lavorazione')" style="padding: 3px 8px; font-size: 11px;">
+              In Lavorazione
+            </button>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'risolte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'risolte')" style="padding: 3px 8px; font-size: 11px;">
+              Risolte (${risolteCount})
+            </button>
+          </div>
+        </div>
+
+        <!-- ELENCO SCHEDE SEGNALAZIONI & CONTROLLI MASTER -->
+        <div class="guasti-feed-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-top: 14px;">
+          ${filteredSegnalazioni.length === 0 ? '<p class="empty-state-text" style="grid-column: 1 / -1; padding: 24px; text-align: center;">Nessuna segnalazione corrisponde ai filtri selezionati.</p>' : ''}
+          ${filteredSegnalazioni.map(g => {
+            const isRisolto = g.stato === "Risolto";
+            const isServizi = g.categoria === "servizi";
+            const idSeg = g.id || ("SEG_" + Math.random().toString().slice(2, 6));
+
+            return `
+              <div class="guasto-master-card card-inner" style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                  <div class="flex-between" style="margin-bottom: 8px;">
+                    <span class="badge" style="background: ${isServizi ? '#e0f2fe' : '#fef3c7'}; color: ${isServizi ? '#0369a1' : '#92400e'}; font-weight: 700;">
+                      ${isServizi ? '🧹 Servizi' : '🛠️ Manutenzione'}
+                    </span>
+                    <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 11px; font-weight: 700;">ID: ${escapeHtml(idSeg)}</span>
+                  </div>
+
+                  ${g.luogo ? `<div style="font-size: 12px; font-weight: 700; color: #0284c7; margin-bottom: 4px;">📍 Luogo: ${escapeHtml(g.luogo)}</div>` : ''}
+                  <p class="guasto-desc" style="font-size: 13.5px; line-height: 1.5; color: #1e293b; margin: 4px 0 10px 0;">${escapeHtml(g.descrizione)}</p>
+
+                  ${g.link_foto ? `
+                    <div class="guasto-photo-box" style="margin-bottom: 10px;">
+                      <img src="${g.link_foto}" alt="Foto allegata" class="guasto-photo-img" style="max-height: 120px; border-radius: 6px; cursor: pointer;" onclick="apriFotoInNuovaScheda('${g.link_foto}')">
+                    </div>
+                  ` : ''}
+
+                  <div class="text-xs text-muted" style="margin-bottom: 10px;">
+                    Segnalato da: <strong>${escapeHtml(g.email)}</strong> • ${g.timestamp ? new Date(g.timestamp).toLocaleString("it-IT") : ''}
+                  </div>
+
+                  <!-- CONTROLLI MASTER INTERATTIVI -->
+                  <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+                      <div>
+                        <label style="font-size: 11px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Priorità:</label>
+                        <select id="seg-priorita-${escapeHtml(idSeg)}" class="input-select" style="font-size: 12px; padding: 4px 6px;">
+                          <option value="Bassa" ${g.priorita === 'Bassa' ? 'selected' : ''}>Bassa</option>
+                          <option value="Media" ${(!g.priorita || g.priorita === 'Media') ? 'selected' : ''}>Media</option>
+                          <option value="Alta" ${g.priorita === 'Alta' ? 'selected' : ''}>Alta</option>
+                          <option value="Urgente" ${g.priorita === 'Urgente' ? 'selected' : ''}>⚠️ Urgente</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label style="font-size: 11px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Stato:</label>
+                        <select id="seg-stato-${escapeHtml(idSeg)}" class="input-select" style="font-size: 12px; padding: 4px 6px;">
+                          <option value="Da fare" ${(!g.stato || g.stato === 'Da fare') ? 'selected' : ''}>Da fare / Aperta</option>
+                          <option value="In Lavorazione" ${g.stato === 'In Lavorazione' ? 'selected' : ''}>In Lavorazione</option>
+                          <option value="In Attesa Ricambi" ${g.stato === 'In Attesa Ricambi' ? 'selected' : ''}>In Attesa Ricambi</option>
+                          <option value="Risolto" ${g.stato === 'Risolto' ? 'selected' : ''}>✅ Risolto / Chiuso</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style="margin-bottom: 6px;">
+                      <label style="font-size: 11px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Tecnico / Ditta Assegnata:</label>
+                      <input type="text" id="seg-tecnico-${escapeHtml(idSeg)}" class="input-text" style="font-size: 12px; padding: 4px 8px;" placeholder="Es. Idraulico Mario, Ditta Elettrica..." value="${escapeHtml(g.tecnico || '')}">
+                    </div>
+
+                    <div>
+                      <label style="font-size: 11px; font-weight: 700; color: #475569; display: block; margin-bottom: 2px;">Note Tecnico / Intervento:</label>
+                      <input type="text" id="seg-note-${escapeHtml(idSeg)}" class="input-text" style="font-size: 12px; padding: 4px 8px;" placeholder="Es. Guarnizione sostituita, ordine effettuato..." value="${escapeHtml(g.note_intervento || '')}">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- AZIONI SALVATAGGIO / CHIUSURA -->
+                <div style="display: flex; gap: 6px; margin-top: 6px;">
+                  <button type="button" class="btn btn-secondary btn-sm" onclick="salvaModificheSegnalazione('${escapeHtml(idSeg)}')" style="flex: 1; font-size: 11px; font-weight: 600;">
+                    💾 Salva Modifiche
+                  </button>
+                  ${!isRisolto ? `
+                    <button type="button" class="btn btn-success btn-sm" onclick="risolviSegnalazioneMaster('${escapeHtml(idSeg)}')" style="font-size: 11px; font-weight: 700;">
+                      ✅ Risolvi & Chiudi
+                    </button>
+                  ` : `
+                    <span class="badge badge-success" style="padding: 6px 10px; font-weight: 700;">Archiviata</span>
+                  `}
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+
+        <!-- ==============================================================
+             GUIDA INTEGRAZIONE PIATTAFORME ESTERNE & WEBHOOK (GOOGLE FOGLI)
+             ============================================================== -->
+        <div class="card-inner" style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 14px; margin-top: 20px;">
+          <h4 style="margin: 0 0 6px 0; color: #166534; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+            <span>🔗</span> <strong>Dialogo con Piattaforme Esterne & Ditte (Google Fogli Integration)</strong>
+          </h4>
+          <p style="font-size: 12.5px; color: #14532d; line-height: 1.5; margin: 0 0 8px 0;">
+            Il foglio di calcolo <code>Manutenzione</code> su Google Fogli è configurato per consentire a piattaforme esterne (es. <em>Make.com, Zapier, Webhook, Bot WhatsApp per artigiani, o software di manutenzione</em>) di leggere e modificare in tempo reale lo stato dei lavori:
+          </p>
+          <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #166534; line-height: 1.6;">
+            <li><strong>ID Univoco:</strong> Ogni segnalazione possiede un ID permanente (es. <code>${tutteSegnalazioni[0]?.id || 'SEG_001'}</code>) che fa da chiave di raccordo con i sistemi esterni.</li>
+            <li><strong>Colonne Modificabili dall'esterno:</strong> Una piattaforma o un tecnico esterno può aggiornare direttamente nel Foglio Google: <code>Priorita</code>, <code>Stato</code> (<em>Da fare / In Lavorazione / Risolto</em>), <code>Note_Intervento</code>, <code>Tecnico_Assegnato</code> e <code>Data_Chiusura</code>.</li>
+            <li><strong>Sincronizzazione Bidirezionale:</strong> Quando il fornitore esterno aggiorna una riga nel Foglio Google, la modifica compare istantaneamente sia nel portale dei Masters che nella scheda personale del residente.</li>
+          </ul>
+        </div>
       </div>
     `;
   }
 
   container.innerHTML = html;
 }
+
+// ----------------------------------------------------------------------------
+// HANDLER MASTER: SALVATAGGIO RUOLI UTENTE
+// ----------------------------------------------------------------------------
+window.salvaRuoliUtente = async function(email) {
+  const permMensa = document.getElementById(`edit-p-mensa-${email}`)?.checked || false;
+  const permManut = document.getElementById(`edit-p-manut-${email}`)?.checked || false;
+  const permSpazi = document.getElementById(`edit-p-spazi-${email}`)?.checked || false;
+  const permAdmin = document.getElementById(`edit-p-admin-${email}`)?.checked || false;
+
+  try {
+    const res = await callApi("aggiornaRuoliUtente", {
+      emailTarget: email,
+      perm_mensa: permMensa,
+      perm_manutenzione: permManut,
+      perm_spazi: permSpazi,
+      perm_admin: permAdmin
+    });
+
+    if (res.success) {
+      mostraToast(`✅ Ruoli aggiornati per ${email}!`, "success");
+      // Aggiorna stato locale se stiamo modificando l'utente loggato
+      if (appState.user && appState.user.email.toLowerCase() === email.toLowerCase()) {
+        appState.user.perm_mensa = permMensa;
+        appState.user.perm_manutenzione = permManut;
+        appState.user.perm_spazi = permSpazi;
+        appState.user.perm_admin = permAdmin;
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+      }
+      caricaDatiMaster();
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile aggiornare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete nell'aggiornamento dei ruoli", "error");
+  }
+};
+
+// ----------------------------------------------------------------------------
+// HANDLER MASTER: IMPORTAZIONE BATCH UTENTI
+// ----------------------------------------------------------------------------
+window.importaElencoUtentiMaster = async function(e) {
+  if (e) e.preventDefault();
+  const textarea = document.getElementById("import-utenti-textarea");
+  if (!textarea) return;
+
+  const testo = textarea.value.trim();
+  if (!testo) {
+    mostraToast("Inserisci almeno una riga con email e nome", "warning");
+    return;
+  }
+
+  const righe = testo.split("\n");
+  const utentiDaImportare = [];
+
+  for (const riga of righe) {
+    const r = riga.trim();
+    if (!r) continue;
+    const parts = r.split(/[,;\t]/);
+    const email = (parts[0] || "").trim();
+    const nome = (parts[1] || "").trim() || email.split("@")[0];
+    if (email && email.includes("@")) {
+      utentiDaImportare.push({ email, nome });
+    }
+  }
+
+  if (utentiDaImportare.length === 0) {
+    mostraToast("Nessun indirizzo email valido trovato nel testo", "warning");
+    return;
+  }
+
+  try {
+    const res = await callApi("importaElencoUtenti", { utenti: utentiDaImportare });
+    if (res.success) {
+      mostraToast(`✅ ${res.aggiunti || utentiDaImportare.length} residenti importati ed abilitati!`, "success");
+      textarea.value = "";
+      caricaDatiMaster();
+    } else {
+      mostraToast("Errore importazione: " + (res.error || "Impossibile salvare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante l'importazione", "error");
+  }
+};
+
+// ----------------------------------------------------------------------------
+// HANDLER MASTER: SALVATAGGIO RAPIDO MESSAGGIO SUPERMASTER
+// ----------------------------------------------------------------------------
+window.handleSalvaMessaggioSupermasterRapido = async function(e) {
+  if (e) e.preventDefault();
+  const textarea = document.getElementById("admin-messaggio-supermaster");
+  if (!textarea) return;
+
+  const nuovoTesto = textarea.value.trim();
+  if (!nuovoTesto) {
+    mostraToast("Inserisci un testo per la comunicazione", "warning");
+    return;
+  }
+
+  try {
+    const res = await callApi("aggiornaConfig", { Messaggio_Supermaster: nuovoTesto });
+    if (res.success) {
+      appState.cachedConfig.Messaggio_Supermaster = nuovoTesto;
+      mostraToast("✅ Comunicazione del Supermaster salvata!", "success");
+      renderMasterSection();
+    } else {
+      mostraToast("Errore nel salvataggio del messaggio", "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete", "error");
+  }
+};
+
+// ----------------------------------------------------------------------------
+// HANDLER MASTER: SALVATAGGIO MODIFICHE SEGNALAZIONE
+// ----------------------------------------------------------------------------
+window.salvaModificheSegnalazione = async function(id) {
+  const priorita = document.getElementById(`seg-priorita-${id}`)?.value || "Media";
+  const stato = document.getElementById(`seg-stato-${id}`)?.value || "Da fare";
+  const tecnico = document.getElementById(`seg-tecnico-${id}`)?.value?.trim() || "";
+  const note = document.getElementById(`seg-note-${id}`)?.value?.trim() || "";
+
+  try {
+    const res = await callApi("aggiornaSegnalazione", {
+      id,
+      priorita,
+      stato,
+      tecnico,
+      note_intervento: note
+    });
+
+    if (res.success) {
+      mostraToast("✅ Modifiche segnalazione salvate!", "success");
+      caricaDatiMaster();
+      caricaGuastiRecenti();
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile aggiornare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete", "error");
+  }
+};
+
+window.risolviSegnalazioneMaster = async function(id) {
+  try {
+    const res = await callApi("aggiornaSegnalazione", {
+      id,
+      stato: "Risolto",
+      data_chiusura: new Date().toISOString()
+    });
+
+    if (res.success) {
+      mostraToast("✅ Segnalazione contrassegnata come Risolta & Archiviata!", "success");
+      caricaDatiMaster();
+      caricaGuastiRecenti();
+    } else {
+      mostraToast("Errore durante la chiusura: " + (res.error || "Errore sconosciuto"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete nella chiusura della segnalazione", "error");
+  }
+};
+
+// ----------------------------------------------------------------------------
+// DOWNLOAD MODELLO CALENDARIO CSV PER GOOGLE FOGLI
+// ----------------------------------------------------------------------------
+window.scaricaModelloCalendarioCSV = function() {
+  const csvRows = [
+    ["ID", "Data", "Tipo", "Titolo", "Descrizione", "Autore", "Priorita", "Timestamp"],
+    ["B_101", "2026-10-04", "speciale", "Festa di San Francesco d'Assisi", "Celebrazione solenne della S. Messa ore 18:30 con benedizione comunitaria.", "Direzione", "alta", new Date().toISOString()],
+    ["B_102", "2026-10-09", "speciale", "Solennità di San John Henry Newman", "Patrono della Residenza: Santa Messa solenne e pranzo di gala comunitario.", "Direzione", "alta", new Date().toISOString()],
+    ["B_103", "2026-10-15", "compleanno", "Compleanno Don Andrea Dotti", "Auguri e preghiera comunitaria per il compleanno del Padre Direttore.", "Comunità", "normale", new Date().toISOString()],
+    ["B_104", "2026-10-20", "evento", "Incontro Culturale & Accademico", "Serata di condivisione tesi e studi in Sala TV.", "Comitato Residenti", "normale", new Date().toISOString()]
+  ];
+  const csvContent = "data:text/csv;charset=utf-8," + csvRows.map(e => e.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
+  const encodedUri = encodeURI(csvContent);
+  const link = document.createElement("a");
+  link.setAttribute("href", encodedUri);
+  link.setAttribute("download", "Modello_Bacheca_Calendario_Newman.csv");
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  mostraToast("📥 Modello CSV Calendario scaricato con successo!", "success");
+};
 
 window.approvaUtente = async function(email) {
   const permMensa = document.getElementById(`p-mensa-${email}`)?.checked || false;
