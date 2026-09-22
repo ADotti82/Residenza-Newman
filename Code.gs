@@ -40,7 +40,9 @@ function setupDatabase() {
       "Perm_Manutenzione",
       "Perm_Spazi",
       "Perm_Admin",
-      "Password"
+      "Password",
+      "Notif_Manutenzione",
+      "Notif_Spazi"
     ]);
     // Aggiungi utente di default con pieni permessi
     sUtenti.appendRow([
@@ -51,13 +53,21 @@ function setupDatabase() {
       true,
       true,
       true,
-      "newman2026"
+      "newman2026",
+      true,
+      true
     ]);
   } else {
-    // Se la colonna 8 per la Password non è ancora presente, aggiungila all'intestazione
+    // Se le colonne per Password e Notifiche non sono ancora presenti, aggiungile all'intestazione
     const lastCol = sUtenti.getLastColumn();
     if (lastCol < 8) {
       sUtenti.getRange(1, 8).setValue("Password");
+    }
+    if (lastCol < 9) {
+      sUtenti.getRange(1, 9).setValue("Notif_Manutenzione");
+    }
+    if (lastCol < 10) {
+      sUtenti.getRange(1, 10).setValue("Notif_Spazi");
     }
   }
 
@@ -580,6 +590,8 @@ function gestisciApprovazione(payload) {
       if (payload.perm_manutenzione !== undefined) sheet.getRange(i + 1, 5).setValue(Boolean(payload.perm_manutenzione));
       if (payload.perm_spazi !== undefined) sheet.getRange(i + 1, 6).setValue(Boolean(payload.perm_spazi));
       if (payload.perm_admin !== undefined) sheet.getRange(i + 1, 7).setValue(Boolean(payload.perm_admin));
+      if (payload.notif_manutenzione !== undefined) sheet.getRange(i + 1, 9).setValue(Boolean(payload.notif_manutenzione));
+      if (payload.notif_spazi !== undefined) sheet.getRange(i + 1, 10).setValue(Boolean(payload.notif_spazi));
 
       return rispostaJSON({ success: true, message: "Utente approvato con successo" });
     }
@@ -603,6 +615,8 @@ function gestisciAggiornaRuoliUtente(payload) {
       if (payload.perm_manutenzione !== undefined) sheet.getRange(i + 1, 5).setValue(Boolean(payload.perm_manutenzione));
       if (payload.perm_spazi !== undefined) sheet.getRange(i + 1, 6).setValue(Boolean(payload.perm_spazi));
       if (payload.perm_admin !== undefined) sheet.getRange(i + 1, 7).setValue(Boolean(payload.perm_admin));
+      if (payload.notif_manutenzione !== undefined) sheet.getRange(i + 1, 9).setValue(Boolean(payload.notif_manutenzione));
+      if (payload.notif_spazi !== undefined) sheet.getRange(i + 1, 10).setValue(Boolean(payload.notif_spazi));
 
       return rispostaJSON({ success: true, message: "Ruoli e autorizzazioni aggiornati per " + emailTarget });
     }
@@ -635,7 +649,9 @@ function gestisciImportaElencoUtenti(payload) {
         item.perm_manutenzione !== undefined ? Boolean(item.perm_manutenzione) : false,
         item.perm_spazi !== undefined ? Boolean(item.perm_spazi) : true,
         item.perm_admin !== undefined ? Boolean(item.perm_admin) : false,
-        String(item.password || "newman2026").trim()
+        String(item.password || "newman2026").trim(),
+        item.notif_manutenzione !== undefined ? Boolean(item.notif_manutenzione) : Boolean(item.perm_manutenzione),
+        item.notif_spazi !== undefined ? Boolean(item.notif_spazi) : Boolean(item.perm_spazi)
       ]);
       existingEmails.add(email);
       aggiunti++;
@@ -915,13 +931,14 @@ function gestisciPrenotazioneSpazio(payload) {
   // Se la richiesta è di un residente ed è in attesa, manda notifica email ai Master
   if (stato === "In Attesa") {
     inviaNotificaEmailMaster(
+      "spazi",
       "[Residenza Newman] Richiesta Spazio da Approvare: " + risorsa + " (" + targetDataStr + " - " + slot_orario + ")",
       "Un residente ha richiesto la prenotazione di un ambiente comune:\n\n" +
       "• Ambiente: " + risorsa + "\n" +
       "• Data: " + targetDataStr + "\n" +
       "• Slot Orario: " + slot_orario + "\n" +
       "• Richiedente: " + email + "\n" +
-      "• Stato: In Attesa di Approvazione da un Master\n\n" +
+      "• Stato: In Attesa di Approvazione da un Referente/Master\n\n" +
       "Puoi approvare o rifiutare la richiesta direttamente dalla sezione Spazi del Pannello Master nell'applicazione."
     );
   }
@@ -1067,6 +1084,7 @@ function gestisciCaricaGuasto(payload) {
 
   // Invia notifica email al Master / Referente Manutenzione
   inviaNotificaEmailMaster(
+    "manutenzione",
     "[Residenza Newman] Nuova Segnalazione: " + (luogo ? luogo + " - " : "") + priorita,
     "È stata registrata una nuova segnalazione di manutenzione/servizi:\n\n" +
     "• ID Segnalazione: " + id + "\n" +
@@ -1344,7 +1362,9 @@ function getMasterData(emailRichiedente) {
         perm_manutenzione: Boolean(rows[i][4]),
         perm_spazi: Boolean(rows[i][5]),
         perm_admin: Boolean(rows[i][6]),
-        password: rows[i][7] ? String(rows[i][7]) : ""
+        password: rows[i][7] ? String(rows[i][7]) : "",
+        notif_manutenzione: Boolean(rows[i][8]),
+        notif_spazi: Boolean(rows[i][9])
       };
       utenti.push(u);
       if (u.stato === "In Attesa") utentiInAttesa.push(u);
@@ -1753,33 +1773,73 @@ function gestisciInizializzaDati(payload) {
 }
 
 /**
- * Invia una notifica email ai Master configurati o ai profili Admin della Residenza
+ * Invia una notifica email ai destinatari autorizzati (selezionati per ricevere la notifica)
+ * Supporta i canali: 'manutenzione', 'spazi' o generico
  */
-function inviaNotificaEmailMaster(oggetto, corpoTesto) {
+function inviaNotificaEmailMaster(tipo, oggetto, corpoTesto) {
   try {
+    // Retrocompatibilità se chiamata con due argomenti: inviaNotificaEmailMaster(oggetto, corpo)
+    if (!corpoTesto) {
+      corpoTesto = oggetto;
+      oggetto = tipo;
+      tipo = "generale";
+    }
+
     const ss = SpreadsheetApp.getActiveSpreadsheet();
     let destinatari = [];
 
-    // 1. Controlla se è configurata una lista di email nel foglio Configurazione
-    const sConfig = ss.getSheetByName(SHEET_CONFIG);
-    if (sConfig) {
-      const cRows = sConfig.getDataRange().getValues();
-      for (let c = 1; c < cRows.length; c++) {
-        if (String(cRows[c][0]) === "Email_Notifiche_Master" && cRows[c][1]) {
-          const raw = String(cRows[c][1]).split(",");
-          raw.forEach(e => {
-            const em = e.trim().toLowerCase();
-            if (em.includes("@") && !destinatari.includes(em)) {
-              destinatari.push(em);
-            }
-          });
+    // 1. Cerca nel foglio Utenti chi ha il permesso autorizzato E la spunta esplicita per la notifica
+    const sUtenti = ss.getSheetByName(SHEET_UTENTI);
+    if (sUtenti) {
+      const uRows = sUtenti.getDataRange().getValues();
+      for (let u = 1; u < uRows.length; u++) {
+        const emailU = String(uRows[u][0]).trim().toLowerCase();
+        const pManut = Boolean(uRows[u][4]);
+        const pSpazi = Boolean(uRows[u][5]);
+        const pAdmin = Boolean(uRows[u][6]);
+        const nManut = Boolean(uRows[u][8]);
+        const nSpazi = Boolean(uRows[u][9]);
+
+        if (tipo === "manutenzione") {
+          // Utente autorizzato alla manutenzione (o admin) con notifica manutenzione attiva
+          if ((pManut || pAdmin) && nManut) {
+            if (emailU.includes("@") && !destinatari.includes(emailU)) destinatari.push(emailU);
+          }
+        } else if (tipo === "spazi") {
+          // Utente autorizzato agli spazi (o admin) con notifica spazi attiva
+          if ((pSpazi || pAdmin) && nSpazi) {
+            if (emailU.includes("@") && !destinatari.includes(emailU)) destinatari.push(emailU);
+          }
+        } else {
+          // Generico: chiunque abbia una notifica attiva o admin
+          if (pAdmin || nManut || nSpazi) {
+            if (emailU.includes("@") && !destinatari.includes(emailU)) destinatari.push(emailU);
+          }
         }
       }
     }
 
-    // 2. Se non configurata o vuota, individua tutti gli utenti con perm_admin = true
+    // 2. Se nessun utente è selezionato per la notifica specifica, usa la configurazione generale
     if (destinatari.length === 0) {
-      const sUtenti = ss.getSheetByName(SHEET_UTENTI);
+      const sConfig = ss.getSheetByName(SHEET_CONFIG);
+      if (sConfig) {
+        const cRows = sConfig.getDataRange().getValues();
+        for (let c = 1; c < cRows.length; c++) {
+          if (String(cRows[c][0]) === "Email_Notifiche_Master" && cRows[c][1]) {
+            const raw = String(cRows[c][1]).split(",");
+            raw.forEach(e => {
+              const em = e.trim().toLowerCase();
+              if (em.includes("@") && !destinatari.includes(em)) {
+                destinatari.push(em);
+              }
+            });
+          }
+        }
+      }
+    }
+
+    // 3. Fallback di sicurezza: Superamministratore
+    if (destinatari.length === 0) {
       if (sUtenti) {
         const uRows = sUtenti.getDataRange().getValues();
         for (let u = 1; u < uRows.length; u++) {
@@ -1792,12 +1852,12 @@ function inviaNotificaEmailMaster(oggetto, corpoTesto) {
       }
     }
 
-    // 3. Fallback per don Andrea Dotti
+    // 4. Fallback estremo per don Andrea Dotti
     if (destinatari.length === 0) {
       destinatari.push("donandreadotti@gmail.com");
     }
 
-    // Invia email a ciascun destinatario
+    // Invia email a ciascun destinatario selezionato
     for (let i = 0; i < destinatari.length; i++) {
       MailApp.sendEmail({
         to: destinatari[i],

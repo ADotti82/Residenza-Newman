@@ -357,10 +357,10 @@ function applicaMenuBaseDaGoogleSheets(menuBase) {
 // Database Mock Locale iniziale (attivo quando non è configurato un backend GAS)
 const INITIAL_MOCK_DB = {
   utenti: [
-    { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true, password: "newman2026" },
-    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, password: "newman2026" },
-    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, password: "newman2026" },
-    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false, password: "newman2026" }
+    { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true, notif_manutenzione: true, notif_spazi: true, password: "newman2026" },
+    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: true, password: "newman2026" },
+    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: false, password: "newman2026" },
+    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false, notif_manutenzione: true, notif_spazi: false, password: "newman2026" }
   ],
   mensa: [
     { id: "M_001", data: "2026-09-16", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, note: "Piatto standard", timestamp: "2026-09-16T09:00:00Z" },
@@ -493,7 +493,10 @@ const appState = {
   utentiInAttesa: [],          // Lista utenti in attesa (per Admin)
   compressedImageBase64: null, // Stringa JPEG compressa dal canvas
   isOfflineMode: false,
-  bypassTimeLock: false
+  bypassTimeLock: false,
+  masterActiveTab: "utenti",   // Scheda attiva pannello master: "utenti" | "spazi" | "mensa" | "manutenzione" | "sistema"
+  masterVistaSchede: true,     // Vista suddivisa a schede orizzontali (true) o vista completa a scorrimento (false)
+  cucinaModalState: { pasto: "pranzo", dataYMD: "", filtro: "tutti", search: "" }
 };
 
 // ----------------------------------------------------------------------------
@@ -539,6 +542,18 @@ function initStorage() {
           parsed.prenotazioni_spazi = valid;
           needsSave = true;
         }
+      }
+      if (parsed.utenti) {
+        parsed.utenti.forEach(u => {
+          if (u.notif_manutenzione === undefined) {
+            u.notif_manutenzione = Boolean(u.perm_manutenzione || u.perm_admin);
+            needsSave = true;
+          }
+          if (u.notif_spazi === undefined) {
+            u.notif_spazi = Boolean(u.perm_spazi || u.perm_admin);
+            needsSave = true;
+          }
+        });
       }
       if (needsSave) {
         localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(parsed));
@@ -715,6 +730,8 @@ function mockBackendExecution(action, params) {
         if (params.perm_manutenzione !== undefined) db.utenti[idx].perm_manutenzione = Boolean(params.perm_manutenzione);
         if (params.perm_spazi !== undefined) db.utenti[idx].perm_spazi = Boolean(params.perm_spazi);
         if (params.perm_admin !== undefined) db.utenti[idx].perm_admin = Boolean(params.perm_admin);
+        if (params.notif_manutenzione !== undefined) db.utenti[idx].notif_manutenzione = Boolean(params.notif_manutenzione);
+        if (params.notif_spazi !== undefined) db.utenti[idx].notif_spazi = Boolean(params.notif_spazi);
         localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
         return { success: true, message: "Utente approvato!" };
       }
@@ -884,6 +901,8 @@ function mockBackendExecution(action, params) {
         if (params.perm_manutenzione !== undefined) utente.perm_manutenzione = Boolean(params.perm_manutenzione);
         if (params.perm_spazi !== undefined) utente.perm_spazi = Boolean(params.perm_spazi);
         if (params.perm_admin !== undefined) utente.perm_admin = Boolean(params.perm_admin);
+        if (params.notif_manutenzione !== undefined) utente.notif_manutenzione = Boolean(params.notif_manutenzione);
+        if (params.notif_spazi !== undefined) utente.notif_spazi = Boolean(params.notif_spazi);
         localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
         return { success: true, message: "Ruoli aggiornati per " + emailTarget };
       }
@@ -1024,6 +1043,8 @@ function mockBackendExecution(action, params) {
         tuttiUtenti: db.utenti,
         mensa: db.mensa,
         guasti: db.manutenzione,
+        prenotazioniSpazi: db.prenotazioni_spazi || [],
+        bacheca: db.bacheca || [],
         config: db.configurazione
       };
     }
@@ -4135,8 +4156,42 @@ window.apriFotoInNuovaScheda = function(url) {
 
 function haPermessiMaster() {
   if (!appState.user) return false;
-  return Boolean(appState.user.perm_admin || appState.user.perm_mensa || appState.user.perm_manutenzione);
+  return Boolean(appState.user.perm_admin || appState.user.perm_mensa || appState.user.perm_manutenzione || appState.user.perm_spazi);
 }
+
+window.getDestinatariNotifiche = function(tipo) {
+  const destinatari = [];
+  const utenti = appState.tuttiUtenti || [];
+
+  utenti.forEach(u => {
+    const email = String(u.email || "").trim().toLowerCase();
+    if (!email || !email.includes("@")) return;
+
+    if (tipo === "manutenzione") {
+      if ((u.perm_manutenzione || u.perm_admin) && u.notif_manutenzione) {
+        if (!destinatari.includes(email)) destinatari.push(email);
+      }
+    } else if (tipo === "spazi") {
+      if ((u.perm_spazi || u.perm_admin) && u.notif_spazi) {
+        if (!destinatari.includes(email)) destinatari.push(email);
+      }
+    } else {
+      if (u.perm_admin || u.notif_manutenzione || u.notif_spazi) {
+        if (!destinatari.includes(email)) destinatari.push(email);
+      }
+    }
+  });
+
+  if (destinatari.length === 0) {
+    const raw = (appState.cachedConfig && appState.cachedConfig.Email_Notifiche_Master) || "donandreadotti@gmail.com";
+    raw.split(",").forEach(e => {
+      const em = e.trim().toLowerCase();
+      if (em.includes("@") && !destinatari.includes(em)) destinatari.push(em);
+    });
+  }
+
+  return destinatari;
+};
 
 async function caricaDatiMaster() {
   const masterTabBtn = document.getElementById("nav-tab-master");
@@ -4178,11 +4233,50 @@ window.filtraMasterSegnalazioni = function(categoria, stato) {
   renderMasterSection();
 };
 
+// ----------------------------------------------------------------------------
+// NAVIGAZIONE SCHEDE MASTER (ORIZZONTALE / CAROSELLO)
+// ----------------------------------------------------------------------------
+window.cambiaSchedaMaster = function(tabId) {
+  appState.masterActiveTab = tabId;
+  appState.masterVistaTutto = false;
+  renderMasterSection();
+  const el = document.getElementById(`master-tab-btn-${tabId}`);
+  if (el) {
+    el.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+  }
+};
+
+window.scrollMasterTabs = function(direction) {
+  const container = document.getElementById("master-tabs-scroll-container");
+  if (container) {
+    container.scrollBy({ left: direction * 220, behavior: "smooth" });
+  }
+};
+
+window.navigaSchedaMaster = function(step) {
+  const tabs = window._masterTabsDisponibili || [];
+  if (tabs.length === 0) return;
+  const currentIdx = tabs.findIndex(t => t.id === appState.masterActiveTab);
+  let nextIdx = (currentIdx === -1 ? 0 : currentIdx) + step;
+  if (nextIdx < 0) nextIdx = 0;
+  if (nextIdx >= tabs.length) nextIdx = tabs.length - 1;
+  window.cambiaSchedaMaster(tabs[nextIdx].id);
+};
+
+window.toggleVistaMasterSchede = function() {
+  appState.masterVistaTutto = !appState.masterVistaTutto;
+  renderMasterSection();
+};
+
 function renderMasterSection() {
   const container = document.getElementById("master-dynamic-content");
   if (!container || !appState.user) return;
 
-  const { perm_admin, perm_mensa, perm_manutenzione } = appState.user;
+  const perm_admin = Boolean(appState.user && appState.user.perm_admin);
+  const perm_mensa = Boolean(appState.user && (appState.user.perm_mensa || appState.user.perm_admin));
+  const perm_manutenzione = Boolean(appState.user && (appState.user.perm_manutenzione || appState.user.perm_admin));
+  const perm_spazi = Boolean(appState.user && (appState.user.perm_spazi || appState.user.perm_admin));
+
   const tuttiUtenti = appState.tuttiUtenti || [];
   const utentiInAttesa = appState.utentiInAttesa || [];
   const mensaBookings = appState.mensaBookings || [];
@@ -4190,9 +4284,40 @@ function renderMasterSection() {
   const tutteSegnalazioni = appState.guasti || appState.manutenzioneList || [];
   const bachecaItems = appState.bacheca || [];
 
+  const inAttesaSpazi = prenotazioniSpazi.filter(p => p.stato === "In Attesa");
+  const guastiAperti = tutteSegnalazioni.filter(g => g.stato !== "Risolto");
+
+  // Calcolo schede disponibili in base ai permessi
+  const tabsDisponibili = [];
+  if (perm_admin) {
+    tabsDisponibili.push({ id: "utenti", label: "Residenti & Ruoli", icon: "👥", badge: utentiInAttesa.length, color: "#d97706" });
+  }
+  if (perm_spazi) {
+    tabsDisponibili.push({ id: "spazi", label: "Ambienti & Approvazioni", icon: "⛪", badge: inAttesaSpazi.length, color: "#9d174d" });
+  }
+  if (perm_mensa) {
+    tabsDisponibili.push({ id: "mensa", label: "Mensa & Pasti", icon: "🍽️", badge: 0, color: "#ea580c" });
+  }
+  if (perm_manutenzione) {
+    tabsDisponibili.push({ id: "manutenzione", label: "Manutenzione & Guasti", icon: "🛠️", badge: guastiAperti.length, color: "#2563eb" });
+  }
+  if (perm_admin) {
+    tabsDisponibili.push({ id: "sistema", label: "Calendario & Fogli", icon: "⚙️", badge: 0, color: "#059669" });
+  }
+
+  window._masterTabsDisponibili = tabsDisponibili;
+
+  if (!appState.masterActiveTab || !tabsDisponibili.some(t => t.id === appState.masterActiveTab)) {
+    appState.masterActiveTab = tabsDisponibili[0]?.id || "utenti";
+  }
+
+  const isVistaTutto = Boolean(appState.masterVistaTutto);
+  const activeTab = appState.masterActiveTab;
+  const currentTabIndex = tabsDisponibili.findIndex(t => t.id === activeTab);
+
   let html = `
     <!-- BARRA DI COMANDO RAPIDO MASTER -->
-    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.12); padding: 18px; border-radius: 10px;">
+    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; margin-bottom: 14px; border: 1px solid rgba(255,255,255,0.12); padding: 16px 18px; border-radius: 10px;">
       <div class="flex-between" style="flex-wrap: wrap; gap: 12px;">
         <div>
           <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #f59e0b; font-weight: 700;">Amministrazione & Direzione Residenza</div>
@@ -4203,20 +4328,65 @@ function renderMasterSection() {
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="btn btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; display: flex; align-items: center; gap: 6px; font-weight: 700;">
-            <span>➕</span> Inserisci Appuntamento Master
+            <span>➕</span> Inserisci Appuntamento
           </button>
           <button type="button" class="btn btn-secondary" onclick="apriModalCodiceGas()" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; gap: 6px;">
-            <span>📊</span> Guida Google Fogli (Code.gs)
+            <span>📊</span> Guida Google Fogli
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- ==================================================================
+         BARRA SCHEDE ORIZZONTALI MASTER (SCORREVOLI A DESTRA E SINISTRA)
+         ================================================================== -->
+    <div class="master-tabs-bar" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
+        <div style="font-size: 12.5px; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px;">
+          <span>📑</span> <span>Schede di Gestione Master (clicca o usa le frecce per scorrere):</span>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <button type="button" class="btn btn-sm btn-outline" onclick="toggleVistaMasterSchede()" style="font-size: 11px; padding: 3px 10px; border-color: #cbd5e1; font-weight: 600;" title="Alterna tra visualizzazione a schede o tutto continuo">
+            ${isVistaTutto ? '📑 Torna a Vista Schede' : '📜 Mostra Tutte le Sezioni'}
+          </button>
+        </div>
+      </div>
+
+      <div style="display: flex; align-items: center; gap: 6px;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="scrollMasterTabs(-1)" title="Scorri a sinistra" style="padding: 6px 11px; border-radius: 6px; font-weight: 800; font-size: 13px; background: #f8fafc; flex-shrink: 0;">
+          ◀
+        </button>
+        <div id="master-tabs-scroll-container" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; flex: 1;">
+          ${tabsDisponibili.map(t => {
+            const isActive = !isVistaTutto && t.id === activeTab;
+            return `
+              <button type="button"
+                id="master-tab-btn-${t.id}"
+                class="btn btn-sm"
+                onclick="cambiaSchedaMaster('${t.id}')"
+                style="white-space: nowrap; font-weight: ${isActive ? '800' : '600'}; font-size: 12.5px; padding: 7px 14px; border-radius: 8px; transition: all 0.15s ease; ${isActive ? `background: ${t.color}; color: #ffffff; border: 1px solid ${t.color}; box-shadow: 0 2px 4px rgba(0,0,0,0.12);` : 'background: #f8fafc; color: #334155; border: 1px solid #e2e8f0;'}"
+              >
+                <span>${t.icon}</span> ${t.label}
+                ${t.badge > 0 ? `
+                  <span style="margin-left: 6px; background: ${isActive ? '#ffffff' : t.color}; color: ${isActive ? t.color : '#ffffff'}; font-size: 10px; font-weight: 900; padding: 2px 6px; border-radius: 10px;">
+                    ${t.badge}
+                  </span>
+                ` : ''}
+              </button>
+            `;
+          }).join("")}
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="scrollMasterTabs(1)" title="Scorri a destra" style="padding: 6px 11px; border-radius: 6px; font-weight: 800; font-size: 13px; background: #f8fafc; flex-shrink: 0;">
+          ▶
+        </button>
       </div>
     </div>
   `;
 
   // ==========================================================================
-  // 1. SUB-PANNELLO ADMIN (SUPERAMMINISTRATORE)
+  // SCHEDA 1: RESIDENTI & RUOLI MASTER (ADMIN)
   // ==========================================================================
-  if (perm_admin) {
+  if (perm_admin && (isVistaTutto || activeTab === "utenti")) {
     html += `
       <!-- GESTIONE UTENTI E RUOLI ESCLUSIVA SUPERAMMINISTRATORE -->
       <div class="master-block card" style="border-top: 4px solid #f59e0b;">
@@ -4244,11 +4414,13 @@ function renderMasterSection() {
                   <strong>${escapeHtml(u.nome)}</strong>
                   <span class="text-muted text-sm" style="display: block;">${escapeHtml(u.email)}</span>
                 </div>
-                <div class="permessi-grid" style="display: flex; gap: 10px; font-size: 12px; font-weight: 600;">
+                <div class="permessi-grid" style="display: flex; gap: 8px; font-size: 12px; font-weight: 600; flex-wrap: wrap;">
                   <label><input type="checkbox" id="p-mensa-${escapeHtml(u.email)}"> Mensa</label>
-                  <label><input type="checkbox" id="p-manut-${escapeHtml(u.email)}"> Manutenzione/Servizi</label>
+                  <label><input type="checkbox" id="p-manut-${escapeHtml(u.email)}"> Manutenzione</label>
                   <label><input type="checkbox" id="p-spazi-${escapeHtml(u.email)}" checked> Spazi</label>
                   <label><input type="checkbox" id="p-admin-${escapeHtml(u.email)}"> Admin</label>
+                  <label style="color: #2563eb;" title="Invia notifica email quando residenti aprono segnalazioni di manutenzione"><input type="checkbox" id="p-notif-manut-${escapeHtml(u.email)}"> 🔔 Notif. Manut.</label>
+                  <label style="color: #9d174d;" title="Invia notifica email quando residenti richiedono Chiesa o Sala TV"><input type="checkbox" id="p-notif-spazi-${escapeHtml(u.email)}"> 🔔 Notif. Ambienti</label>
                 </div>
                 <div style="display: flex; gap: 6px; align-items: center;">
                   <button type="button" class="btn btn-success btn-sm" onclick="approvaUtente('${escapeHtml(u.email)}')" style="font-weight: 700;">
@@ -4276,15 +4448,17 @@ function renderMasterSection() {
                   <th>Residente</th>
                   <th>Stato</th>
                   <th>Mensa</th>
-                  <th>Manutenzione / Servizi</th>
-                  <th>Spazi Comuni</th>
-                  <th>Supermaster (Admin)</th>
+                  <th>Manutenzione</th>
+                  <th>Spazi</th>
+                  <th>Supermaster</th>
+                  <th style="color: #1d4ed8; text-align: center;" title="Riceve notifica email per ogni nuova segnalazione di manutenzione">🔔 Notif. Manut.</th>
+                  <th style="color: #9d174d; text-align: center;" title="Riceve notifica email per ogni nuova richiesta di Chiesa o Sala TV">🔔 Notif. Ambienti</th>
                   <th>Password</th>
                   <th>Azione</th>
                 </tr>
               </thead>
               <tbody>
-                ${tuttiUtenti.length === 0 ? '<tr><td colspan="8" style="text-align:center; padding: 14px; color: #64748b;">Nessun utente caricato.</td></tr>' : ''}
+                ${tuttiUtenti.length === 0 ? '<tr><td colspan="10" style="text-align:center; padding: 14px; color: #64748b;">Nessun utente caricato.</td></tr>' : ''}
                 ${tuttiUtenti.map(u => `
                   <tr>
                     <td>
@@ -4306,12 +4480,18 @@ function renderMasterSection() {
                     <td style="text-align: center;">
                       <input type="checkbox" id="edit-p-admin-${escapeHtml(u.email)}" ${u.perm_admin ? 'checked' : ''} title="Permesso Superamministratore">
                     </td>
+                    <td style="text-align: center;">
+                      <input type="checkbox" id="edit-notif-manut-${escapeHtml(u.email)}" ${u.notif_manutenzione ? 'checked' : ''} title="Invia notifica email per nuove segnalazioni di manutenzione">
+                    </td>
+                    <td style="text-align: center;">
+                      <input type="checkbox" id="edit-notif-spazi-${escapeHtml(u.email)}" ${u.notif_spazi ? 'checked' : ''} title="Invia notifica email per nuove richieste Chiesa o Sala TV">
+                    </td>
                     <td style="font-size: 11px; white-space: nowrap;">
                       ${u.password ? `<span style="font-family: monospace; background: #f1f5f9; padding: 2px 6px; border-radius: 4px; font-weight: 600; color: #0f172a; border: 1px solid #e2e8f0;">${escapeHtml(u.password)}</span>` : '<span class="text-xs text-muted">newman2026</span>'}
                     </td>
                     <td>
                       <div style="display: flex; gap: 4px; align-items: center;">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="salvaRuoliUtente('${escapeHtml(u.email)}')" style="font-size: 11px; padding: 4px 7px; font-weight: 600;" title="Salva modifiche ruoli">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="salvaRuoliUtente('${escapeHtml(u.email)}')" style="font-size: 11px; padding: 4px 7px; font-weight: 600;" title="Salva modifiche ruoli e notifiche">
                           💾 Salva
                         </button>
                         <button type="button" class="btn btn-outline btn-sm" onclick="resetPasswordUtenteMaster('${escapeHtml(u.email)}', '${escapeHtml(u.nome || u.email)}')" style="font-size: 11px; padding: 4px 7px; font-weight: 600; color: #b45309; border-color: #fde68a;" title="Reimposta la password per questo utente">
@@ -4381,10 +4561,15 @@ function renderMasterSection() {
           </form>
         </div>
       </div>
+    `;
+  }
 
-      <!-- ==================================================================
-           GESTIONE CALENDARIO & DATE DA GOOGLE FOGLI (GUIDA & SINCRONIZZAZIONE)
-           ================================================================== -->
+  // ==========================================================================
+  // SCHEDA 5 (PARTE 1): CALENDARIO & DATE DA GOOGLE FOGLI
+  // ==========================================================================
+  if (perm_admin && (isVistaTutto || activeTab === "sistema")) {
+    html += `
+      <!-- GESTIONE CALENDARIO & DATE DA GOOGLE FOGLI (GUIDA & SINCRONIZZAZIONE) -->
       <div class="master-block card" id="master-calendario-card" style="border-top: 4px solid #0284c7;">
         <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
           <div class="flex-align" style="gap: 8px;">
@@ -4522,10 +4707,15 @@ function renderMasterSection() {
           </div>
         </div>
       </div>
+    `;
+  }
 
-      <!-- ==================================================================
-           GESTIONE AMBIENTI (CHIESA E SALA TV) - APPROVAZIONE MASTER & NOTIFICHE
-           ================================================================== -->
+  // ==========================================================================
+  // SCHEDA 2: GESTIONE AMBIENTI (CHIESA E SALA TV) - APPROVAZIONE MASTER & NOTIFICHE
+  // ==========================================================================
+  if (perm_spazi && (isVistaTutto || activeTab === "spazi")) {
+    html += `
+      <!-- GESTIONE AMBIENTI (CHIESA E SALA TV) - APPROVAZIONE MASTER & NOTIFICHE -->
       <div class="master-block card" id="master-spazi-management-card" style="border-top: 4px solid #9d174d;">
         <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
           <div class="flex-align" style="gap: 8px;">
@@ -4547,7 +4737,10 @@ function renderMasterSection() {
 
         <!-- BOX NOTIFICA REGOLE APPROVAZIONE -->
         <div style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 12.5px; color: #831843;">
-          🔔 <strong>Nuova Regola di Approvazione Ambienti:</strong> Le richieste dei residenti per Chiesa o Sala TV non sono più confermate in automatico. Quando un residente effettua una richiesta, lo slot resta <strong>"In Attesa"</strong> e viene inviata una notifica via email ai Master autorizzati (<code>${escapeHtml(appState.cachedConfig.Email_Notifiche_Master || 'donandreadotti@gmail.com')}</code>). Solo l'approvazione del Master rende la prenotazione ufficiale.
+          🔔 <strong>Regola di Approvazione Ambienti & Destinatari Notifiche:</strong> Le richieste dei residenti per Chiesa o Sala TV restano <strong>"In Attesa"</strong> fino ad approvazione del Master. L'avviso email viene inviato automaticamente ai responsabili con notifica abilitata: <strong>${(() => {
+            const dest = getDestinatariNotifiche('spazi');
+            return dest.map(e => `<code style="background: rgba(157,23,77,0.1); color: #9d174d; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${escapeHtml(e)}</code>`).join(', ');
+          })()}</strong>. Solo l'approvazione del Master rende la prenotazione ufficiale.
         </div>
 
         ${(() => {
@@ -4660,10 +4853,15 @@ function renderMasterSection() {
           `;
         })()}
       </div>
+    `;
+  }
 
-      <!-- ==================================================================
-           CONFIGURAZIONE GOOGLE SPREADSHEET (APPS SCRIPT LIVE)
-           ================================================================== -->
+  // ==========================================================================
+  // SCHEDA 5 (PARTE 2): CONFIGURAZIONE GOOGLE SPREADSHEET (APPS SCRIPT LIVE)
+  // ==========================================================================
+  if (perm_admin && (isVistaTutto || activeTab === "sistema")) {
+    html += `
+      <!-- CONFIGURAZIONE GOOGLE SPREADSHEET (APPS SCRIPT LIVE) -->
       <div class="master-block card" id="master-google-sheets-card" style="border-top: 4px solid #059669;">
         <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
           <div class="flex-align" style="gap: 8px;">
@@ -4713,9 +4911,9 @@ function renderMasterSection() {
   }
 
   // ==========================================================================
-  // 2. SUB-PANNELLO MENSA (MASTER MENSA)
+  // SCHEDA 3: SUB-PANNELLO MENSA (MASTER MENSA)
   // ==========================================================================
-  if (perm_mensa) {
+  if (perm_mensa && (isVistaTutto || activeTab === "mensa")) {
     const dataFiltroYMD = appState.masterMensaDate || formatYMD(new Date());
     const prenotazioniGiorno = mensaBookings.filter(m => String(m.data).split("T")[0] === dataFiltroYMD);
 
@@ -4741,12 +4939,12 @@ function renderMasterSection() {
         </div>
 
         <div class="metrics-grid">
-          <div class="metric-card" style="border-top: 3px solid var(--primary);">
-            <span class="metric-val" style="color: var(--primary);">${countPranzo}</span>
+          <div class="metric-card" style="border-top: 3px solid var(--primary); cursor: pointer;" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'pranzo')" title="Clicca per aprire l'elenco nominativo dei prenotati a pranzo">
+            <span class="metric-val" style="color: var(--primary);">${countPranzo} 🔍</span>
             <span class="metric-lbl">Presenti Pranzo (14:30)</span>
           </div>
-          <div class="metric-card" style="border-top: 3px solid #2563eb;">
-            <span class="metric-val" style="color: #2563eb;">${countCena}</span>
+          <div class="metric-card" style="border-top: 3px solid #2563eb; cursor: pointer;" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'cena')" title="Clicca per aprire l'elenco nominativo dei prenotati a cena">
+            <span class="metric-val" style="color: #2563eb;">${countCena} 🔍</span>
             <span class="metric-lbl">Presenti Cena (19:30)</span>
           </div>
           <div class="metric-card" style="border-top: 3px solid #d97706;">
@@ -4898,9 +5096,9 @@ function renderMasterSection() {
   }
 
   // ==========================================================================
-  // 3. SUB-PANNELLO MANUTENZIONE & SERVIZI (MASTER MANUTENZIONE)
+  // SCHEDA 4: SUB-PANNELLO MANUTENZIONE & SERVIZI (MASTER MANUTENZIONE)
   // ==========================================================================
-  if (perm_manutenzione) {
+  if (perm_manutenzione && (isVistaTutto || activeTab === "manutenzione")) {
     // Filtraggio per categoria e per stato
     let filteredSegnalazioni = tutteSegnalazioni.slice();
     if (masterSegnalazioniFiltroCategoria !== "tutte") {
@@ -4971,7 +5169,10 @@ function renderMasterSection() {
         <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
           <div class="flex-between" style="flex-wrap: wrap; gap: 8px;">
             <div style="font-size: 12.5px; color: #78350f; line-height: 1.5; flex: 1; min-width: 250px;">
-              <strong>📧 Notifiche & Monitoraggio Amministrazione:</strong> Ad ogni nuova segnalazione viene recapitata una mail istantanea a <code>${escapeHtml(appState.cachedConfig.Email_Notifiche_Master || 'donandreadotti@gmail.com')}</code> con descrizione, luogo e link alla foto. I dati dialogano costantemente con il foglio Google <strong>"Manutenzione"</strong> per permettere all'amministrazione di monitorare i costi, assegnare le ditte ed archiviare lo storico.
+              <strong>📧 Notifiche & Monitoraggio Amministrazione:</strong> Ad ogni nuova segnalazione viene recapitata una mail ai responsabili selezionati: <strong>${(() => {
+                const dest = getDestinatariNotifiche('manutenzione');
+                return dest.map(e => `<code style="background: rgba(217,119,6,0.15); color: #92400e; padding: 2px 6px; border-radius: 4px; font-weight: 700;">${escapeHtml(e)}</code>`).join(', ');
+              })()}</strong> con descrizione, luogo e link alla foto. I dati dialogano costantemente con il foglio Google <strong>"Manutenzione"</strong> per permettere all'amministrazione di monitorare i costi, assegnare le ditte ed archiviare lo storico.
             </div>
             <button type="button" class="btn btn-sm btn-outline" onclick="window.print()" style="border-color: #d97706; color: #b45309; font-weight: 700; font-size: 11.5px; padding: 4px 10px;">
               🖨️ Stampa Scheda Interventi
@@ -5083,6 +5284,27 @@ function renderMasterSection() {
     `;
   }
 
+  // NAVIGATORE INFERIORE TRA SCHEDE MASTER
+  if (!isVistaTutto && tabsDisponibili.length > 1) {
+    const currentTabObj = tabsDisponibili[currentTabIndex] || tabsDisponibili[0];
+    const prevTabObj = currentTabIndex > 0 ? tabsDisponibili[currentTabIndex - 1] : null;
+    const nextTabObj = currentTabIndex < tabsDisponibili.length - 1 ? tabsDisponibili[currentTabIndex + 1] : null;
+
+    html += `
+      <div class="card" style="margin-top: 18px; padding: 12px 16px; background: #f8fafc; border: 1px solid #e2e8f0; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; border-radius: 8px;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="navigaSchedaMaster(-1)" ${!prevTabObj ? 'disabled style="opacity: 0.4; cursor: not-allowed; font-size: 12px;"' : 'style="font-weight: 700; font-size: 12px;"'}>
+          ◀ ${prevTabObj ? escapeHtml(prevTabObj.label) : 'Inizio'}
+        </button>
+        <div style="font-size: 12.5px; font-weight: 600; color: #475569; text-align: center;">
+          Scheda <strong>${currentTabIndex + 1}</strong> di <strong>${tabsDisponibili.length}</strong>: <span style="color: #0f172a; font-weight: 700;">${escapeHtml(currentTabObj ? currentTabObj.label : '')}</span>
+        </div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="navigaSchedaMaster(1)" ${!nextTabObj ? 'disabled style="opacity: 0.4; cursor: not-allowed; font-size: 12px;"' : 'style="font-weight: 700; font-size: 12px;"'}>
+          ${nextTabObj ? escapeHtml(nextTabObj.label) : 'Fine'} ▶
+        </button>
+      </div>
+    `;
+  }
+
   container.innerHTML = html;
 }
 
@@ -5094,6 +5316,8 @@ window.salvaRuoliUtente = async function(email) {
   const permManut = document.getElementById(`edit-p-manut-${email}`)?.checked || false;
   const permSpazi = document.getElementById(`edit-p-spazi-${email}`)?.checked || false;
   const permAdmin = document.getElementById(`edit-p-admin-${email}`)?.checked || false;
+  const notifManut = document.getElementById(`edit-notif-manut-${email}`)?.checked || false;
+  const notifSpazi = document.getElementById(`edit-notif-spazi-${email}`)?.checked || false;
 
   try {
     const res = await callApi("aggiornaRuoliUtente", {
@@ -5101,17 +5325,21 @@ window.salvaRuoliUtente = async function(email) {
       perm_mensa: permMensa,
       perm_manutenzione: permManut,
       perm_spazi: permSpazi,
-      perm_admin: permAdmin
+      perm_admin: permAdmin,
+      notif_manutenzione: notifManut,
+      notif_spazi: notifSpazi
     });
 
     if (res.success) {
-      mostraToast(`✅ Ruoli aggiornati per ${email}!`, "success");
+      mostraToast(`✅ Ruoli e notifiche aggiornati per ${email}!`, "success");
       // Aggiorna stato locale se stiamo modificando l'utente loggato
       if (appState.user && appState.user.email.toLowerCase() === email.toLowerCase()) {
         appState.user.perm_mensa = permMensa;
         appState.user.perm_manutenzione = permManut;
         appState.user.perm_spazi = permSpazi;
         appState.user.perm_admin = permAdmin;
+        appState.user.notif_manutenzione = notifManut;
+        appState.user.notif_spazi = notifSpazi;
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
       }
       caricaDatiMaster();
@@ -5695,6 +5923,8 @@ window.approvaUtente = async function(email) {
   const permManut = document.getElementById(`p-manut-${email}`)?.checked || false;
   const permSpazi = document.getElementById(`p-spazi-${email}`)?.checked || true;
   const permAdmin = document.getElementById(`p-admin-${email}`)?.checked || false;
+  const notifManut = document.getElementById(`p-notif-manut-${email}`)?.checked || false;
+  const notifSpazi = document.getElementById(`p-notif-spazi-${email}`)?.checked || false;
 
   try {
     const res = await callApi("approvaUtente", {
@@ -5702,7 +5932,9 @@ window.approvaUtente = async function(email) {
       perm_mensa: permMensa,
       perm_manutenzione: permManut,
       perm_spazi: permSpazi,
-      perm_admin: permAdmin
+      perm_admin: permAdmin,
+      notif_manutenzione: notifManut,
+      notif_spazi: notifSpazi
     });
 
     if (res.success) {
@@ -6996,8 +7228,8 @@ window.renderCucinaView = function() {
             <div onclick="cambiaDataCucina('${pg.ymd}')" style="background: ${pg.isSel ? '#ffedd5' : '#ffffff'}; border: 1px solid ${pg.isSel ? '#f97316' : '#cbd5e1'}; border-radius: 6px; padding: 8px; cursor: pointer; text-align: center; transition: all 0.15s ease;">
               <div style="font-size: 11px; font-weight: 800; color: ${pg.isSel ? '#c2410c' : '#475569'}; text-transform: uppercase;">${pg.label}</div>
               <div style="display: flex; justify-content: center; gap: 8px; margin-top: 4px; font-size: 12px;">
-                <span title="Pranzo" style="color: #ea580c; font-weight: 700;">☀️ ${pg.pranzo}</span>
-                <span title="Cena" style="color: #2563eb; font-weight: 700;">🌙 ${pg.cena}</span>
+                <span title="Pranzo: Clicca per vedere l'elenco nominativo" onclick="event.stopPropagation(); apriModalElencoPastiCucina('${pg.ymd}', 'pranzo')" style="color: #ea580c; font-weight: 700; cursor: pointer;">☀️ ${pg.pranzo}</span>
+                <span title="Cena: Clicca per vedere l'elenco nominativo" onclick="event.stopPropagation(); apriModalElencoPastiCucina('${pg.ymd}', 'cena')" style="color: #2563eb; font-weight: 700; cursor: pointer;">🌙 ${pg.cena}</span>
                 ${pg.buste > 0 ? `<span title="Buste al sacco" style="color: #d97706; font-weight: 700;">🥪 ${pg.buste}</span>` : ''}
               </div>
             </div>
@@ -7020,9 +7252,9 @@ window.renderCucinaView = function() {
                 <span class="text-xs text-muted">Coperti complessivi registrati</span>
               </div>
             </div>
-            <div style="background: #fff7ed; border: 2px solid #f97316; border-radius: 20px; padding: 4px 14px; text-align: center;">
+            <div style="background: #fff7ed; border: 2px solid #f97316; border-radius: 20px; padding: 4px 14px; text-align: center; cursor: pointer; transition: transform 0.15s ease;" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'pranzo')" title="Clicca per visualizzare l'elenco dei residenti prenotati a pranzo">
               <span style="font-size: 20px; font-weight: 900; color: #c2410c;">${listaPranzo.length}</span>
-              <span style="font-size: 11px; font-weight: 700; color: #9a3412; display: block;">PRESENTI</span>
+              <span style="font-size: 11px; font-weight: 700; color: #9a3412; display: block;">PRESENTI 🔍</span>
             </div>
           </div>
 
@@ -7124,9 +7356,9 @@ window.renderCucinaView = function() {
                 <span class="text-xs text-muted">Coperti complessivi registrati</span>
               </div>
             </div>
-            <div style="background: #eff6ff; border: 2px solid #2563eb; border-radius: 20px; padding: 4px 14px; text-align: center;">
+            <div style="background: #eff6ff; border: 2px solid #2563eb; border-radius: 20px; padding: 4px 14px; text-align: center; cursor: pointer; transition: transform 0.15s ease;" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'cena')" title="Clicca per visualizzare l'elenco dei residenti prenotati a cena">
               <span style="font-size: 20px; font-weight: 900; color: #1d4ed8;">${listaCena.length}</span>
-              <span style="font-size: 11px; font-weight: 700; color: #1e40af; display: block;">PRESENTI</span>
+              <span style="font-size: 11px; font-weight: 700; color: #1e40af; display: block;">PRESENTI 🔍</span>
             </div>
           </div>
 
@@ -7222,4 +7454,245 @@ window.renderCucinaView = function() {
   `;
 
   container.innerHTML = html;
+};
+
+// ----------------------------------------------------------------------------
+// LOGICA MODAL DETTAGLIO PRENOTATI PASTO (CUCINA DRILL-DOWN)
+// ----------------------------------------------------------------------------
+
+window.apriModalElencoPastiCucina = function(dataYMD, tipoPasto) {
+  const modal = document.getElementById("modal-elenco-pasti-cucina");
+  if (!modal) return;
+
+  const targetDate = dataYMD || appState.cucinaSelectedDate || formatYMD(new Date());
+  const targetPasto = (tipoPasto || "pranzo").toLowerCase();
+
+  appState.cucinaModalState = {
+    isOpen: true,
+    dataYMD: targetDate,
+    tipoPasto: targetPasto,
+    filtro: "tutti",
+    search: ""
+  };
+
+  const searchInput = document.getElementById("modal-cucina-search");
+  if (searchInput) searchInput.value = "";
+
+  modal.style.display = "flex";
+  renderContenutoModalCucina();
+};
+
+window.chiudiModalElencoPastiCucina = function() {
+  const modal = document.getElementById("modal-elenco-pasti-cucina");
+  if (modal) modal.style.display = "none";
+  if (appState.cucinaModalState) {
+    appState.cucinaModalState.isOpen = false;
+  }
+};
+
+window.applicaFiltriModalCucina = function(filtro) {
+  if (!appState.cucinaModalState) return;
+  if (filtro !== undefined) {
+    appState.cucinaModalState.filtro = filtro;
+  }
+  const searchInput = document.getElementById("modal-cucina-search");
+  if (searchInput) {
+    appState.cucinaModalState.search = searchInput.value.trim().toLowerCase();
+  }
+  renderContenutoModalCucina();
+};
+
+window.renderContenutoModalCucina = function() {
+  if (!appState.cucinaModalState || !appState.cucinaModalState.isOpen) return;
+
+  const { dataYMD, tipoPasto, filtro, search } = appState.cucinaModalState;
+
+  const iconEl = document.getElementById("modal-cucina-icon");
+  const titoloEl = document.getElementById("modal-cucina-titolo");
+  const sottotitoloEl = document.getElementById("modal-cucina-sottotitolo");
+  const filtriContainer = document.getElementById("modal-cucina-filtri");
+  const elencoContainer = document.getElementById("modal-cucina-elenco-container");
+
+  const isPranzo = tipoPasto === "pranzo";
+  if (iconEl) iconEl.innerText = isPranzo ? "☀️" : "🌙";
+  if (titoloEl) titoloEl.innerText = isPranzo ? "Residenti Prenotati Pranzo (14:30)" : "Residenti Prenotati Cena (19:30)";
+
+  let dataEstesa = dataYMD;
+  try {
+    const d = new Date(dataYMD + "T12:00:00");
+    dataEstesa = d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    dataEstesa = dataEstesa.charAt(0).toUpperCase() + dataEstesa.slice(1);
+  } catch (e) {}
+
+  const dbMensa = appState.mensaBookings || [];
+  const tuttiUtenti = appState.tuttiUtenti || [];
+
+  const prenotazioniPasto = dbMensa.filter(m => String(m.data).split("T")[0] === dataYMD && m.tipo_pasto === tipoPasto);
+
+  const prenotati = prenotazioniPasto.map(p => {
+    const userMatch = tuttiUtenti.find(u => u.email.toLowerCase() === p.email.toLowerCase());
+    let nomeVisualizzato = "";
+    if (userMatch && userMatch.nome) {
+      nomeVisualizzato = userMatch.nome;
+    } else {
+      const emailBase = p.email.split("@")[0].replace(/\./g, " ");
+      nomeVisualizzato = emailBase.charAt(0).toUpperCase() + emailBase.slice(1);
+    }
+    return {
+      ...p,
+      nomeVisualizzato
+    };
+  });
+
+  const countBuste = prenotati.filter(p => p.busta).length;
+  const countRitardi = prenotati.filter(p => p.ritardo).length;
+  const countNote = prenotati.filter(p => p.note && p.note.trim()).length;
+  const countInSala = prenotati.length - countBuste;
+
+  if (sottotitoloEl) {
+    sottotitoloEl.innerHTML = `📅 <strong>${dataEstesa}</strong> • Totale: <strong>${prenotati.length} coperti</strong> (${countInSala} in sala, ${countBuste} buste)`;
+  }
+
+  if (filtriContainer) {
+    filtriContainer.innerHTML = `
+      <button type="button" class="btn btn-sm ${filtro === 'tutti' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('tutti')" style="padding: 3px 8px; font-size: 11px;">
+        Tutti (${prenotati.length})
+      </button>
+      <button type="button" class="btn btn-sm ${filtro === 'in_sala' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('in_sala')" style="padding: 3px 8px; font-size: 11px;">
+        🍽️ In Sala (${countInSala})
+      </button>
+      <button type="button" class="btn btn-sm ${filtro === 'busta' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('busta')" style="padding: 3px 8px; font-size: 11px;">
+        🥪 Buste (${countBuste})
+      </button>
+      <button type="button" class="btn btn-sm ${filtro === 'ritardo' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('ritardo')" style="padding: 3px 8px; font-size: 11px;">
+        ⏰ Ritardi (${countRitardi})
+      </button>
+      ${countNote > 0 ? `
+        <button type="button" class="btn btn-sm ${filtro === 'note' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('note')" style="padding: 3px 8px; font-size: 11px;">
+          💬 Note (${countNote})
+        </button>
+      ` : ''}
+    `;
+  }
+
+  let list = prenotati.slice();
+  if (filtro === "in_sala") list = list.filter(p => !p.busta && !p.ritardo);
+  if (filtro === "busta") list = list.filter(p => p.busta);
+  if (filtro === "ritardo") list = list.filter(p => p.ritardo);
+  if (filtro === "note") list = list.filter(p => p.note && p.note.trim());
+
+  if (search) {
+    list = list.filter(p =>
+      p.nomeVisualizzato.toLowerCase().includes(search) ||
+      p.email.toLowerCase().includes(search) ||
+      (p.note && p.note.toLowerCase().includes(search))
+    );
+  }
+
+  let spuntati = {};
+  try {
+    spuntati = JSON.parse(localStorage.getItem(`newman_cucina_spuntati_${dataYMD}`) || "{}");
+  } catch (e) {
+    spuntati = {};
+  }
+
+  if (elencoContainer) {
+    if (list.length === 0) {
+      elencoContainer.innerHTML = `
+        <div style="text-align: center; padding: 36px 16px; color: #94a3b8;">
+          <span style="font-size: 36px; display: block; margin-bottom: 8px;">🍽️</span>
+          <div style="font-size: 14px; font-weight: 700; color: #64748b;">Nessun residente trovato</div>
+          <div style="font-size: 12px; margin-top: 4px;">Non ci sono prenotazioni registrate per questa selezione.</div>
+        </div>
+      `;
+      return;
+    }
+
+    elencoContainer.innerHTML = `
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        ${list.map((p, idx) => {
+          const checkKey = `${tipoPasto}_${p.email}`;
+          const isChecked = Boolean(spuntati[checkKey]);
+
+          return `
+            <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: ${isChecked ? '#f1f5f9' : '#ffffff'}; border: 1px solid ${isChecked ? '#cbd5e1' : '#e2e8f0'}; border-radius: 6px; opacity: ${isChecked ? '0.65' : '1'}; transition: all 0.1s ease;">
+              <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
+                <span style="font-size: 12px; font-weight: 800; color: #94a3b8; width: 22px; flex-shrink: 0;">${idx + 1}.</span>
+                <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntatoModal('${checkKey}')" style="width: 19px; height: 19px; cursor: pointer; accent-color: ${isPranzo ? '#ea580c' : '#2563eb'}; flex-shrink: 0;" title="Segna come servito / ritirato">
+                <div style="min-width: 0;">
+                  <div style="font-weight: 700; font-size: 14px; color: #0f172a; text-decoration: ${isChecked ? 'line-through' : 'none'}; word-break: break-word;">
+                    ${escapeHtml(p.nomeVisualizzato)}
+                  </div>
+                  <div class="text-xs text-muted" style="word-break: break-all;">${escapeHtml(p.email)}</div>
+                  ${p.note ? `
+                    <div style="margin-top: 3px; font-size: 11.5px; font-weight: 700; color: ${isPranzo ? '#c2410c' : '#1d4ed8'}; background: ${isPranzo ? '#fff7ed' : '#eff6ff'}; padding: 2px 6px; border-radius: 4px; display: inline-block;">
+                      💬 Note: ${escapeHtml(p.note)}
+                    </div>
+                  ` : ''}
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 4px; align-items: center; flex-shrink: 0;">
+                ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11px;">🥪 BUSTA</span>' : ''}
+                ${p.ritardo ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 800; font-size: 11px;">⏰ RITARDO</span>' : ''}
+                ${(!p.busta && !p.ritardo) ? '<span class="badge" style="background: #dcfce7; color: #166534; font-weight: 700; font-size: 11px;">🍽️ In Sala</span>' : ''}
+              </div>
+            </div>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+};
+
+window.toggleCucinaSpuntatoModal = function(key) {
+  if (!appState.cucinaModalState) return;
+  const dataYMD = appState.cucinaModalState.dataYMD;
+  const storageKey = `newman_cucina_spuntati_${dataYMD}`;
+  let spuntati = {};
+  try {
+    spuntati = JSON.parse(localStorage.getItem(storageKey) || "{}");
+  } catch (e) {
+    spuntati = {};
+  }
+  spuntati[key] = !spuntati[key];
+  localStorage.setItem(storageKey, JSON.stringify(spuntati));
+  renderContenutoModalCucina();
+  if (typeof renderCucinaView === "function") {
+    renderCucinaView();
+  }
+};
+
+window.copiaTestoElencoCucinaModal = function() {
+  if (!appState.cucinaModalState) return;
+  const { dataYMD, tipoPasto } = appState.cucinaModalState;
+  const dbMensa = appState.mensaBookings || [];
+  const tuttiUtenti = appState.tuttiUtenti || [];
+  const prenotazioniPasto = dbMensa.filter(m => String(m.data).split("T")[0] === dataYMD && m.tipo_pasto === tipoPasto);
+
+  let text = `REGISTRO MENSA RESIDENZA NEWMAN\n`;
+  text += `Data: ${dataYMD} - Pasto: ${tipoPasto.toUpperCase()}\n`;
+  text += `Totale Coperti: ${prenotazioniPasto.length}\n`;
+  text += `--------------------------------------------------\n`;
+
+  prenotazioniPasto.forEach((p, i) => {
+    const userMatch = tuttiUtenti.find(u => u.email.toLowerCase() === p.email.toLowerCase());
+    const nome = userMatch?.nome || p.email.split("@")[0].replace(/\./g, " ");
+    let flags = [];
+    if (p.busta) flags.push("BUSTA");
+    if (p.ritardo) flags.push("RITARDO");
+    if (!p.busta && !p.ritardo) flags.push("IN SALA");
+    if (p.note) flags.push(`Note: ${p.note}`);
+    text += `${i + 1}. ${nome} (${p.email}) [${flags.join(" - ")}]\n`;
+  });
+
+  navigator.clipboard.writeText(text).then(() => {
+    mostraToast("📋 Elenco residenti copiato negli appunti!", "success");
+  }).catch(() => {
+    mostraToast("Elenco pronto", "info");
+  });
+};
+
+window.stampaElencoCucinaModal = function() {
+  window.print();
 };
