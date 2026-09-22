@@ -87,7 +87,9 @@ function setupDatabase() {
       "Data",
       "Slot_Orario",
       "Email",
-      "Timestamp"
+      "Timestamp",
+      "Stato",
+      "Approvato_Da"
     ]);
   }
 
@@ -116,12 +118,16 @@ function setupDatabase() {
   if (!sConfig) {
     sConfig = ss.insertSheet(SHEET_CONFIG);
     sConfig.appendRow(["Chiave", "Valore"]);
+    sConfig.appendRow(["Orario_Limite_Pranzo", "09:00"]);
+    sConfig.appendRow(["Orario_Limite_Cena", "14:30"]);
+    sConfig.appendRow(["Orario_Limite_Busta", "14:00"]);
+    sConfig.appendRow(["Email_Notifiche_Master", "donandreadotti@gmail.com"]);
     sConfig.appendRow(["Data_Variazione_Menu", ""]);
     sConfig.appendRow(["Testo_Variazione", ""]);
     sConfig.appendRow(["Pasto_Variazione", "entrambi"]);
     sConfig.appendRow([
       "Info_Regolamento",
-      "Benvenuti alla Residenza Card. Newman.\n• Rispetto degli orari di silenzio dalle 23:00 alle 07:30 del mattino in tutti i corridoi e le aree comuni.\n• Orari comunitari: S. Messa ore 07:00, Pranzo ore 14:30, Cena ore 19:30.\n• Prenotazione pasti: Pranzo entro le 13:30, Cena entro le 18:30.\n• Spazi Comuni: La Chiesa e la Sala TV sono riservabili in autonomia a slot di 30 minuti. Si raccomanda di lasciare gli ambienti in perfetto ordine dopo l'uso."
+      "Benvenuti alla Residenza Card. Newman.\n• Rispetto degli orari di silenzio dalle 23:00 alle 07:30 del mattino in tutti i corridoi e le aree comuni.\n• Orari comunitari: S. Messa ore 07:00, Pranzo ore 14:30, Cena ore 19:30.\n• Prenotazione pasti: Pranzo entro le 09:00 del mattino, Cena entro le 14:30. Per martedì e giovedì la busta va prenotata entro le 14:00 del giorno prima.\n• Spazi Comuni: Le richieste per Chiesa e Sala TV a slot di 30 minuti sono soggette ad approvazione del Master. Si raccomanda di lasciare gli ambienti in perfetto ordine dopo l'uso."
     ]);
     sConfig.appendRow([
       "Info_Contatti",
@@ -332,6 +338,12 @@ function doPost(e) {
 
       case "prenotaSpazio":
         return gestisciPrenotazioneSpazio(payload);
+
+      case "approvaPrenotazioneSpazio":
+        return gestisciApprovaPrenotazioneSpazio(payload);
+
+      case "rifiutaPrenotazioneSpazio":
+        return gestisciRifiutaPrenotazioneSpazio(payload);
 
       case "cancellaPrenotazioneSpazio":
         return gestisciCancellaPrenotazioneSpazio(payload);
@@ -661,7 +673,7 @@ function gestisciPrenotazioneMensa(payload) {
     return rispostaJSON({ success: false, error: "Campi obbligatori mancanti (data, email, tipo_pasto)" });
   }
 
-  // Verifica orario limite (1 ora prima del pasto: pranzo 14:30 blocco 13:30, cena 19:30 blocco 18:30)
+  // Verifica orario limite (configurabile da foglio Configurazione)
   if (!bypassTimeLock) {
     const adesso = new Date();
     const targetDate = new Date(String(data).split("T")[0] + "T00:00:00");
@@ -671,16 +683,53 @@ function gestisciPrenotazioneMensa(payload) {
       return rispostaJSON({ success: false, error: "Non è possibile modificare presenze per date passate." });
     }
 
+    // Lettura orari limite da foglio Configurazione (con default)
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sConfig = ss.getSheetByName(SHEET_CONFIG);
+    let limitePranzo = "09:00";
+    let limiteCena = "14:30";
+    let limiteBusta = "14:00";
+    if (sConfig) {
+      const cRows = sConfig.getDataRange().getValues();
+      for (let c = 1; c < cRows.length; c++) {
+        if (String(cRows[c][0]) === "Orario_Limite_Pranzo" && cRows[c][1]) limitePranzo = String(cRows[c][1]).trim();
+        if (String(cRows[c][0]) === "Orario_Limite_Cena" && cRows[c][1]) limiteCena = String(cRows[c][1]).trim();
+        if (String(cRows[c][0]) === "Orario_Limite_Busta" && cRows[c][1]) limiteBusta = String(cRows[c][1]).trim();
+      }
+    }
+
+    const pastoNorm = String(tipo_pasto).trim().toLowerCase();
+
+    // Controllo Busta (prenotabile entro le 14:00 del giorno prima)
+    if (busta) {
+      const bParts = limiteBusta.split(":").map(Number);
+      const bOre = isNaN(bParts[0]) ? 14 : bParts[0];
+      const bMin = isNaN(bParts[1]) ? 0 : bParts[1];
+      const deadlineBusta = new Date(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate() - 1, bOre, bMin, 0);
+      if (adesso > deadlineBusta) {
+        return rispostaJSON({ success: false, error: "La busta (pranzo al sacco) può essere prenotata solo entro le " + limiteBusta + " del giorno prima." });
+      }
+    }
+
     if (targetDate.getTime() === oggiDate.getTime()) {
       const ore = adesso.getHours();
       const minuti = adesso.getMinutes();
-      const pastoNorm = String(tipo_pasto).trim().toLowerCase();
 
-      if (pastoNorm === "pranzo" && ((ore > 13) || (ore === 13 && minuti >= 30))) {
-        return rispostaJSON({ success: false, error: "Prenotazioni per il pranzo chiuse (limite ore 13:30, 1h prima del pranzo)." });
+      if (pastoNorm === "pranzo") {
+        const pParts = limitePranzo.split(":").map(Number);
+        const pOre = isNaN(pParts[0]) ? 9 : pParts[0];
+        const pMin = isNaN(pParts[1]) ? 0 : pParts[1];
+        if (ore > pOre || (ore === pOre && minuti >= pMin)) {
+          return rispostaJSON({ success: false, error: "Prenotazioni per il pranzo chiuse (limite ore " + limitePranzo + " del mattino)." });
+        }
       }
-      if (pastoNorm === "cena" && ((ore > 18) || (ore === 18 && minuti >= 30))) {
-        return rispostaJSON({ success: false, error: "Prenotazioni per la cena chiuse (limite ore 18:30, 1h prima della cena)." });
+      if (pastoNorm === "cena") {
+        const cParts = limiteCena.split(":").map(Number);
+        const cOre = isNaN(cParts[0]) ? 14 : cParts[0];
+        const cMin = isNaN(cParts[1]) ? 30 : cParts[1];
+        if (ore > cOre || (ore === cOre && minuti >= cMin)) {
+          return rispostaJSON({ success: false, error: "Prenotazioni per la cena chiuse (limite ore " + limiteCena + ")." });
+        }
       }
     }
   }
@@ -730,7 +779,7 @@ function gestisciCancellaPrenotazioneMensa(payload) {
     return rispostaJSON({ success: false, error: "Parametri mancanti per cancellazione presenza" });
   }
 
-  // Verifica orario limite di cancellazione (1 ora prima: pranzo 14:30 blocco 13:30, cena 19:30 blocco 18:30)
+  // Verifica orario limite di cancellazione (da foglio Configurazione)
   if (!bypassTimeLock) {
     const adesso = new Date();
     const targetDate = new Date(String(data).split("T")[0] + "T00:00:00");
@@ -740,16 +789,39 @@ function gestisciCancellaPrenotazioneMensa(payload) {
       return rispostaJSON({ success: false, error: "Non è possibile cancellare presenze per date passate." });
     }
 
+    // Lettura orari limite da foglio Configurazione (con default)
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sConfig = ss.getSheetByName(SHEET_CONFIG);
+    let limitePranzo = "09:00";
+    let limiteCena = "14:30";
+    if (sConfig) {
+      const cRows = sConfig.getDataRange().getValues();
+      for (let c = 1; c < cRows.length; c++) {
+        if (String(cRows[c][0]) === "Orario_Limite_Pranzo" && cRows[c][1]) limitePranzo = String(cRows[c][1]).trim();
+        if (String(cRows[c][0]) === "Orario_Limite_Cena" && cRows[c][1]) limiteCena = String(cRows[c][1]).trim();
+      }
+    }
+
     if (targetDate.getTime() === oggiDate.getTime()) {
       const ore = adesso.getHours();
       const minuti = adesso.getMinutes();
       const pastoNorm = String(tipo_pasto).trim().toLowerCase();
 
-      if (pastoNorm === "pranzo" && ((ore > 13) || (ore === 13 && minuti >= 30))) {
-        return rispostaJSON({ success: false, error: "Modifiche per il pranzo chiuse (limite ore 13:30, 1h prima del pasto)." });
+      if (pastoNorm === "pranzo") {
+        const pParts = limitePranzo.split(":").map(Number);
+        const pOre = isNaN(pParts[0]) ? 9 : pParts[0];
+        const pMin = isNaN(pParts[1]) ? 0 : pParts[1];
+        if (ore > pOre || (ore === pOre && minuti >= pMin)) {
+          return rispostaJSON({ success: false, error: "Modifiche per il pranzo chiuse (limite ore " + limitePranzo + ")." });
+        }
       }
-      if (pastoNorm === "cena" && ((ore > 18) || (ore === 18 && minuti >= 30))) {
-        return rispostaJSON({ success: false, error: "Modifiche per la cena chiuse (limite ore 18:30, 1h prima del pasto)." });
+      if (pastoNorm === "cena") {
+        const cParts = limiteCena.split(":").map(Number);
+        const cOre = isNaN(cParts[0]) ? 14 : cParts[0];
+        const cMin = isNaN(cParts[1]) ? 30 : cParts[1];
+        if (ore > cOre || (ore === cOre && minuti >= cMin)) {
+          return rispostaJSON({ success: false, error: "Modifiche per la cena chiuse (limite ore " + limiteCena + ")." });
+        }
       }
     }
   }
@@ -782,7 +854,7 @@ function gestisciCancellaPrenotazioneMensa(payload) {
 // ----------------------------------------------------------------------------
 
 function gestisciPrenotazioneSpazio(payload) {
-  const { risorsa, data, slot_orario, email } = payload;
+  const { risorsa, data, slot_orario, email, isMaster } = payload;
   if (!risorsa || !data || !slot_orario || !email) {
     return rispostaJSON({ success: false, error: "Parametri mancanti per prenotazione spazio" });
   }
@@ -800,26 +872,99 @@ function gestisciPrenotazioneSpazio(payload) {
     const rRisorsa = String(rows[i][1]);
     const rDataStr = formattaDataGAS(rows[i][2]);
     const rSlot = String(rows[i][3]);
+    const rStato = String(rows[i][6] || "Approvata");
 
-    if (rRisorsa === risorsa && rDataStr === targetDataStr && rSlot === slot_orario) {
+    if (rRisorsa === risorsa && rDataStr === targetDataStr && rSlot === slot_orario && rStato !== "Rifiutata") {
       return rispostaJSON({
         success: false,
-        error: "Questo slot orario è già stato prenotato da un altro residente."
+        error: "Questo slot orario è già occupato o ha una richiesta in attesa."
       });
     }
   }
 
+  // Verifica se l'utente è master dai permessi nel foglio Utenti
+  let requesterIsMaster = Boolean(isMaster);
+  if (!requesterIsMaster) {
+    const sUtenti = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
+    if (sUtenti) {
+      const uRows = sUtenti.getDataRange().getValues();
+      for (let u = 1; u < uRows.length; u++) {
+        if (String(uRows[u][0]).trim().toLowerCase() === email.trim().toLowerCase()) {
+          if (uRows[u][6]) requesterIsMaster = true; // perm_admin
+          break;
+        }
+      }
+    }
+  }
+
+  const stato = requesterIsMaster ? "Approvata" : "In Attesa";
+  const approvatoDa = requesterIsMaster ? email : "";
   const id = generaId("SPAZIO");
+
   sheet.appendRow([
     id,
     risorsa,
     targetDataStr,
     slot_orario,
     email.trim().toLowerCase(),
-    new Date().toISOString()
+    new Date().toISOString(),
+    stato,
+    approvatoDa
   ]);
 
-  return rispostaJSON({ success: true, id: id });
+  // Se la richiesta è di un residente ed è in attesa, manda notifica email ai Master
+  if (stato === "In Attesa") {
+    inviaNotificaEmailMaster(
+      "[Residenza Newman] Richiesta Spazio da Approvare: " + risorsa + " (" + targetDataStr + " - " + slot_orario + ")",
+      "Un residente ha richiesto la prenotazione di un ambiente comune:\n\n" +
+      "• Ambiente: " + risorsa + "\n" +
+      "• Data: " + targetDataStr + "\n" +
+      "• Slot Orario: " + slot_orario + "\n" +
+      "• Richiedente: " + email + "\n" +
+      "• Stato: In Attesa di Approvazione da un Master\n\n" +
+      "Puoi approvare o rifiutare la richiesta direttamente dalla sezione Spazi del Pannello Master nell'applicazione."
+    );
+  }
+
+  return rispostaJSON({
+    success: true,
+    id: id,
+    stato: stato,
+    message: stato === "Approvata" ? "Prenotazione confermata" : "Richiesta inviata. In attesa di approvazione da un Master."
+  });
+}
+
+function gestisciApprovaPrenotazioneSpazio(payload) {
+  const { id, approvatoreEmail } = payload;
+  if (!id) return rispostaJSON({ success: false, error: "ID prenotazione mancante" });
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SPAZI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Spazi non trovato" });
+
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      sheet.getRange(i + 1, 7).setValue("Approvata");
+      sheet.getRange(i + 1, 8).setValue(approvatoreEmail || "Master");
+      return rispostaJSON({ success: true, message: "Richiesta spazio approvata con successo" });
+    }
+  }
+  return rispostaJSON({ success: false, error: "Prenotazione spazio non trovata" });
+}
+
+function gestisciRifiutaPrenotazioneSpazio(payload) {
+  const { id } = payload;
+  if (!id) return rispostaJSON({ success: false, error: "ID prenotazione mancante" });
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_SPAZI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Spazi non trovato" });
+
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      sheet.deleteRow(i + 1);
+      return rispostaJSON({ success: true, message: "Richiesta spazio rifiutata e slot liberato" });
+    }
+  }
+  return rispostaJSON({ success: false, error: "Prenotazione spazio non trovata" });
 }
 
 function gestisciCancellaPrenotazioneSpazio(payload) {
@@ -920,6 +1065,21 @@ function gestisciCaricaGuasto(payload) {
     ""  // data_chiusura
   ]);
 
+  // Invia notifica email al Master / Referente Manutenzione
+  inviaNotificaEmailMaster(
+    "[Residenza Newman] Nuova Segnalazione: " + (luogo ? luogo + " - " : "") + priorita,
+    "È stata registrata una nuova segnalazione di manutenzione/servizi:\n\n" +
+    "• ID Segnalazione: " + id + "\n" +
+    "• Data: " + Utilities.formatDate(new Date(), "GMT+1", "dd/MM/yyyy HH:mm") + "\n" +
+    "• Inviata da: " + email + "\n" +
+    "• Categoria: " + (categoria === "servizi" ? "Servizi Residenza" : "Manutenzione & Guasti") + "\n" +
+    "• Luogo/Ambiente: " + (luogo || "Non specificato") + "\n" +
+    "• Priorità: " + priorita + "\n" +
+    "• Descrizione: " + descrizione + "\n" +
+    (linkFoto ? "• Foto allegata: " + linkFoto + "\n\n" : "\n") +
+    "L'intervento può essere seguito e aggiornato nell'app (Pannello Master) o direttamente nel foglio Google 'Manutenzione' per l'amministrazione."
+  );
+
   return rispostaJSON({
     success: true,
     id: id,
@@ -999,7 +1159,9 @@ function getInfoData() {
           risorsa: String(rows[i][1] || ""),
           data: formattaDataGAS(rows[i][2]),
           slot_orario: String(rows[i][3] || ""),
-          email: String(rows[i][4] || "").toLowerCase()
+          email: String(rows[i][4] || "").toLowerCase(),
+          stato: String(rows[i][6] || "Approvata"),
+          approvato_da: String(rows[i][7] || "")
         });
       }
     }
@@ -1251,6 +1413,26 @@ function getMasterData(emailRichiedente) {
     }
   }
 
+  // 5. Prenotazioni Spazi
+  const sSpazi = ss.getSheetByName(SHEET_SPAZI);
+  const prenotazioniSpazi = [];
+  if (sSpazi) {
+    const rowsS = sSpazi.getDataRange().getValues();
+    for (let i = 1; i < rowsS.length; i++) {
+      if (rowsS[i][0] || rowsS[i][3]) {
+        prenotazioniSpazi.push({
+          id: String(rowsS[i][0] || ""),
+          risorsa: String(rowsS[i][1] || ""),
+          data: formattaDataGAS(rowsS[i][2]),
+          slot_orario: String(rowsS[i][3] || ""),
+          email: String(rowsS[i][4] || "").toLowerCase(),
+          stato: String(rowsS[i][6] || "Approvata"),
+          approvato_da: String(rowsS[i][7] || "")
+        });
+      }
+    }
+  }
+
   return rispostaJSON({
     success: true,
     isMaster: isMaster,
@@ -1258,6 +1440,7 @@ function getMasterData(emailRichiedente) {
     tuttiUtenti: utenti,
     mensa: mensa,
     guasti: guasti,
+    prenotazioniSpazi: prenotazioniSpazi,
     config: config
   });
 }
@@ -1568,4 +1751,63 @@ function gestisciInizializzaDati(payload) {
     aggiuntiBacheca: aggiuntiBacheca
   });
 }
+
+/**
+ * Invia una notifica email ai Master configurati o ai profili Admin della Residenza
+ */
+function inviaNotificaEmailMaster(oggetto, corpoTesto) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let destinatari = [];
+
+    // 1. Controlla se è configurata una lista di email nel foglio Configurazione
+    const sConfig = ss.getSheetByName(SHEET_CONFIG);
+    if (sConfig) {
+      const cRows = sConfig.getDataRange().getValues();
+      for (let c = 1; c < cRows.length; c++) {
+        if (String(cRows[c][0]) === "Email_Notifiche_Master" && cRows[c][1]) {
+          const raw = String(cRows[c][1]).split(",");
+          raw.forEach(e => {
+            const em = e.trim().toLowerCase();
+            if (em.includes("@") && !destinatari.includes(em)) {
+              destinatari.push(em);
+            }
+          });
+        }
+      }
+    }
+
+    // 2. Se non configurata o vuota, individua tutti gli utenti con perm_admin = true
+    if (destinatari.length === 0) {
+      const sUtenti = ss.getSheetByName(SHEET_UTENTI);
+      if (sUtenti) {
+        const uRows = sUtenti.getDataRange().getValues();
+        for (let u = 1; u < uRows.length; u++) {
+          const emailU = String(uRows[u][0]).trim().toLowerCase();
+          const pAdmin = Boolean(uRows[u][6]);
+          if (pAdmin && emailU.includes("@") && !destinatari.includes(emailU)) {
+            destinatari.push(emailU);
+          }
+        }
+      }
+    }
+
+    // 3. Fallback per don Andrea Dotti
+    if (destinatari.length === 0) {
+      destinatari.push("donandreadotti@gmail.com");
+    }
+
+    // Invia email a ciascun destinatario
+    for (let i = 0; i < destinatari.length; i++) {
+      MailApp.sendEmail({
+        to: destinatari[i],
+        subject: oggetto,
+        body: corpoTesto
+      });
+    }
+  } catch (errEmail) {
+    Logger.log("Errore durante l'invio della notifica email Master: " + errEmail.toString());
+  }
+}
+
 

@@ -755,8 +755,12 @@ function mockBackendExecution(action, params) {
     case "prenotaSpazio": {
       const { risorsa, data, slot_orario, email } = params;
       const dataStr = formattaDataConfronto(data);
-      const occupied = db.prenotazioni_spazi.some(p => p.risorsa === risorsa && formattaDataConfronto(p.data) === dataStr && p.slot_orario === slot_orario);
-      if (occupied) return { success: false, error: "Slot già occupato da un altro residente" };
+      const occupied = (db.prenotazioni_spazi || []).some(p => p.risorsa === risorsa && formattaDataConfronto(p.data) === dataStr && p.slot_orario === slot_orario && p.stato !== "Rifiutata");
+      if (occupied) return { success: false, error: "Slot già occupato o con richiesta in attesa" };
+
+      // Se la prenotazione è fatta da un Master/Admin, viene approvata subito; se da un residente, va in attesa di approvazione
+      const isMasterUser = haPermessiMaster() || (appState.user && (appState.user.perm_admin || appState.user.perm_spazi));
+      const stato = isMasterUser ? "Approvata" : "In Attesa";
 
       const prenotazione = {
         id: "S_" + Date.now(),
@@ -764,11 +768,55 @@ function mockBackendExecution(action, params) {
         data: dataStr,
         slot_orario,
         email,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        stato: stato,
+        approvato_da: isMasterUser ? email : ""
       };
+      if (!db.prenotazioni_spazi) db.prenotazioni_spazi = [];
       db.prenotazioni_spazi.push(prenotazione);
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
-      return { success: true, id: prenotazione.id };
+
+      // Simula notifica email per il Master in caso di richiesta da residente
+      const masterEmailNotifiche = appState.cachedConfig.Email_Notifiche_Master || "donandreadotti@gmail.com";
+      console.log(`[NOTIFICA EMAIL SIMULATA] Invio a: ${masterEmailNotifiche} | Oggetto: Richiesta Spazio: ${risorsa} da ${email} (${stato})`);
+
+      return {
+        success: true,
+        id: prenotazione.id,
+        stato: stato,
+        message: stato === "Approvata" ? "Prenotazione registrata e confermata" : "Richiesta inviata ai Master. In attesa di approvazione."
+      };
+    }
+
+    case "approvaPrenotazioneSpazio": {
+      const { id, approvatoreEmail } = params;
+      const pren = (db.prenotazioni_spazi || []).find(p => String(p.id) === String(id));
+      if (pren) {
+        pren.stato = "Approvata";
+        pren.approvato_da = approvatoreEmail || (appState.user ? appState.user.email : "Master");
+        localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        return { success: true, message: "Prenotazione spazio approvata con successo" };
+      }
+      return { success: false, error: "Prenotazione non trovata" };
+    }
+
+    case "rifiutaPrenotazioneSpazio": {
+      const { id } = params;
+      db.prenotazioni_spazi = (db.prenotazioni_spazi || []).filter(p => String(p.id) !== String(id));
+      localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+      return { success: true, message: "Richiesta spazio rifiutata/liberata" };
+    }
+
+    case "aggiornaConfig": {
+      for (const k in params) {
+        if (k !== "action") {
+          appState.cachedConfig[k] = params[k];
+          if (!db.config) db.config = {};
+          db.config[k] = params[k];
+        }
+      }
+      localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+      return { success: true, message: "Configurazione salvata con successo", config: appState.cachedConfig };
     }
 
     case "caricaGuasto": {
@@ -789,7 +837,12 @@ function mockBackendExecution(action, params) {
       };
       db.manutenzione.unshift(guasto);
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
-      return { success: true, id: guasto.id, linkFoto: guasto.link_foto, message: "Segnalazione salvata nel database" };
+
+      // Simula invio notifica email al Master e referenti manutenzione
+      const emailMaster = appState.cachedConfig.Email_Notifiche_Master || "donandreadotti@gmail.com";
+      console.log(`[NOTIFICA EMAIL SIMULATA] Invio a: ${emailMaster} | Oggetto: Nuova Segnalazione Manutenzione: ${luogo || 'Generale'} da ${email}`);
+
+      return { success: true, id: guasto.id, linkFoto: guasto.link_foto, message: "Segnalazione salvata e notifica inviata al Master" };
     }
 
     case "risolviGuasto": {
@@ -2285,9 +2338,34 @@ function initDateSelectorMensa() {
 }
 
 /**
- * Verifica blocchi temporali:
- * - Pranzo alle 14:30, blocco prenotazioni 1 ora prima (dopo le 13:30)
- * - Cena alle 19:30, blocco prenotazioni 1 ora prima (dopo le 18:30)
+ * Restituisce gli orari limite correnti (configurabili dal Master tramite SHEET_CONFIG o pannello Master)
+ */
+function getOrariLimitePasti() {
+  const cfg = appState.cachedConfig || {};
+  return {
+    limitePranzo: cfg.Orario_Limite_Pranzo || "09:00",
+    limiteCena: cfg.Orario_Limite_Cena || "14:30",
+    limiteBusta: cfg.Orario_Limite_Busta || "14:00"
+  };
+}
+
+/**
+ * Parsing di una stringa orario "HH:MM" in ore e minuti
+ */
+function parseTimeHHMM(timeStr, defaultH, defaultM) {
+  if (!timeStr) return { ore: defaultH, minuti: defaultM };
+  const parts = String(timeStr).trim().split(":");
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  return {
+    ore: isNaN(h) ? defaultH : h,
+    minuti: isNaN(m) ? defaultM : m
+  };
+}
+
+/**
+ * Verifica blocco orario per il Pranzo:
+ * Non è possibile prenotare o modificare il pranzo oltre l'orario limite (default 09:00 del mattino).
  */
 function isPranzoBloccato(dataSelezionata) {
   if (appState.bypassTimeLock) return false;
@@ -2300,12 +2378,19 @@ function isPranzoBloccato(dataSelezionata) {
   // Se la data è nel futuro, è aperta
   if (dataScelta > dataOggi) return false;
 
-  // Se è oggi, controlla orario (limite 13:30, 1h prima del pranzo delle 14:30)
+  // Se è oggi, controlla rispetto all'orario limite configurato dal Master (default 09:00)
+  const { limitePranzo } = getOrariLimitePasti();
+  const { ore: limiteOre, minuti: limiteMin } = parseTimeHHMM(limitePranzo, 9, 0);
+
   const ore = adesso.getHours();
   const minuti = adesso.getMinutes();
-  return (ore > 13) || (ore === 13 && minuti >= 30);
+  return (ore > limiteOre) || (ore === limiteOre && minuti >= limiteMin);
 }
 
+/**
+ * Verifica blocco orario per la Cena:
+ * Non è possibile prenotare o modificare la cena oltre l'orario limite (default 14:30 del giorno stesso).
+ */
 function isCenaBloccata(dataSelezionata) {
   if (appState.bypassTimeLock) return false;
   const adesso = new Date();
@@ -2315,10 +2400,30 @@ function isCenaBloccata(dataSelezionata) {
   if (dataScelta < dataOggi) return true;
   if (dataScelta > dataOggi) return false;
 
-  // Se è oggi, controlla orario (limite 18:30, 1h prima della cena delle 19:30)
+  // Se è oggi, controlla rispetto all'orario limite configurato dal Master (default 14:30)
+  const { limiteCena } = getOrariLimitePasti();
+  const { ore: limiteOre, minuti: limiteMin } = parseTimeHHMM(limiteCena, 14, 30);
+
   const ore = adesso.getHours();
   const minuti = adesso.getMinutes();
-  return (ore > 18) || (ore === 18 && minuti >= 30);
+  return (ore > limiteOre) || (ore === limiteOre && minuti >= limiteMin);
+}
+
+/**
+ * Verifica blocco per la Busta (Martedì e Giovedì al sacco):
+ * La busta deve essere prenotata entro le 14:00 del giorno precedente.
+ */
+function isBustaBloccata(dataSelezionata) {
+  if (appState.bypassTimeLock) return false;
+  const adesso = new Date();
+  const dataScelta = new Date(dataSelezionata.getFullYear(), dataSelezionata.getMonth(), dataSelezionata.getDate());
+  
+  const { limiteBusta } = getOrariLimitePasti();
+  const { ore: limiteOre, minuti: limiteMin } = parseTimeHHMM(limiteBusta, 14, 0);
+
+  // La scadenza per la busta è il giorno prima alle ore limiteOre:limiteMin
+  const deadlineBusta = new Date(dataScelta.getFullYear(), dataScelta.getMonth(), dataScelta.getDate() - 1, limiteOre, limiteMin, 0);
+  return adesso > deadlineBusta;
 }
 
 function getLunediDellaSettimana(d) {
@@ -2414,13 +2519,16 @@ function renderMensaView() {
         <button type="button" class="week-nav-btn" onclick="cambiaSettimanaMensa(1)" title="Settimana Successiva">▶</button>
       </div>
 
-      <!-- Tabs di visualizzazione: Settimana Scorrevole o Singolo Giorno -->
-      <div class="mensa-view-mode-tabs">
+      <!-- Tabs di visualizzazione: Settimana Scorrevole o Singolo Giorno + Vista Cuoca -->
+      <div class="mensa-view-mode-tabs" style="display: flex; flex-wrap: wrap; gap: 6px;">
         <button type="button" class="mode-tab-btn ${mode === 'settimana' ? 'active' : ''}" onclick="setMensaViewMode('settimana')">
           📅 Settimana Completa
         </button>
         <button type="button" class="mode-tab-btn ${mode === 'giorno' ? 'active' : ''}" onclick="setMensaViewMode('giorno')">
-          ☀️ Vista Dettagliata Giorno
+          ☀️ Vista Giorno
+        </button>
+        <button type="button" class="mode-tab-btn" style="background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; font-weight: 700;" onclick="switchTab('cucina')">
+          👩‍🍳 Vista Cuoca / Presenze
         </button>
       </div>
 
@@ -2429,7 +2537,13 @@ function renderMensaView() {
         ${renderDayPills(dataSel)}
       </div>
 
-      ${appState.bypassTimeLock ? '<div class="banner-test-mode">⚙️ Modalità Test: Blocchi orari 13:30/18:30 disattivati per valutazione</div>' : ''}
+      <!-- Promemoria Orari Limite Dinamici -->
+      <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; margin-top: 8px; font-size: 11.5px; color: #475569; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
+        <span>⏰ <strong>Limiti prenotazione:</strong> Pranzo entro le <strong>${getOrariLimitePasti().limitePranzo}</strong> • Cena entro le <strong>${getOrariLimitePasti().limiteCena}</strong> • Busta entro le <strong>${getOrariLimitePasti().limiteBusta}</strong> (ieri)</span>
+        ${isMaster ? `<button type="button" class="btn-link" onclick="switchTab('master')" style="font-size: 11px; text-decoration: underline; color: var(--primary);">⚙️ Modifica orari</button>` : ''}
+      </div>
+
+      ${appState.bypassTimeLock ? '<div class="banner-test-mode">⚙️ Modalità Test: Blocchi orari disattivati per valutazione</div>' : ''}
     </div>
 
     <!-- NOTA / VARIAZIONE DEL MASTER MENSA (SE PRESENTE) -->
@@ -3323,44 +3437,85 @@ function renderSlotSpazi() {
     const isOccupato = Boolean(pren);
     const prenEmail = pren ? String(pren.email).toLowerCase() : "";
     const isMio = isOccupato && currentUserEmail && (prenEmail === currentUserEmail);
+    const isPending = isOccupato && (pren.stato === "In Attesa");
+    const isApproved = isOccupato && (pren.stato === "Approvata" || !pren.stato);
 
     if (!isOccupato) {
       disponibiliFascia++;
       html += `
-        <div class="slot-card-v2 slot-available" onclick="prenotaSlotDiretto('${slot}')" title="Clicca per prenotare questo slot di 30 minuti">
+        <div class="slot-card-v2 slot-available" onclick="prenotaSlotDiretto('${slot}')" title="Clicca per richiedere questo slot di 30 minuti">
           <div class="slot-time-text">${slot}</div>
           <span class="slot-status-pill">🟢 Disponibile</span>
         </div>
       `;
     } else if (isMio) {
-      html += `
-        <div class="slot-card-v2 slot-mine">
-          <div class="slot-time-text">${slot}</div>
-          <span class="slot-status-pill">⭐ La tua prenotazione</span>
-          <button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', false)">
-            Annulla Prenotazione
-          </button>
-        </div>
-      `;
+      if (isPending) {
+        html += `
+          <div class="slot-card-v2 slot-mine" style="border-left: 4px solid #f59e0b; background: #fffbeb;">
+            <div class="slot-time-text">${slot}</div>
+            <span class="slot-status-pill" style="background: #fef3c7; color: #92400e;">⏳ Richiesta In Attesa Master</span>
+            <button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', false)">
+              Annulla Richiesta
+            </button>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="slot-card-v2 slot-mine">
+            <div class="slot-time-text">${slot}</div>
+            <span class="slot-status-pill">⭐ La tua prenotazione (Approvata)</span>
+            <button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', false)">
+              Annulla Prenotazione
+            </button>
+          </div>
+        `;
+      }
     } else if (isMaster) {
-      // Per il Master: mostra chi occupa lo slot e pulsante per liberarlo
-      html += `
-        <div class="slot-card-v2 slot-master">
-          <div class="slot-time-text">${slot}</div>
-          <span class="slot-status-pill" title="${escapeHtml(pren.email)}">👑 Occupato: ${escapeHtml(pren.email.split('@')[0])}</span>
-          <button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', true)">
-            Libera Slot (Master)
-          </button>
-        </div>
-      `;
+      if (isPending) {
+        // Per il Master: mostra che è in attesa di approvazione e pulsanti Approva / Rifiuta
+        html += `
+          <div class="slot-card-v2" style="border-left: 4px solid #f59e0b; background: #fffbeb;">
+            <div class="slot-time-text">${slot}</div>
+            <span class="slot-status-pill" style="background: #fde68a; color: #78350f; font-weight: 700;">⏳ Richiesta da: ${escapeHtml(pren.email.split('@')[0])}</span>
+            <div style="display: flex; gap: 4px; margin-top: 6px; width: 100%;">
+              <button type="button" class="btn btn-sm" style="flex: 1; padding: 4px; font-size: 11px; font-weight: 700; background: #16a34a; color: #fff; border: none; border-radius: 4px;" onclick="approvaRichiestaSpazio('${pren.id}')">
+                ✓ Approva
+              </button>
+              <button type="button" class="btn btn-sm" style="flex: 1; padding: 4px; font-size: 11px; font-weight: 700; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px;" onclick="rifiutaRichiestaSpazio('${pren.id}')">
+                ✕ Rifiuta
+              </button>
+            </div>
+          </div>
+        `;
+      } else {
+        // Per il Master: già approvata, mostra chi occupa lo slot e pulsante per liberarlo
+        html += `
+          <div class="slot-card-v2 slot-master">
+            <div class="slot-time-text">${slot}</div>
+            <span class="slot-status-pill" title="${escapeHtml(pren.email)}">👑 Occupato: ${escapeHtml(pren.email.split('@')[0])} ${pren.approvato_da ? `(Approvato da ${escapeHtml(pren.approvato_da.split('@')[0])})` : ''}</span>
+            <button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', true)">
+              Libera Slot (Master)
+            </button>
+          </div>
+        `;
+      }
     } else {
-      // Per gli altri residenti: slot occupato, preservando la privacy
-      html += `
-        <div class="slot-card-v2 slot-occupied" title="Questo slot è già stato riservato">
-          <div class="slot-time-text">${slot}</div>
-          <span class="slot-status-pill">🔒 Occupato</span>
-        </div>
-      `;
+      // Per gli altri residenti
+      if (isPending) {
+        html += `
+          <div class="slot-card-v2 slot-occupied" style="opacity: 0.85;" title="Richiesta in fase di approvazione da parte dei Master">
+            <div class="slot-time-text">${slot}</div>
+            <span class="slot-status-pill" style="background: #f1f5f9; color: #475569;">⏳ In Valutazione Master</span>
+          </div>
+        `;
+      } else {
+        html += `
+          <div class="slot-card-v2 slot-occupied" title="Questo slot è già stato confermato">
+            <div class="slot-time-text">${slot}</div>
+            <span class="slot-status-pill">🔒 Occupato</span>
+          </div>
+        `;
+      }
     }
   });
 
@@ -3646,22 +3801,81 @@ function renderMiePrenotazioniSpazi() {
   // Ordina per data e orario decrescente
   mie.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
 
-  container.innerHTML = mie.map(p => `
-    <div class="mini-item flex-between" style="padding: 8px 6px;">
-      <div>
-        <div class="flex-align" style="gap: 6px;">
-          <span style="font-size: 16px;">${p.risorsa === 'Chiesa' ? '⛪' : '📺'}</span>
-          <strong>${escapeHtml(p.risorsa)}</strong>
-          <span class="badge" style="background:#f1f5f9; font-size:11px;">${p.slot_orario}</span>
+  container.innerHTML = mie.map(p => {
+    const isPending = p.stato === "In Attesa";
+    return `
+      <div class="mini-item flex-between" style="padding: 8px 6px;">
+        <div>
+          <div class="flex-align" style="gap: 6px; flex-wrap: wrap;">
+            <span style="font-size: 16px;">${p.risorsa === 'Chiesa' ? '⛪' : '📺'}</span>
+            <strong>${escapeHtml(p.risorsa)}</strong>
+            <span class="badge" style="background:#f1f5f9; font-size:11px;">${escapeHtml(p.slot_orario)}</span>
+            ${isPending 
+              ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:10.5px; font-weight:700;">⏳ In Attesa Approvazione</span>'
+              : '<span class="badge" style="background:#dcfce7; color:#166534; font-size:10.5px; font-weight:700;">✓ Approvata</span>'
+            }
+          </div>
+          <div class="text-muted text-xs" style="margin-top: 2px;">
+            📅 ${String(p.data).split('T')[0]} ${p.approvato_da ? `• Approvato da: ${escapeHtml(p.approvato_da.split('@')[0])}` : ''}
+          </div>
         </div>
-        <div class="text-muted text-xs" style="margin-top: 2px;">📅 ${String(p.data).split('T')[0]}</div>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="cancellaSlotSpazio('${p.id || ''}', '${p.slot_orario}', false)" style="color: #dc2626; border-color: #fca5a5; background: #fff; font-size: 11px;">
+          ${isPending ? 'Annulla Richiesta' : 'Annulla'}
+        </button>
       </div>
-      <button type="button" class="btn btn-secondary btn-sm" onclick="cancellaSlotSpazio('${p.id || ''}', '${p.slot_orario}', false)" style="color: #dc2626; border-color: #fca5a5; background: #fff;">
-        Annulla
-      </button>
-    </div>
-  `).join("");
+    `;
+  }).join("");
 }
+
+/**
+ * Funzione Master: Approva richiesta prenotazione ambiente
+ */
+window.approvaRichiestaSpazio = async function(id) {
+  if (!id) return;
+  const masterEmail = appState.user ? appState.user.email : "Master";
+  try {
+    const res = await callApi("approvaPrenotazioneSpazio", { id, approvatoreEmail: masterEmail });
+    if (res.success) {
+      mostraToast("✅ Prenotazione ambiente approvata con successo!", "success");
+      const pren = (appState.prenotazioniSpazi || []).find(p => String(p.id) === String(id));
+      if (pren) {
+        pren.stato = "Approvata";
+        pren.approvato_da = masterEmail;
+      }
+      renderSlotSpazi();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile approvare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore durante l'approvazione dello spazio", "error");
+  }
+};
+
+/**
+ * Funzione Master: Rifiuta richiesta prenotazione ambiente
+ */
+window.rifiutaRichiestaSpazio = async function(id) {
+  if (!id) return;
+  if (!confirm("Confermi di voler rifiutare/cancellare questa richiesta di prenotazione?")) return;
+  try {
+    const res = await callApi("rifiutaPrenotazioneSpazio", { id });
+    if (res.success) {
+      mostraToast("Richiesta spazio rifiutata/liberata", "info");
+      appState.prenotazioniSpazi = (appState.prenotazioniSpazi || []).filter(p => String(p.id) !== String(id));
+      renderSlotSpazi();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile rifiutare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore durante il rifiuto dello spazio", "error");
+  }
+};
 
 // ----------------------------------------------------------------------------
 // LOGICA SEZIONE 4: MANUTENZIONE (CON RESIZE CANVAS A MAX 800PX)
@@ -4310,58 +4524,141 @@ function renderMasterSection() {
       </div>
 
       <!-- ==================================================================
-           GESTIONE AMBIENTI (CHIESA E SALA TV)
+           GESTIONE AMBIENTI (CHIESA E SALA TV) - APPROVAZIONE MASTER & NOTIFICHE
            ================================================================== -->
       <div class="master-block card" id="master-spazi-management-card" style="border-top: 4px solid #9d174d;">
         <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
           <div class="flex-align" style="gap: 8px;">
             <span style="font-size: 22px;">⛪</span>
             <div>
-              <h3 class="card-title" style="margin: 0;">Gestione Appuntamenti & Prenotazioni Ambienti (Chiesa & Sala TV)</h3>
-              <span class="text-xs text-muted">Controlla gli slot riservati, inserisci celebrazioni o libera spazi</span>
+              <h3 class="card-title" style="margin: 0;">Gestione Ambienti, Approvazioni & Notifiche (Chiesa & Sala TV)</h3>
+              <span class="text-xs text-muted">Le richieste dei residenti richiedono approvazione manuale dei Master con notifica email</span>
             </div>
           </div>
-          <button type="button" class="btn btn-sm btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; font-weight: 700;">
-            ➕ Inserisci Appuntamento
-          </button>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; font-weight: 700;">
+              ➕ Inserisci Appuntamento Master
+            </button>
+            <button type="button" class="btn btn-sm btn-secondary" onclick="switchTab('spazi')">
+              👀 Vista Griglia
+            </button>
+          </div>
         </div>
 
-        <div class="table-responsive" style="margin-top: 12px;">
-          <table class="master-table">
-            <thead>
-              <tr>
-                <th>Ambiente</th>
-                <th>Data</th>
-                <th>Orario / Slot</th>
-                <th>Riservato da</th>
-                <th>Azione Master</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${prenotazioniSpazi.length === 0 ? '<tr><td colspan="5" style="text-align:center; padding: 18px; color: #64748b;">Nessuna prenotazione attiva per Chiesa o Sala TV.</td></tr>' : ''}
-              ${prenotazioniSpazi.map(p => {
-                const isChiesa = p.risorsa === "Chiesa";
-                return `
-                  <tr>
-                    <td>
-                      <span class="badge ${isChiesa ? 'badge-primary' : 'badge-info'}" style="${isChiesa ? 'background:#831843; color:#fff;' : ''}">
-                        ${isChiesa ? '⛪ Chiesa' : '📺 Sala TV'}
-                      </span>
-                    </td>
-                    <td><strong>${formattaDataConfronto(p.data)}</strong></td>
-                    <td><strong style="color: #0f172a;">${escapeHtml(p.slot_orario)}</strong></td>
-                    <td><span class="text-sm font-semibold">${escapeHtml(p.email)}</span></td>
-                    <td>
-                      <button type="button" class="btn btn-secondary btn-sm" onclick="eliminaPrenotazioneSpazioMaster('${escapeHtml(p.id)}')" style="color: #dc2626; border-color: #fca5a5; padding: 4px 8px; font-size: 11px;">
-                        🗑️ Libera
-                      </button>
-                    </td>
-                  </tr>
-                `;
-              }).join("")}
-            </tbody>
-          </table>
+        <!-- BOX NOTIFICA REGOLE APPROVAZIONE -->
+        <div style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 8px; padding: 10px 14px; margin: 12px 0; font-size: 12.5px; color: #831843;">
+          🔔 <strong>Nuova Regola di Approvazione Ambienti:</strong> Le richieste dei residenti per Chiesa o Sala TV non sono più confermate in automatico. Quando un residente effettua una richiesta, lo slot resta <strong>"In Attesa"</strong> e viene inviata una notifica via email ai Master autorizzati (<code>${escapeHtml(appState.cachedConfig.Email_Notifiche_Master || 'donandreadotti@gmail.com')}</code>). Solo l'approvazione del Master rende la prenotazione ufficiale.
         </div>
+
+        ${(() => {
+          const inAttesa = prenotazioniSpazi.filter(p => p.stato === "In Attesa");
+          const confermate = prenotazioniSpazi.filter(p => p.stato !== "In Attesa");
+
+          return `
+            <!-- SEZIONE RICHIESTE IN ATTESA DI APPROVAZIONE -->
+            <div style="margin-top: 14px; background: #fffbeb; border: 1px solid #fef3c7; border-radius: 8px; padding: 12px;">
+              <div class="flex-between" style="margin-bottom: 8px;">
+                <h4 style="margin: 0; font-size: 13.5px; color: #92400e; display: flex; align-items: center; gap: 6px;">
+                  <span>⏳</span> <strong>Richieste in Attesa di Approvazione Master (${inAttesa.length})</strong>
+                </h4>
+              </div>
+
+              ${inAttesa.length === 0 ? `
+                <p style="font-size: 12px; color: #78350f; margin: 0; padding: 6px 0;">Nessuna richiesta in attesa al momento. Tutti gli slot richiesti sono stati gestiti.</p>
+              ` : `
+                <div class="table-responsive">
+                  <table class="master-table" style="background: #ffffff;">
+                    <thead>
+                      <tr style="background: #fef3c7;">
+                        <th>Ambiente</th>
+                        <th>Data</th>
+                        <th>Slot</th>
+                        <th>Richiedente</th>
+                        <th>Azione Master</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${inAttesa.map(p => {
+                        const isChiesa = p.risorsa === "Chiesa";
+                        return `
+                          <tr>
+                            <td>
+                              <span class="badge ${isChiesa ? 'badge-primary' : 'badge-info'}" style="${isChiesa ? 'background:#831843; color:#fff;' : ''}">
+                                ${isChiesa ? '⛪ Chiesa' : '📺 Sala TV'}
+                              </span>
+                            </td>
+                            <td><strong>${formattaDataConfronto(p.data)}</strong></td>
+                            <td><strong style="color: #0f172a;">${escapeHtml(p.slot_orario)}</strong></td>
+                            <td><span class="text-sm font-semibold">${escapeHtml(p.email)}</span></td>
+                            <td>
+                              <div style="display: flex; gap: 6px;">
+                                <button type="button" class="btn btn-sm" style="background: #16a34a; color: #fff; font-size: 11px; padding: 4px 8px; font-weight: 700; border: none; border-radius: 4px;" onclick="approvaRichiestaSpazio('${escapeHtml(p.id)}')">
+                                  ✓ Approva
+                                </button>
+                                <button type="button" class="btn btn-sm btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-size: 11px; padding: 4px 8px;" onclick="rifiutaRichiestaSpazio('${escapeHtml(p.id)}')">
+                                  ✕ Rifiuta
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        `;
+                      }).join("")}
+                    </tbody>
+                  </table>
+                </div>
+              `}
+            </div>
+
+            <!-- SEZIONE PRENOTAZIONI CONFERMATE ED ATTIVE -->
+            <div style="margin-top: 16px;">
+              <h4 style="margin: 0 0 8px 0; font-size: 13.5px; color: #1e293b;">
+                ✅ Prenotazioni & Appuntamenti Confermati (${confermate.length})
+              </h4>
+              <div class="table-responsive">
+                <table class="master-table">
+                  <thead>
+                    <tr>
+                      <th>Ambiente</th>
+                      <th>Data</th>
+                      <th>Orario / Slot</th>
+                      <th>Riservato da</th>
+                      <th>Stato / Approvatore</th>
+                      <th>Azione Master</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${confermate.length === 0 ? '<tr><td colspan="6" style="text-align:center; padding: 18px; color: #64748b;">Nessuna prenotazione confermata per Chiesa o Sala TV.</td></tr>' : ''}
+                    ${confermate.map(p => {
+                      const isChiesa = p.risorsa === "Chiesa";
+                      return `
+                        <tr>
+                          <td>
+                            <span class="badge ${isChiesa ? 'badge-primary' : 'badge-info'}" style="${isChiesa ? 'background:#831843; color:#fff;' : ''}">
+                              ${isChiesa ? '⛪ Chiesa' : '📺 Sala TV'}
+                            </span>
+                          </td>
+                          <td><strong>${formattaDataConfronto(p.data)}</strong></td>
+                          <td><strong style="color: #0f172a;">${escapeHtml(p.slot_orario)}</strong></td>
+                          <td><span class="text-sm font-semibold">${escapeHtml(p.email)}</span></td>
+                          <td>
+                            <span class="badge" style="background: #dcfce7; color: #166534; font-size: 11px; font-weight: 700;">
+                              ✓ Confermato ${p.approvato_da ? `(${escapeHtml(p.approvato_da.split('@')[0])})` : ''}
+                            </span>
+                          </td>
+                          <td>
+                            <button type="button" class="btn btn-secondary btn-sm" onclick="eliminaPrenotazioneSpazioMaster('${escapeHtml(p.id)}')" style="color: #dc2626; border-color: #fca5a5; padding: 4px 8px; font-size: 11px;">
+                              🗑️ Libera
+                            </button>
+                          </td>
+                        </tr>
+                      `;
+                    }).join("")}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        })()}
       </div>
 
       <!-- ==================================================================
@@ -4434,7 +4731,10 @@ function renderMasterSection() {
             <span class="master-tag">MENSA</span>
             <h3 class="card-title" style="margin: 0;">Presenze & Gestione Cucina</h3>
           </div>
-          <div class="flex-align" style="gap: 6px;">
+          <div class="flex-align" style="gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="switchTab('cucina')" style="background: #ea580c; border-color: #ea580c; font-weight: 700; font-size: 11.5px; padding: 4px 10px;">
+              👩‍🍳 Vista Cuoca (Registro Presenze)
+            </button>
             <label for="master-mensa-date-picker" style="font-size: 12px; font-weight: 600; color: #475569;">Giorno:</label>
             <input type="date" id="master-mensa-date-picker" class="input-date" style="padding: 3px 8px; font-size: 12px;" value="${dataFiltroYMD}" onchange="cambiaDataMasterMensa(this.value)">
           </div>
@@ -4457,6 +4757,65 @@ function renderMasterSection() {
             <span class="metric-val" style="color: #475569;">${countRitardi}</span>
             <span class="metric-lbl">Con Ritardo</span>
           </div>
+        </div>
+
+        <!-- ==================================================================
+             CONFIGURAZIONE ORARI LIMITE DINAMICI & NOTIFICHE (MASTER)
+             ================================================================== -->
+        <div class="sub-section" style="margin-top: 18px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 14px;">
+          <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+            <div>
+              <h4 style="margin: 0; color: #9a3412; font-size: 14px; display: flex; align-items: center; gap: 6px;">
+                <span>⏰</span> <strong>Orari Limite Prenotazione Pasti & Notifiche Master</strong>
+              </h4>
+              <span class="text-xs text-muted" style="display: block; margin-top: 2px;">
+                Modifica i limiti orari di prenotazione e cancella-pasti senza modificare la struttura dell'app.
+              </span>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('cucina')" style="border-color: #f97316; color: #ea580c; font-weight: 700;">
+              👩‍🍳 Apri Registro Cuoca
+            </button>
+          </div>
+
+          <form onsubmit="handleSalvaOrariLimite(event)">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px;">
+              <div class="form-group" style="margin: 0;">
+                <label for="cfg-limite-pranzo" style="font-size: 12px; font-weight: 700; color: #7c2d12;">
+                  ☀️ Limite Prenotazione Pranzo (HH:MM)
+                </label>
+                <input type="text" id="cfg-limite-pranzo" class="input-text" style="font-weight: 700; font-size: 13px;" placeholder="09:00" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Pranzo || '09:00')}" required>
+                <span class="text-xs text-muted">Blocca modifiche oltre le ${appState.cachedConfig.Orario_Limite_Pranzo || '09:00'}</span>
+              </div>
+
+              <div class="form-group" style="margin: 0;">
+                <label for="cfg-limite-cena" style="font-size: 12px; font-weight: 700; color: #7c2d12;">
+                  🌙 Limite Prenotazione Cena (HH:MM)
+                </label>
+                <input type="text" id="cfg-limite-cena" class="input-text" style="font-weight: 700; font-size: 13px;" placeholder="14:30" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Cena || '14:30')}" required>
+                <span class="text-xs text-muted">Blocca modifiche oltre le ${appState.cachedConfig.Orario_Limite_Cena || '14:30'}</span>
+              </div>
+
+              <div class="form-group" style="margin: 0;">
+                <label for="cfg-limite-busta" style="font-size: 12px; font-weight: 700; color: #7c2d12;">
+                  🥪 Limite Busta Mar/Gio (Ieri alle HH:MM)
+                </label>
+                <input type="text" id="cfg-limite-busta" class="input-text" style="font-weight: 700; font-size: 13px;" placeholder="14:00" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Busta || '14:00')}" required>
+                <span class="text-xs text-muted">Entro le ore ${appState.cachedConfig.Orario_Limite_Busta || '14:00'} del giorno prima</span>
+              </div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 12px;">
+              <label for="cfg-email-notifiche-master" style="font-size: 12px; font-weight: 700; color: #7c2d12;">
+                📧 Email Master per Ricezione Notifiche (Manutenzione & Richiesta Ambienti)
+              </label>
+              <input type="text" id="cfg-email-notifiche-master" class="input-text" style="font-size: 13px;" placeholder="donandreadotti@gmail.com, master2@example.com" value="${escapeHtml(appState.cachedConfig.Email_Notifiche_Master || 'donandreadotti@gmail.com')}">
+              <span class="text-xs text-muted">Separa più indirizzi con una virgola. Riceveranno le notifiche email istantanee ad ogni richiesta.</span>
+            </div>
+
+            <button type="submit" id="btn-salva-orari-cfg" class="btn btn-primary btn-block" style="background: #c2410c; border-color: #c2410c; font-weight: 700;">
+              💾 Salva Orari Limite & Email Notifiche Master
+            </button>
+          </form>
         </div>
 
         <div class="sub-section" style="margin-top: 16px;">
@@ -4604,6 +4963,18 @@ function renderMasterSection() {
             </button>
             <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'risolte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'risolte')" style="padding: 3px 8px; font-size: 11px;">
               Risolte (${risolteCount})
+            </button>
+          </div>
+        </div>
+
+        <!-- DIALOGO AMMINISTRAZIONE & NOTIFICHE EMAIL -->
+        <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
+          <div class="flex-between" style="flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 12.5px; color: #78350f; line-height: 1.5; flex: 1; min-width: 250px;">
+              <strong>📧 Notifiche & Monitoraggio Amministrazione:</strong> Ad ogni nuova segnalazione viene recapitata una mail istantanea a <code>${escapeHtml(appState.cachedConfig.Email_Notifiche_Master || 'donandreadotti@gmail.com')}</code> con descrizione, luogo e link alla foto. I dati dialogano costantemente con il foglio Google <strong>"Manutenzione"</strong> per permettere all'amministrazione di monitorare i costi, assegnare le ditte ed archiviare lo storico.
+            </div>
+            <button type="button" class="btn btn-sm btn-outline" onclick="window.print()" style="border-color: #d97706; color: #b45309; font-weight: 700; font-size: 11.5px; padding: 4px 10px;">
+              🖨️ Stampa Scheda Interventi
             </button>
           </div>
         </div>
@@ -4879,6 +5250,72 @@ window.handleSalvaMessaggioSupermasterRapido = async function(e) {
     }
   } catch (err) {
     mostraToast("Errore di rete", "error");
+  }
+};
+
+// ----------------------------------------------------------------------------
+// HANDLER MASTER: SALVATAGGIO CONFIGURAZIONE ORARI LIMITE E NOTIFICHE PASTI
+// ----------------------------------------------------------------------------
+window.handleSalvaOrariLimite = async function(e) {
+  if (e) e.preventDefault();
+
+  const limitePranzo = document.getElementById("cfg-limite-pranzo")?.value?.trim() || "09:00";
+  const limiteCena = document.getElementById("cfg-limite-cena")?.value?.trim() || "14:30";
+  const limiteBusta = document.getElementById("cfg-limite-busta")?.value?.trim() || "14:00";
+  const emailNotifiche = document.getElementById("cfg-email-notifiche-master")?.value?.trim() || "donandreadotti@gmail.com";
+
+  // Validazione orari formato HH:MM
+  const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+  if (!timeRegex.test(limitePranzo)) {
+    mostraToast("Orario pranzo non valido (formato richiesto: HH:MM, es. 09:00)", "warning");
+    return;
+  }
+  if (!timeRegex.test(limiteCena)) {
+    mostraToast("Orario cena non valido (formato richiesto: HH:MM, es. 14:30)", "warning");
+    return;
+  }
+  if (!timeRegex.test(limiteBusta)) {
+    mostraToast("Orario busta non valido (formato richiesto: HH:MM, es. 14:00)", "warning");
+    return;
+  }
+
+  const btn = document.getElementById("btn-salva-orari-cfg");
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = "Salvataggio in corso...";
+  }
+
+  try {
+    const res = await callApi("aggiornaConfig", {
+      Orario_Limite_Pranzo: limitePranzo,
+      Orario_Limite_Cena: limiteCena,
+      Orario_Limite_Busta: limiteBusta,
+      Email_Notifiche_Master: emailNotifiche
+    });
+
+    if (res && res.success) {
+      appState.cachedConfig.Orario_Limite_Pranzo = limitePranzo;
+      appState.cachedConfig.Orario_Limite_Cena = limiteCena;
+      appState.cachedConfig.Orario_Limite_Busta = limiteBusta;
+      appState.cachedConfig.Email_Notifiche_Master = emailNotifiche;
+
+      mostraToast("✅ Nuovi orari limite e notifiche salvati con successo!", "success");
+      
+      // Aggiorna sia la vista mensa che la vista master
+      if (document.getElementById("mensa-container")) {
+        renderMensaView();
+      }
+      renderMasterSection();
+    } else {
+      mostraToast("Errore durante il salvataggio: " + (res?.error || "Errore sconosciuto"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete: " + err.message, "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.textContent = "💾 Salva Orari Limite & Email Notifiche Master";
+    }
   }
 };
 
@@ -5687,7 +6124,7 @@ function switchTab(tabId) {
   });
 
   // Toggle views
-  const views = ["info", "mensa", "spazi", "residenza", "manutenzione", "master"];
+  const views = ["info", "mensa", "spazi", "residenza", "manutenzione", "master", "cucina"];
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
     if (el) {
@@ -5708,6 +6145,7 @@ function switchTab(tabId) {
   if (tabId === "residenza") renderResidenzaView();
   if (tabId === "manutenzione") caricaGuastiRecenti();
   if (tabId === "master") caricaDatiMaster();
+  if (tabId === "cucina") renderCucinaView();
 }
 
 window.switchTab = switchTab;
@@ -6361,4 +6799,427 @@ window.esportaBackupLocale = function() {
   a.click();
   URL.revokeObjectURL(url);
   mostraToast("📥 Backup esportato con successo!", "success");
+};
+
+// ============================================================================
+// VISTA REGISTRO CUOCA / CUCINA (USER-FRIENDLY & DIALOGANTE)
+// ============================================================================
+
+window.cambiaDataCucina = function(nuovaDataStr) {
+  if (!nuovaDataStr) return;
+  appState.cucinaSelectedDate = nuovaDataStr;
+  renderCucinaView();
+};
+
+window.spostaGiornoCucina = function(deltaGiorni) {
+  const cur = appState.cucinaSelectedDate ? new Date(appState.cucinaSelectedDate + "T12:00:00") : new Date();
+  cur.setDate(cur.getDate() + deltaGiorni);
+  appState.cucinaSelectedDate = formatYMD(cur);
+  renderCucinaView();
+};
+
+window.filtraCucinaPasto = function(pasto, filtro) {
+  if (pasto === "pranzo") {
+    appState.cucinaFilterPranzo = filtro;
+  } else {
+    appState.cucinaFilterCena = filtro;
+  }
+  renderCucinaView();
+};
+
+window.toggleCucinaSpuntato = function(key) {
+  try {
+    const dataKey = appState.cucinaSelectedDate || formatYMD(new Date());
+    const storageKey = `newman_cucina_spuntati_${dataKey}`;
+    const spuntati = JSON.parse(localStorage.getItem(storageKey) || "{}");
+    spuntati[key] = !spuntati[key];
+    localStorage.setItem(storageKey, JSON.stringify(spuntati));
+    renderCucinaView();
+  } catch (err) {
+    console.error("Errore toggle spuntato:", err);
+  }
+};
+
+window.renderCucinaView = function() {
+  const container = document.getElementById("cucina-container");
+  if (!container) return;
+
+  const dataFiltroYMD = appState.cucinaSelectedDate || formatYMD(new Date());
+  appState.cucinaSelectedDate = dataFiltroYMD;
+
+  const filterPranzo = appState.cucinaFilterPranzo || "tutti";
+  const filterCena = appState.cucinaFilterCena || "tutti";
+
+  // Spuntati locali della cuoca per il giorno selezionato
+  let spuntati = {};
+  try {
+    spuntati = JSON.parse(localStorage.getItem(`newman_cucina_spuntati_${dataFiltroYMD}`) || "{}");
+  } catch (e) {
+    spuntati = {};
+  }
+
+  const dataObj = new Date(dataFiltroYMD + "T12:00:00");
+  const optionsGiorno = { weekday: "long", day: "numeric", month: "long", year: "numeric" };
+  const dataEstesa = dataObj.toLocaleDateString("it-IT", optionsGiorno);
+  const giornoSettimanaCapitalized = dataEstesa.charAt(0).toUpperCase() + dataEstesa.slice(1);
+
+  const isOggi = dataFiltroYMD === formatYMD(new Date());
+
+  // Prenotazioni della mensa per la data selezionata
+  const dbMensa = appState.mensaBookings || [];
+  const prenotazioniGiorno = dbMensa.filter(m => String(m.data).split("T")[0] === dataFiltroYMD);
+
+  const listaPranzo = prenotazioniGiorno.filter(m => m.tipo_pasto === "pranzo");
+  const listaCena = prenotazioniGiorno.filter(m => m.tipo_pasto === "cena");
+
+  // Variazione attiva per oggi
+  const dataVar = appState.cachedConfig.Data_Variazione_Menu;
+  const testoVar = appState.cachedConfig.Testo_Variazione;
+  const pastoVar = (appState.cachedConfig.Pasto_Variazione || "entrambi").toLowerCase();
+  const haVariazioneOggi = (dataVar === dataFiltroYMD) && Boolean(testoVar);
+
+  // Filtra liste
+  function applicaFiltro(lista, f) {
+    if (f === "in_sala") return lista.filter(x => !x.busta && !x.ritardo);
+    if (f === "busta") return lista.filter(x => Boolean(x.busta));
+    if (f === "ritardo") return lista.filter(x => Boolean(x.ritardo));
+    if (f === "note") return lista.filter(x => Boolean(x.note && x.note.trim()));
+    return lista;
+  }
+
+  const filteredPranzo = applicaFiltro(listaPranzo, filterPranzo);
+  const filteredCena = applicaFiltro(listaCena, filterCena);
+
+  const countBustePranzo = listaPranzo.filter(m => m.busta).length;
+  const countRitardiPranzo = listaPranzo.filter(m => m.ritardo).length;
+  const countNotePranzo = listaPranzo.filter(m => m.note && m.note.trim()).length;
+
+  const countBusteCena = listaCena.filter(m => m.busta).length;
+  const countRitardiCena = listaCena.filter(m => m.ritardo).length;
+  const countNoteCena = listaCena.filter(m => m.note && m.note.trim()).length;
+
+  // Statistiche previsionali per i prossimi 5 giorni
+  const prossimiGiorni = [];
+  for (let i = 0; i < 5; i++) {
+    const d = new Date();
+    d.setDate(d.getDate() + i);
+    const ymd = formatYMD(d);
+    const pGiorno = dbMensa.filter(m => String(m.data).split("T")[0] === ymd);
+    prossimiGiorni.push({
+      ymd,
+      label: d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "numeric" }),
+      pranzo: pGiorno.filter(m => m.tipo_pasto === "pranzo").length,
+      cena: pGiorno.filter(m => m.tipo_pasto === "cena").length,
+      buste: pGiorno.filter(m => m.busta).length,
+      isSel: ymd === dataFiltroYMD
+    });
+  }
+
+  let html = `
+    <div class="cucina-portal-wrapper">
+      
+      <!-- HEADER PRINCIPALE VISTA CUOCA -->
+      <div class="card" style="border-top: 5px solid #ea580c; background: linear-gradient(to bottom, #fff7ed, #ffffff); padding: 16px; margin-bottom: 14px;">
+        <div class="flex-between" style="flex-wrap: wrap; gap: 10px; margin-bottom: 12px;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 26px;">👩‍🍳</span>
+              <div>
+                <h2 style="margin: 0; font-size: 19px; color: #9a3412; font-weight: 800;">Registro Presenze Cucina & Cuoca</h2>
+                <div style="font-size: 12.5px; color: #7c2d12;">Schermata semplificata per consultare presenze, piatti da preparare e buste al sacco</div>
+              </div>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;" class="no-print">
+            <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('mensa')" style="font-weight: 700;">
+              ← Torna a Mensa
+            </button>
+            <button type="button" class="btn btn-sm" onclick="window.print()" style="background: #0f172a; color: #fff; font-weight: 700; padding: 6px 12px;">
+              🖨️ Stampa Registro
+            </button>
+            <button type="button" class="btn btn-sm" onclick="apriModalVariazioneCuoca('${dataFiltroYMD}', 'pranzo')" style="background: #ea580c; color: #fff; font-weight: 700; padding: 6px 12px;">
+              📢 Inserisci Variazione Menu
+            </button>
+          </div>
+        </div>
+
+        <!-- SELETTORE DATA USER-FRIENDLY CON FRECCE GRANDI -->
+        <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="spostaGiornoCucina(-1)" title="Giorno precedente" style="font-weight: 800; font-size: 14px; padding: 6px 12px;">
+              ◀ Giorno Prima
+            </button>
+            <button type="button" class="btn btn-sm ${isOggi ? 'btn-primary' : 'btn-outline'}" onclick="cambiaDataCucina('${formatYMD(new Date())}')" style="font-weight: 700; padding: 6px 12px;">
+              Oggi
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="spostaGiornoCucina(1)" title="Giorno successivo" style="font-weight: 800; font-size: 14px; padding: 6px 12px;">
+              Giorno Dopo ▶
+            </button>
+          </div>
+
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 15px; font-weight: 800; color: #1e293b;">
+              📅 ${giornoSettimanaCapitalized}
+            </span>
+            <input type="date" id="cucina-date-picker" class="input-date" style="padding: 5px 8px; font-size: 13px; font-weight: 700; border-color: #fdba74;" value="${dataFiltroYMD}" onchange="cambiaDataCucina(this.value)">
+          </div>
+        </div>
+
+        <!-- ALERT EVENTUALE VARIAZIONE MENU DEL GIORNO -->
+        ${haVariazioneOggi ? `
+          <div style="margin-top: 12px; background: #fffbeb; border: 2px dashed #f59e0b; border-radius: 8px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div>
+              <span style="font-weight: 800; color: #b45309; font-size: 13px;">📢 Variazione Menu Attiva per ${pastoVar.toUpperCase()}:</span>
+              <div style="font-size: 14px; font-weight: 700; color: #78350f; margin-top: 2px;">
+                "${escapeHtml(testoVar)}"
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-outline no-print" onclick="apriModalVariazioneCuoca('${dataFiltroYMD}', '${pastoVar}')" style="font-size: 11px; padding: 4px 8px; border-color: #d97706; color: #b45309;">
+              Modifica
+            </button>
+          </div>
+        ` : ''}
+
+        <!-- ORARI DI BLOCCO ATTUALI -->
+        <div style="margin-top: 8px; font-size: 11.5px; color: #9a3412; display: flex; align-items: center; gap: 6px;">
+          <span>ℹ️ Orari di chiusura prenotazioni: Pranzo ore <strong>${appState.cachedConfig.Orario_Limite_Pranzo || '09:00'}</strong> • Cena ore <strong>${appState.cachedConfig.Orario_Limite_Cena || '14:30'}</strong></span>
+        </div>
+      </div>
+
+      <!-- PREVISIONE RAPIDA PROSSIMI GIORNI PER LA SPESA & PORZIONI -->
+      <div class="card no-print" style="padding: 12px 14px; margin-bottom: 14px; background: #f8fafc; border: 1px solid #e2e8f0;">
+        <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+          <span>🛒</span> <span>Previsione Coperti Prossimi Giorni (per spesa e quantità):</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px;">
+          ${prossimiGiorni.map(pg => `
+            <div onclick="cambiaDataCucina('${pg.ymd}')" style="background: ${pg.isSel ? '#ffedd5' : '#ffffff'}; border: 1px solid ${pg.isSel ? '#f97316' : '#cbd5e1'}; border-radius: 6px; padding: 8px; cursor: pointer; text-align: center; transition: all 0.15s ease;">
+              <div style="font-size: 11px; font-weight: 800; color: ${pg.isSel ? '#c2410c' : '#475569'}; text-transform: uppercase;">${pg.label}</div>
+              <div style="display: flex; justify-content: center; gap: 8px; margin-top: 4px; font-size: 12px;">
+                <span title="Pranzo" style="color: #ea580c; font-weight: 700;">☀️ ${pg.pranzo}</span>
+                <span title="Cena" style="color: #2563eb; font-weight: 700;">🌙 ${pg.cena}</span>
+                ${pg.buste > 0 ? `<span title="Buste al sacco" style="color: #d97706; font-weight: 700;">🥪 ${pg.buste}</span>` : ''}
+              </div>
+            </div>
+          `).join("")}
+        </div>
+      </div>
+
+      <!-- GRIGLIA DUE COLONNE: PRANZO E CENA -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+
+        <!-- ================================================================
+             COLONNA 1: ☀️ PRANZO (14:30)
+             ================================================================ -->
+        <div class="card" style="border-top: 4px solid #f97316; padding: 14px; display: flex; flex-direction: column;">
+          <div class="flex-between" style="border-bottom: 1px solid #fed7aa; padding-bottom: 10px; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 24px;">☀️</span>
+              <div>
+                <h3 style="margin: 0; font-size: 17px; color: #c2410c; font-weight: 800;">Pranzo (ore 14:30)</h3>
+                <span class="text-xs text-muted">Coperti complessivi registrati</span>
+              </div>
+            </div>
+            <div style="background: #fff7ed; border: 2px solid #f97316; border-radius: 20px; padding: 4px 14px; text-align: center;">
+              <span style="font-size: 20px; font-weight: 900; color: #c2410c;">${listaPranzo.length}</span>
+              <span style="font-size: 11px; font-weight: 700; color: #9a3412; display: block;">PRESENTI</span>
+            </div>
+          </div>
+
+          <!-- RIEPILOGO METRICHE PRANZO -->
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+            <span class="badge" style="background: #fed7aa; color: #7c2d12; font-weight: 700; font-size: 12px;">
+              🍽️ In Sala: ${listaPranzo.length - countBustePranzo}
+            </span>
+            ${countBustePranzo > 0 ? `
+              <span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 12px; border: 1px solid #facc15;">
+                🥪 Buste al sacco: ${countBustePranzo}
+              </span>
+            ` : ''}
+            ${countRitardiPranzo > 0 ? `
+              <span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 12px;">
+                ⏰ In Ritardo: ${countRitardiPranzo}
+              </span>
+            ` : ''}
+            ${countNotePranzo > 0 ? `
+              <span class="badge" style="background: #e0f2fe; color: #075985; font-weight: 700; font-size: 12px;">
+                💬 Note particolari: ${countNotePranzo}
+              </span>
+            ` : ''}
+          </div>
+
+          <!-- FILTRI RAPIDI PRANZO (NO PRINT) -->
+          <div class="no-print" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; background: #fff7ed; padding: 6px; border-radius: 6px;">
+            <button type="button" class="btn btn-sm ${filterPranzo === 'tutti' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'tutti')" style="padding: 3px 8px; font-size: 11px;">
+              Tutti (${listaPranzo.length})
+            </button>
+            <button type="button" class="btn btn-sm ${filterPranzo === 'in_sala' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'in_sala')" style="padding: 3px 8px; font-size: 11px;">
+              In Sala (${listaPranzo.length - countBustePranzo})
+            </button>
+            <button type="button" class="btn btn-sm ${filterPranzo === 'busta' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'busta')" style="padding: 3px 8px; font-size: 11px;">
+              🥪 Buste (${countBustePranzo})
+            </button>
+            <button type="button" class="btn btn-sm ${filterPranzo === 'ritardo' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'ritardo')" style="padding: 3px 8px; font-size: 11px;">
+              ⏰ Ritardi (${countRitardiPranzo})
+            </button>
+            <button type="button" class="btn btn-sm ${filterPranzo === 'note' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'note')" style="padding: 3px 8px; font-size: 11px;">
+              💬 Note (${countNotePranzo})
+            </button>
+          </div>
+
+          <!-- LISTA RESIDENTI PRANZO -->
+          <div style="flex: 1; overflow-y: auto; max-height: 480px;">
+            ${filteredPranzo.length === 0 ? `
+              <div style="text-align: center; padding: 32px 16px; color: #94a3b8;">
+                <span style="font-size: 32px; display: block; margin-bottom: 6px;">🍽️</span>
+                Nessuna presenza registrata per questo filtro.
+              </div>
+            ` : `
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                ${filteredPranzo.map((p, idx) => {
+                  const checkKey = `pranzo_${p.email}`;
+                  const isChecked = Boolean(spuntati[checkKey]);
+                  const nome = (p.nome || p.email.split('@')[0]).replace(/\./g, ' ');
+                  const capitalizedNome = nome.charAt(0).toUpperCase() + nome.slice(1);
+
+                  return `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: ${isChecked ? '#f1f5f9' : '#ffffff'}; border: 1px solid ${isChecked ? '#cbd5e1' : '#e2e8f0'}; border-radius: 6px; opacity: ${isChecked ? '0.6' : '1'};">
+                      <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                        <span style="font-size: 11px; font-weight: 700; color: #94a3b8; width: 18px;">${idx + 1}.</span>
+                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntato('${checkKey}')" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ea580c;" title="Segna come servito / ritirato">
+                        <div>
+                          <span style="font-weight: 700; font-size: 13.5px; color: #0f172a; text-decoration: ${isChecked ? 'line-through' : 'none'};">
+                            ${escapeHtml(capitalizedNome)}
+                          </span>
+                          <span class="text-xs text-muted" style="display: block;">${escapeHtml(p.email)}</span>
+                          ${p.note ? `
+                            <div style="margin-top: 3px; font-size: 12px; font-weight: 700; color: #c2410c; background: #fff7ed; padding: 2px 6px; border-radius: 4px; display: inline-block;">
+                              💬 Note: ${escapeHtml(p.note)}
+                            </div>
+                          ` : ''}
+                        </div>
+                      </div>
+
+                      <div style="display: flex; gap: 4px; align-items: center;">
+                        ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11px;">🥪 BUSTA</span>' : ''}
+                        ${p.ritardo ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 800; font-size: 11px;">⏰ RITARDO</span>' : ''}
+                      </div>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            `}
+          </div>
+        </div>
+
+        <!-- ================================================================
+             COLONNA 2: 🌙 CENA (19:30)
+             ================================================================ -->
+        <div class="card" style="border-top: 4px solid #2563eb; padding: 14px; display: flex; flex-direction: column;">
+          <div class="flex-between" style="border-bottom: 1px solid #bfdbfe; padding-bottom: 10px; margin-bottom: 10px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 24px;">🌙</span>
+              <div>
+                <h3 style="margin: 0; font-size: 17px; color: #1d4ed8; font-weight: 800;">Cena (ore 19:30)</h3>
+                <span class="text-xs text-muted">Coperti complessivi registrati</span>
+              </div>
+            </div>
+            <div style="background: #eff6ff; border: 2px solid #2563eb; border-radius: 20px; padding: 4px 14px; text-align: center;">
+              <span style="font-size: 20px; font-weight: 900; color: #1d4ed8;">${listaCena.length}</span>
+              <span style="font-size: 11px; font-weight: 700; color: #1e40af; display: block;">PRESENTI</span>
+            </div>
+          </div>
+
+          <!-- RIEPILOGO METRICHE CENA -->
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+            <span class="badge" style="background: #dbeafe; color: #1e3a8a; font-weight: 700; font-size: 12px;">
+              🍽️ In Sala: ${listaCena.length - countBusteCena}
+            </span>
+            ${countBusteCena > 0 ? `
+              <span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 12px; border: 1px solid #facc15;">
+                🥪 Buste al sacco: ${countBusteCena}
+              </span>
+            ` : ''}
+            ${countRitardiCena > 0 ? `
+              <span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 12px;">
+                ⏰ In Ritardo: ${countRitardiCena}
+              </span>
+            ` : ''}
+            ${countNoteCena > 0 ? `
+              <span class="badge" style="background: #e0f2fe; color: #075985; font-weight: 700; font-size: 12px;">
+                💬 Note particolari: ${countNoteCena}
+              </span>
+            ` : ''}
+          </div>
+
+          <!-- FILTRI RAPIDI CENA (NO PRINT) -->
+          <div class="no-print" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; background: #eff6ff; padding: 6px; border-radius: 6px;">
+            <button type="button" class="btn btn-sm ${filterCena === 'tutti' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('cena', 'tutti')" style="padding: 3px 8px; font-size: 11px;">
+              Tutti (${listaCena.length})
+            </button>
+            <button type="button" class="btn btn-sm ${filterCena === 'in_sala' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('cena', 'in_sala')" style="padding: 3px 8px; font-size: 11px;">
+              In Sala (${listaCena.length - countBusteCena})
+            </button>
+            <button type="button" class="btn btn-sm ${filterCena === 'busta' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('cena', 'busta')" style="padding: 3px 8px; font-size: 11px;">
+              🥪 Buste (${countBusteCena})
+            </button>
+            <button type="button" class="btn btn-sm ${filterCena === 'ritardo' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('cena', 'ritardo')" style="padding: 3px 8px; font-size: 11px;">
+              ⏰ Ritardi (${countRitardiCena})
+            </button>
+            <button type="button" class="btn btn-sm ${filterCena === 'note' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('cena', 'note')" style="padding: 3px 8px; font-size: 11px;">
+              💬 Note (${countNoteCena})
+            </button>
+          </div>
+
+          <!-- LISTA RESIDENTI CENA -->
+          <div style="flex: 1; overflow-y: auto; max-height: 480px;">
+            ${filteredCena.length === 0 ? `
+              <div style="text-align: center; padding: 32px 16px; color: #94a3b8;">
+                <span style="font-size: 32px; display: block; margin-bottom: 6px;">🌙</span>
+                Nessuna presenza registrata per questo filtro.
+              </div>
+            ` : `
+              <div style="display: flex; flex-direction: column; gap: 6px;">
+                ${filteredCena.map((p, idx) => {
+                  const checkKey = `cena_${p.email}`;
+                  const isChecked = Boolean(spuntati[checkKey]);
+                  const nome = (p.nome || p.email.split('@')[0]).replace(/\./g, ' ');
+                  const capitalizedNome = nome.charAt(0).toUpperCase() + nome.slice(1);
+
+                  return `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: ${isChecked ? '#f1f5f9' : '#ffffff'}; border: 1px solid ${isChecked ? '#cbd5e1' : '#e2e8f0'}; border-radius: 6px; opacity: ${isChecked ? '0.6' : '1'};">
+                      <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
+                        <span style="font-size: 11px; font-weight: 700; color: #94a3b8; width: 18px;">${idx + 1}.</span>
+                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntato('${checkKey}')" style="width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb;" title="Segna come servito / ritirato">
+                        <div>
+                          <span style="font-weight: 700; font-size: 13.5px; color: #0f172a; text-decoration: ${isChecked ? 'line-through' : 'none'};">
+                            ${escapeHtml(capitalizedNome)}
+                          </span>
+                          <span class="text-xs text-muted" style="display: block;">${escapeHtml(p.email)}</span>
+                          ${p.note ? `
+                            <div style="margin-top: 3px; font-size: 12px; font-weight: 700; color: #1d4ed8; background: #eff6ff; padding: 2px 6px; border-radius: 4px; display: inline-block;">
+                              💬 Note: ${escapeHtml(p.note)}
+                            </div>
+                          ` : ''}
+                        </div>
+                      </div>
+
+                      <div style="display: flex; gap: 4px; align-items: center;">
+                        ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11px;">🥪 BUSTA</span>' : ''}
+                        ${p.ritardo ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 800; font-size: 11px;">⏰ RITARDO</span>' : ''}
+                      </div>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            `}
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  `;
+
+  container.innerHTML = html;
 };
