@@ -2290,6 +2290,16 @@
         <!-- Indicatore stato connessione (GAS Live / Demo Locale) -->
         <span class="connection-badge live" id="header-connection-badge" onclick="apriModalSettings()">GAS Live</span>
 
+        <!-- Scorciatoia Calendario Globale -->
+        <button type="button" class="btn-icon-head" onclick="switchTab('calendario')" id="header-btn-calendario" title="Calendario Globale & Appuntamenti" style="font-size: 14px;">
+          📅
+        </button>
+
+        <!-- Pulsante Guida Mobile Popup -->
+        <button type="button" class="btn-icon-head" onclick="apriModalGuida()" id="header-btn-guida" title="Guida & Istruzioni dell'App" style="font-size: 14px;">
+          📖
+        </button>
+
         <!-- Badge utente corrente -->
         <div class="user-pill" id="header-user-pill" onclick="gestisciClickUserPill()">
           <div class="user-avatar" id="header-user-avatar">CN</div>
@@ -2433,6 +2443,14 @@
         </div>
       </section>
 
+      <!-- ====================================================================
+           VISTA 8: CALENDARIO COMPLETO & TUTTI GLI APPUNTAMENTI (PER TUTTI)
+           ==================================================================== -->
+      <section class="view-container hidden" id="view-calendario">
+        <div id="calendario-globale-container">
+          <!-- Popolato dinamicamente da renderCalendarioGlobaleView() in app.js -->
+        </div>
+      </section>
 
     </main>
 
@@ -2449,6 +2467,17 @@
           <line x1="4" y1="10" x2="20" y2="10"></line>
         </svg>
         <span>Bacheca</span>
+      </button>
+
+      <!-- Tab Calendario Globale -->
+      <button type="button" class="bottom-nav-item" data-tab="calendario" id="nav-tab-calendario">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
+          <line x1="16" y1="2" x2="16" y2="6"></line>
+          <line x1="8" y1="2" x2="8" y2="6"></line>
+          <line x1="3" y1="10" x2="21" y2="10"></line>
+        </svg>
+        <span>Calendario</span>
       </button>
 
       <!-- Tab Mensa -->
@@ -2643,6 +2672,24 @@
             <span style="font-size: 12px; color: var(--text-muted);">Google Maps ↗</span>
           </a>
 
+          <!-- Visualizza Calendario Completo -->
+          <button type="button" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); switchTab('calendario');" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm);">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 16px;">📅</span>
+              <span style="font-weight: 600;">Calendario Appuntamenti Completo</span>
+            </div>
+            <span style="font-size: 12px; color: var(--text-muted);">Apri →</span>
+          </button>
+
+          <!-- Guida & Istruzioni dell'App Popup -->
+          <button type="button" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); apriModalGuida();" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm);">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 16px;">📖</span>
+              <span style="font-weight: 600;">Guida &amp; Istruzioni Residenza</span>
+            </div>
+            <span style="font-size: 12px; color: var(--text-muted);">Popup ↗</span>
+          </button>
+
           <!-- Scheda Residenza e Regolamento -->
           <button type="button" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); switchTab('residenza');" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm);">
             <div class="flex-align" style="gap: 10px;">
@@ -2829,6 +2876,26 @@
           </div>
         </div>
 
+        <!-- DATE E ORARI DI PUBBLICAZIONE E SCADENZA -->
+        <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-top: 6px;">
+          <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px;">
+            ⏱️ Tempistiche di Pubblicazione & Scadenza:
+          </div>
+          <div class="form-row" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 6px;">
+              <label for="bacheca-modal-pubblicazione" style="font-size: 11px;">Pubblica dal (Data e Ora):</label>
+              <input type="datetime-local" id="bacheca-modal-pubblicazione" class="input-text" style="font-size: 12px; padding: 6px 8px;">
+            </div>
+            <div class="form-group" style="flex: 1; min-width: 140px; margin-bottom: 6px;">
+              <label for="bacheca-modal-scadenza" style="font-size: 11px;">Scade il (Opzionale):</label>
+              <input type="datetime-local" id="bacheca-modal-scadenza" class="input-text" style="font-size: 12px; padding: 6px 8px;" placeholder="Nessuna scadenza">
+            </div>
+          </div>
+          <div style="font-size: 11px; color: #64748b; margin-top: 2px;">
+            Se imposti una scadenza, l'avviso verrà automaticamente archiviato dopo tale orario.
+          </div>
+        </div>
+
         <div style="display: flex; gap: 8px; margin-top: 16px;">
           <button type="submit" id="btn-submit-bacheca" class="btn btn-primary btn-block">Pubblica in Bacheca</button>
           <button type="button" class="btn btn-secondary" onclick="chiudiModalBacheca()">Annulla</button>
@@ -2917,7 +2984,7 @@
   </div>
 
   <!-- ======================================================================
-       MODAL PRENOTA SPAZIO (CHIESA / SALA TV) - DIALOGO ACCESSIBILE E DIRETTO
+       MODAL PRENOTA SPAZIO (CHIESA / SALA TV) - RICHIESTA E AUTORIZZAZIONE
        ====================================================================== -->
   <div class="modal-overlay" id="modal-prenota-spazio" style="display: none;">
     <div class="modal-card">
@@ -2925,14 +2992,14 @@
         <div class="flex-align" style="gap: 8px;">
           <span id="modal-spazio-icon" style="font-size: 26px;">⛪</span>
           <div>
-            <h3 class="modal-title" id="modal-spazio-titolo" style="margin: 0;">Prenotazione Spazio</h3>
-            <span class="text-xs text-muted" id="modal-spazio-sub">Conferma immediata dello slot</span>
+            <h3 class="modal-title" id="modal-spazio-titolo" style="margin: 0;">Richiesta di Prenotazione</h3>
+            <span class="text-xs text-muted" id="modal-spazio-sub">Sottoposta ad autorizzazione del Master</span>
           </div>
         </div>
         <button type="button" class="btn-icon-head" onclick="chiudiModalPrenotaSpazio()" style="color:#0f172a;">✕</button>
       </div>
 
-      <div class="card-inner" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+      <div class="card-inner" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 12px;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
           <span class="text-xs text-muted">Ambiente:</span>
           <strong id="modal-spazio-dettaglio-risorsa" style="color: #0f172a;">Chiesa / Cappella</strong>
@@ -2947,6 +3014,10 @@
         </div>
       </div>
 
+      <div id="modal-spazio-avviso-ruolo" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; font-size: 12.5px; color: #1e40af; line-height: 1.45;">
+        ℹ️ <strong>Richiesta di Prenotazione:</strong> Per i residenti, l'invio costituisce una richiesta che verrà sottoposta all'autorizzazione di uno dei responsabili con ruolo (Master Ambienti / Admin). Riceverai notifica appena autorizzata.
+      </div>
+
       <!-- SEZIONE UTENTE / RESIDENTE -->
       <div id="modal-spazio-utente-blocco" style="margin-bottom: 14px;">
         <!-- popolato dinamicamente via JS -->
@@ -2954,7 +3025,7 @@
 
       <div style="display: flex; gap: 8px; margin-top: 16px;">
         <button type="button" id="btn-conferma-spazio-azione" class="btn btn-primary btn-block" onclick="eseguiPrenotazioneSpazioConfermata()">
-          ✅ Conferma Prenotazione
+          📩 Invia Richiesta di Prenotazione
         </button>
         <button type="button" class="btn btn-secondary" onclick="chiudiModalPrenotaSpazio()">
           Annulla
@@ -3150,11 +3221,26 @@
         </div>
 
         <textarea id="gas-source-code-textarea" class="input-textarea" rows="11" style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; font-size: 11px; background: #0f172a; color: #38bdf8; white-space: pre; border-radius: 6px;" readonly></textarea>
+
+        <!-- GUIDA PIATTAFORME ESTERNE & WEBHOOK FORNITORI -->
+        <div class="card-inner" style="background: #f0fdf4; border: 1px solid #86efac; border-radius: 8px; padding: 14px; margin-top: 14px;">
+          <h4 style="margin: 0 0 6px 0; color: #166534; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+            <span>🔗</span> <strong>Dialogo con Piattaforme Esterne & Fornitori Manutenzione</strong>
+          </h4>
+          <p style="font-size: 12px; color: #14532d; line-height: 1.5; margin: 0 0 6px 0;">
+            Il foglio <code>Manutenzione</code> su Google Fogli permette a webhook esterni, automazioni Make / Zapier, o assistenti WhatsApp per artigiani di leggere e aggiornare le riparazioni:
+          </p>
+          <ul style="margin: 0; padding-left: 18px; font-size: 11.5px; color: #166534; line-height: 1.5;">
+            <li><strong>ID Univoco:</strong> Ogni segnalazione ha un ID permanente (es. <code>SEG_1234</code>) come chiave di sincronizzazione.</li>
+            <li><strong>Campi Aggiornabili dal Tecnico:</strong> È possibile aggiornare dal foglio: <code>Priorita</code>, <code>Stato</code> (<em>Da fare / In Lavorazione / Risolto</em>), <code>Note_Intervento</code>, <code>Tecnico_Assegnato</code> e <code>Data_Chiusura</code>.</li>
+            <li><strong>Aggiornamento Istantaneo:</strong> Quando una riga viene aggiornata nel foglio, la modifica compare in tempo reale nel portale residenti e master.</li>
+          </ul>
+        </div>
       </div>
 
       <div style="margin-top: 14px; display: flex; justify-content: flex-end; gap: 8px; flex-shrink: 0;">
-        <button type="button" class="btn btn-secondary" onclick="chiudiModalCodiceGas()">
-          Chiudi
+        <button type="button" class="btn btn-secondary btn-block" onclick="chiudiModalCodiceGas()" style="font-weight: 700;">
+          ✕ Chiudi Guida
         </button>
       </div>
     </div>
@@ -3203,6 +3289,146 @@
         </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="chiudiModalElencoPastiCucina()">
           Chiudi
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL GUIDA & ISTRUZIONI RESIDENZA (MOBILE-FRIENDLY POPUP)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-guida-app" style="display: none;" onclick="if(event.target === this) chiudiModalGuida()">
+    <div class="modal-card" style="max-width: 660px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; padding: 18px 20px; border-radius: 14px;">
+      <!-- HEADER GUIDA -->
+      <div class="flex-between" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; flex-shrink: 0;">
+        <div class="flex-align" style="gap: 10px;">
+          <span style="font-size: 26px;">📖</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 17px; font-weight: 800; color: #0f172a;">Guida &amp; Istruzioni Residenza</h3>
+            <span class="text-xs text-muted">Manuale rapido per Residenti, Cuoca e Amministrazione Master</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalGuida()" style="color:#0f172a; font-size: 16px;" title="Chiudi">✕</button>
+      </div>
+
+      <!-- SELETTORE CATEGORIE RAPIDO -->
+      <div style="display: flex; gap: 6px; overflow-x: auto; padding: 10px 0 6px 0; flex-shrink: 0;" id="guida-chips-container">
+        <button type="button" class="badge active" id="chip-guida-tutti" onclick="filtraModalGuida('tutti')" style="cursor: pointer; padding: 5px 12px; font-size: 11.5px; font-weight: 700; background: #0284c7; color: #fff; border: none; border-radius: 20px;">Tutto</button>
+        <button type="button" class="badge" id="chip-guida-mensa" onclick="filtraModalGuida('mensa')" style="cursor: pointer; padding: 5px 12px; font-size: 11.5px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 20px;">🍽️ Mensa &amp; Busta</button>
+        <button type="button" class="badge" id="chip-guida-spazi" onclick="filtraModalGuida('spazi')" style="cursor: pointer; padding: 5px 12px; font-size: 11.5px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 20px;">⛪ Ambienti &amp; Richieste</button>
+        <button type="button" class="badge" id="chip-guida-calendario" onclick="filtraModalGuida('calendario')" style="cursor: pointer; padding: 5px 12px; font-size: 11.5px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 20px;">📅 Calendario &amp; Direzione</button>
+        <button type="button" class="badge" id="chip-guida-fogli" onclick="filtraModalGuida('fogli')" style="cursor: pointer; padding: 5px 12px; font-size: 11.5px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 20px;">📊 Google Fogli &amp; CSV</button>
+        <button type="button" class="badge" id="chip-guida-ditte" onclick="filtraModalGuida('ditte')" style="cursor: pointer; padding: 5px 12px; font-size: 11.5px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 20px;">🛠️ Ditte &amp; Webhook</button>
+      </div>
+
+      <!-- CORPO GUIDA SCROLLABILE -->
+      <div style="flex: 1; overflow-y: auto; padding-right: 6px; margin: 4px 0 10px 0; font-size: 13px; line-height: 1.55; color: #334155;" id="guida-content-body">
+        
+        <!-- SEZIONE MENSA & BUSTA -->
+        <div class="card-inner guida-section" id="guida-sec-mensa" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+          <h4 style="margin: 0 0 6px 0; color: #92400e; font-size: 14.5px; display: flex; align-items: center; gap: 8px;">
+            <span>🍽️</span> <strong>Mensa, Orari &amp; Busta Pranzo (Martedì e Giovedì)</strong>
+          </h4>
+          <ul style="margin: 0; padding-left: 18px; color: #78350f;">
+            <li style="margin-bottom: 6px;">
+              <strong>Orari limite prenotazione/disdetta:</strong> Pranzo entro le <strong>13:30</strong> (1h prima delle 14:30) • Cena entro le <strong>18:30</strong> (1h prima delle 19:30).
+            </li>
+            <li style="margin-bottom: 6px;">
+              <strong>Martedì e Giovedì a Pranzo (Busta al Sacco):</strong> In questi due giorni il servizio in sala non è previsto ed è attiva esclusivamente la busta da asporto.
+            </li>
+            <li style="margin-bottom: 6px;">
+              🍱 <strong>Composizione Busta:</strong> Comprende <em>pasto, frutta e snack/dolce, acqua e succo</em>. Prenotabile entro le 14:00 del giorno precedente.
+            </li>
+            <li>
+              <strong>Ritiro Ritardato:</strong> È possibile indicare il rientro posticipato per trovare il piatto o la busta riposta nominalmente dalla cuoca.
+            </li>
+          </ul>
+        </div>
+
+        <!-- SEZIONE AMBIENTI E RICHIESTA PRENOTAZIONE -->
+        <div class="card-inner guida-section" id="guida-sec-spazi" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+          <h4 style="margin: 0 0 6px 0; color: #1e40af; font-size: 14.5px; display: flex; align-items: center; gap: 8px;">
+            <span>⛪</span> <strong>Ambienti Comuni: Chiesa / Cappella &amp; Sala TV</strong>
+          </h4>
+          <ul style="margin: 0; padding-left: 18px; color: #1e3a8a;">
+            <li style="margin-bottom: 6px;">
+              <strong>Slot da 30 minuti:</strong> Dalle 06:30 alle 23:30 con filtri orari (Mattina, Pomeriggio, Sera).
+            </li>
+            <li style="margin-bottom: 6px;">
+              <strong>Iter di Prenotazione:</strong> L'azione da parte di un residente viene registrata come <strong>Richiesta di Prenotazione</strong> ed è sottoposta all'autorizzazione del Master / referente con ruolo.
+            </li>
+            <li style="margin-bottom: 6px;">
+              <strong>Stato della Richiesta:</strong> Appare subito come <span class="badge" style="background:#fef3c7; color:#92400e; font-weight:700;">⏳ In Attesa</span> e passa a <span class="badge" style="background:#dcfce7; color:#166534; font-weight:700;">✓ Confermato</span> appena il Master clicca su "Approva".
+            </li>
+            <li>
+              <strong>Riservatezza:</strong> I residenti vedono solo se uno slot è disponibile o occupato; i dettagli e il nominativo sono riservati al richiedente e ai Master.
+            </li>
+          </ul>
+        </div>
+
+        <!-- SEZIONE CALENDARIO & MESSAGGI DIREZIONE -->
+        <div class="card-inner guida-section" id="guida-sec-calendario" style="background: #fdf4ff; border: 1px solid #f5d0fe; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+          <h4 style="margin: 0 0 6px 0; color: #86198f; font-size: 14.5px; display: flex; align-items: center; gap: 8px;">
+            <span>📅</span> <strong>Calendario Globale &amp; Comunicazioni della Direzione</strong>
+          </h4>
+          <ul style="margin: 0; padding-left: 18px; color: #701a75;">
+            <li style="margin-bottom: 6px;">
+              <strong>Pagina Calendario:</strong> Accessibile a tutti dalla barra inferiore, dalla testata e dalla Bacheca. Mostra l'elenco scorrevole di tutti gli appuntamenti (Chiesa, Sala TV, Eventi Comunitari, Ricorrenze e Compleanni) raggruppati con date italiane <code>gg-mm-aaaa</code>.
+            </li>
+            <li style="margin-bottom: 6px;">
+              <strong>Comunicazioni della Direzione con Data/Ora di Pubblicazione &amp; Scadenza:</strong> Gli avvisi ufficiali possono essere programmati con data e orario di inizio (visibili solo a partire da tale istante) e data/ora di scadenza (vengono archiviati automaticamente dopo il termine).
+            </li>
+            <li>
+              <strong>Calendario Liturgico:</strong> Ogni giorno riporta il tempo liturgico corrente, il colore dei paramenti e il santo o la memoria del giorno.
+            </li>
+          </ul>
+        </div>
+
+        <!-- SEZIONE GOOGLE FOGLI & CSV -->
+        <div class="card-inner guida-section" id="guida-sec-fogli" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
+          <h4 style="margin: 0 0 6px 0; color: #166534; font-size: 14.5px; display: flex; align-items: center; gap: 8px;">
+            <span>📊</span> <strong>Database Google Fogli &amp; Import Calendario CSV</strong>
+          </h4>
+          <p style="margin: 0 0 8px 0; color: #14532d;">
+            Il sistema sincronizza in tempo reale 6 fogli Google tramite lo script Web App:
+          </p>
+          <div style="background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 8px 10px; margin-bottom: 8px; font-family: monospace; font-size: 11.5px; color: #0f172a;">
+            • Utenti (Anagrafica, Ruoli, Permessi)<br>
+            • Mensa (Presenze giornaliere, Pasti in sala, Buste da asporto)<br>
+            • Prenotazioni_Spazi (Chiesa, Sala TV, Stato autorizzazioni)<br>
+            • Manutenzione (Segnalazioni guasti, Interventi tecnici)<br>
+            • Configurazione (Orari limite pasti, Messaggio Direzione)<br>
+            • Bacheca (Eventi comunitari, Ricorrenze, Compleanni)
+          </div>
+          <p style="margin: 0; color: #14532d;">
+            <strong>Caricamento CSV Calendario:</strong> Dal pulsante "📤 Carica CSV" in Bacheca è possibile importare in un colpo solo decine di celebrazioni ed eventi accademici con colonne <code>Data, Tipo, Titolo, Descrizione, Autore, Priorità</code>.
+          </p>
+        </div>
+
+        <!-- SEZIONE DITTE & WEBHOOK -->
+        <div class="card-inner guida-section" id="guida-sec-ditte" style="background: #fafaf9; border: 1px solid #e7e5e4; border-radius: 10px; padding: 14px;">
+          <h4 style="margin: 0 0 6px 0; color: #292524; font-size: 14.5px; display: flex; align-items: center; gap: 8px;">
+            <span>🛠️</span> <strong>Manutenzione, Ditte Esterne &amp; Webhook</strong>
+          </h4>
+          <ul style="margin: 0; padding-left: 18px; color: #44403c;">
+            <li style="margin-bottom: 6px;">
+              <strong>Segnalazione con Foto:</strong> I residenti possono descrivere anomalie in camera o negli spazi comuni allegando una foto per agevolare il tecnico.
+            </li>
+            <li style="margin-bottom: 6px;">
+              <strong>Integrazione Ditte:</strong> Il foglio <code>Manutenzione</code> può essere condiviso o agganciato tramite Webhook a piattaforme come Make o Zapier per inviare notifiche WhatsApp o email automatiche ai fornitori incaricati.
+            </li>
+            <li>
+              <strong>Campi Interattivi Tecnico:</strong> Il Master può aggiornare in tempo reale la ditta/tecnico assegnato, le note d'intervento e marcare la riparazione come Risolta.
+            </li>
+          </ul>
+        </div>
+
+      </div>
+
+      <!-- FOOTER GUIDA FISSO -->
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; justify-content: flex-end; flex-shrink: 0;">
+        <button type="button" class="btn btn-secondary btn-block" onclick="chiudiModalGuida()" style="font-weight: 800; font-size: 13.5px; padding: 10px 20px;">
+          ✕ Chiudi Guida
         </button>
       </div>
     </div>

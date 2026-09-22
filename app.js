@@ -645,6 +645,37 @@ function formattaDataConfronto(val) {
 }
 
 /**
+ * Helper unificato per visualizzare SEMPRE le date nel formato italiano GG-MM-AAAA
+ */
+function formattaDataItaliana(val) {
+  if (!val) return "";
+  if (val instanceof Date) {
+    const gg = String(val.getDate()).padStart(2, "0");
+    const mm = String(val.getMonth() + 1).padStart(2, "0");
+    const aaaa = val.getFullYear();
+    return `${gg}-${mm}-${aaaa}`;
+  }
+  const s = String(val).trim();
+  if (!s) return "";
+  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s;
+  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s.replace(/\//g, "-");
+  const part = s.includes("T") ? s.split("T")[0] : s.split(" ")[0];
+  const m = part.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) {
+    return `${m[3]}-${m[2]}-${m[1]}`;
+  }
+  const d = new Date(s);
+  if (!isNaN(d.getTime())) {
+    const gg = String(d.getDate()).padStart(2, "0");
+    const mm = String(d.getMonth() + 1).padStart(2, "0");
+    const aaaa = d.getFullYear();
+    return `${gg}-${mm}-${aaaa}`;
+  }
+  return s;
+}
+window.formattaDataItaliana = formattaDataItaliana;
+
+/**
  * Simulatore Backend per funzionamento standalone immediato
  */
 function mockBackendExecution(action, params) {
@@ -1456,8 +1487,7 @@ function renderBachecaView() {
     <!-- CARD CALENDARIO ROMANO ISTITUZIONALE -->
     <div class="card roman-calendar-card">
       <div class="roman-header-clean">
-        <div class="roman-latin-date-highlight">${escapeHtml(cal.annoRomano)} • ${escapeHtml(cal.giornoRomano)}</div>
-        <div class="roman-italian-date-large">${escapeHtml(cal.dataItaliana)}</div>
+        <div class="roman-italian-date-large" style="font-size: 19px; font-weight: 800; color: #ffffff; letter-spacing: 0.2px;">${escapeHtml(cal.dataItaliana)}</div>
       </div>
 
       <div class="roman-liturgy-badge" style="border-left: 4px solid ${cal.coloreHex}; background: rgba(0, 0, 0, 0.28);">
@@ -1470,13 +1500,16 @@ function renderBachecaView() {
         </div>
       </div>
 
-      ${isMasterOrAdmin ? `
-        <div style="margin-top: 10px; display: flex; justify-content: flex-end;">
-          <button type="button" class="btn btn-sm" onclick="apriModalMasterAppuntamento('Chiesa', '${dataYMD}')" style="background: rgba(255,255,255,0.18); color: #fff; border: 1px solid rgba(255,255,255,0.3); font-size: 12px; font-weight: 600;">
-            👑 ➕ Inserisci Appuntamento per questo giorno
+      <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; align-items: center;">
+        <button type="button" class="btn btn-sm" onclick="switchTab('calendario')" style="background: rgba(255,255,255,0.22); color: #fff; border: 1px solid rgba(255,255,255,0.35); font-size: 12.5px; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 6px;">
+          <span>📅</span> <strong>Visualizza Tutti gli Appuntamenti</strong>
+        </button>
+        ${isMasterOrAdmin ? `
+          <button type="button" class="btn btn-sm" onclick="apriModalMasterAppuntamento('Chiesa', '${dataYMD}')" style="background: #9d174d; color: #fff; border: 1px solid #be185d; font-size: 12px; font-weight: 700;">
+            👑 ➕ Inserisci Appuntamento
           </button>
-        </div>
-      ` : ''}
+        ` : ''}
+      </div>
 
       <!-- NAVIGAZIONE RAPIDA GIORNI -->
       <div class="roman-nav-bar">
@@ -1577,7 +1610,7 @@ function renderBachecaView() {
 
           <div class="bacheca-card-footer">
             <span class="text-xs text-muted">✍️ ${escapeHtml(item.autore || 'Direzione')}</span>
-            <span class="text-xs text-muted">📅 ${item.data}</span>
+            <span class="text-xs text-muted">📅 ${formattaDataItaliana(item.data)}</span>
           </div>
         </div>
       `;
@@ -1609,7 +1642,7 @@ function renderBachecaView() {
             <span style="font-size: 18px;">${icon}</span>
             <div>
               <strong style="font-size: 13px;">${escapeHtml(item.titolo)}</strong>
-              <div class="text-xs text-muted">${item.data} • ${escapeHtml(item.autore || 'Direzione')}</div>
+              <div class="text-xs text-muted">${formattaDataItaliana(item.data)} • ${escapeHtml(item.autore || 'Direzione')}</div>
             </div>
           </div>
           <div style="display: flex; gap: 4px; align-items: center;">
@@ -1719,25 +1752,78 @@ function renderResidenzaView() {
     </div>
 
     <!-- CARD SPAZIO TESTO DEL SUPERMASTER / COMUNICAZIONE DIREZIONE -->
-    <div class="card" style="border-left: 4px solid #f59e0b;">
-      <div class="flex-between" style="margin-bottom: 8px;">
-        <div class="flex-align" style="gap: 8px;">
-          <span style="font-size: 22px;">👑</span>
-          <div>
-            <h2 class="card-title" style="margin: 0;">Comunicazione della Direzione (Supermaster)</h2>
-            <span class="text-xs text-muted">Messaggio ufficiale del Superamministratore per tutti i residenti</span>
+    ${(() => {
+      const rawPub = appState.cachedConfig?.Messaggio_Supermaster_Data_Pubblicazione;
+      const rawScad = appState.cachedConfig?.Messaggio_Supermaster_Data_Scadenza;
+      const nowTime = new Date().getTime();
+      const pubTime = rawPub ? new Date(rawPub).getTime() : 0;
+      const scadTime = rawScad ? new Date(rawScad).getTime() : 0;
+      const isScaduto = scadTime > 0 && nowTime > scadTime;
+      const isProgrammato = pubTime > 0 && nowTime < pubTime;
+
+      // Se scaduto o programmato per un residente normale
+      if (!haPermessiMaster()) {
+        if (isScaduto) {
+          return `
+            <div class="card" style="border-left: 4px solid #94a3b8; background: #f8fafc;">
+              <div class="flex-align" style="gap: 8px;">
+                <span style="font-size: 20px;">ℹ️</span>
+                <div>
+                  <h3 class="card-title" style="margin: 0; font-size: 15px; color: #475569;">Comunicazione della Direzione</h3>
+                  <span class="text-xs text-muted">Nessuna comunicazione straordinaria attiva al momento.</span>
+                </div>
+              </div>
+            </div>
+          `;
+        }
+        if (isProgrammato) {
+          return ''; // Non ancora visibile
+        }
+      }
+
+      let timingBadgesHtml = '';
+      if (rawPub || rawScad) {
+        timingBadgesHtml = `
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; font-size: 11.5px;">
+            ${rawPub ? `
+              <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 600;">
+                📅 Inizio: ${escapeHtml(rawPub.replace("T", " ore "))}
+              </span>
+            ` : ''}
+            ${rawScad ? `
+              <span class="badge" style="${isScaduto ? 'background: #fee2e2; color: #991b1b;' : 'background: #fef3c7; color: #92400e;'} font-weight: 600;">
+                ${isScaduto ? '⚠️ Scaduto il' : '⌛ Scade il'}: ${escapeHtml(rawScad.replace("T", " ore "))}
+              </span>
+            ` : '<span class="badge" style="background: #f1f5f9; color: #475569; font-weight: 600;">⌛ Nessuna scadenza</span>'}
+            ${isProgrammato ? '<span class="badge" style="background: #ede9fe; color: #6d28d9; font-weight: 700;">⏳ Programmato (Non ancora attivo per i residenti)</span>' : ''}
+            ${isScaduto ? '<span class="badge" style="background: #dc2626; color: #ffffff; font-weight: 700;">⚠️ SCADUTO</span>' : ''}
           </div>
+        `;
+      }
+
+      return `
+        <div class="card" style="border-left: 4px solid ${isScaduto ? '#dc2626' : (isProgrammato ? '#8b5cf6' : '#f59e0b')}; background: ${isScaduto ? '#fef2f2' : (isProgrammato ? '#faf5ff' : '#ffffff')};">
+          <div class="flex-between" style="margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+            <div class="flex-align" style="gap: 8px;">
+              <span style="font-size: 22px;">👑</span>
+              <div>
+                <h2 class="card-title" style="margin: 0;">Comunicazione della Direzione (Supermaster)</h2>
+                <span class="text-xs text-muted">Messaggio ufficiale del Superamministratore per tutta la comunità</span>
+              </div>
+            </div>
+            ${haPermessiMaster() ? `
+              <button type="button" class="btn btn-secondary btn-sm" onclick="apriModalMessaggioSupermaster()">
+                ✏️ Modifica &amp; Date
+              </button>
+            ` : ''}
+          </div>
+          <div class="residenza-text-box" style="background: ${isScaduto ? '#fee2e2' : (isProgrammato ? '#f3e8ff' : '#fffbeb')}; border-color: ${isScaduto ? '#fca5a5' : (isProgrammato ? '#ddd6fe' : '#fde68a')}; color: ${isScaduto ? '#991b1b' : (isProgrammato ? '#581c87' : '#78350f')}; font-size: 13.5px; line-height: 1.5;">
+            ${escapeHtml(msgSupermaster)}
+          </div>
+          ${timingBadgesHtml}
         </div>
-        ${haPermessiMaster() ? `
-          <button type="button" class="btn btn-secondary btn-sm" onclick="apriModalMessaggioSupermaster()">
-            ✏️ Modifica
-          </button>
-        ` : ''}
-      </div>
-      <div class="residenza-text-box" style="background: #fffbeb; border-color: #fde68a; color: #78350f; font-size: 13.5px; line-height: 1.5;">
-        ${escapeHtml(msgSupermaster)}
-      </div>
-    </div>
+      `;
+    })()}
 
     <!-- CARD SPAZIO BACHECA DELLA RESIDENZA (COMUNICAZIONI & RICORRENZE) -->
     <div class="card" style="border-top: 4px solid #0284c7;">
@@ -1916,8 +2002,12 @@ function renderResidenzaView() {
 // ----------------------------------------------------------------------------
 // MODAL GESTIONE MESSAGGIO SUPERMASTER / DIREZIONE
 // ----------------------------------------------------------------------------
+// MODAL: MESSAGGIO DEL SUPERMASTER / COMUNICAZIONE DIREZIONE
+// ----------------------------------------------------------------------------
 window.apriModalMessaggioSupermaster = function() {
   const currentMsg = appState.cachedConfig.Messaggio_Supermaster || "Cari residenti, benvenuti nel portale digitale della Residenza Newman. Per qualsiasi necessità o urgenza la Direzione è a vostra disposizione.";
+  const currentPub = appState.cachedConfig.Messaggio_Supermaster_Data_Pubblicazione || "";
+  const currentScad = appState.cachedConfig.Messaggio_Supermaster_Data_Scadenza || "";
   
   let modal = document.getElementById("modal-messaggio-supermaster");
   if (!modal) {
@@ -1925,17 +2015,41 @@ window.apriModalMessaggioSupermaster = function() {
     modal.id = "modal-messaggio-supermaster";
     modal.className = "modal-overlay";
     modal.innerHTML = `
-      <div class="modal-card" style="max-width: 520px;">
+      <div class="modal-card" style="max-width: 540px;">
         <div class="modal-header">
           <div style="font-size: 32px; margin-bottom: 6px;">👑</div>
-          <h3 class="modal-title" style="margin: 0;">Spazio Testo del Supermaster</h3>
+          <h3 class="modal-title" style="margin: 0;">Comunicazione della Direzione (Supermaster)</h3>
           <p class="modal-subtitle">Aggiorna la comunicazione ufficiale della Direzione visibile a tutti i residenti.</p>
         </div>
         <form onsubmit="salvaMessaggioSupermaster(event)">
-          <div class="form-group">
+          <div class="form-group" style="margin-bottom: 12px;">
             <label for="textarea-messaggio-supermaster" style="font-weight: 700;">Testo del Messaggio / Avviso Ufficiale:</label>
-            <textarea id="textarea-messaggio-supermaster" class="input-textarea" rows="6" style="font-size: 13.5px; line-height: 1.5;" required placeholder="Scrivi la comunicazione della Direzione..."></textarea>
+            <textarea id="textarea-messaggio-supermaster" class="input-textarea" rows="5" style="font-size: 13.5px; line-height: 1.5;" required placeholder="Scrivi la comunicazione della Direzione..."></textarea>
           </div>
+
+          <!-- DATE DI PUBBLICAZIONE E SCADENZA -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+            <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px;">
+              ⏱️ Programmazione Pubblicazione & Scadenza:
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
+              <div>
+                <label for="supermaster-pubblicazione" style="font-size: 11.5px; font-weight: 600; display: block; margin-bottom: 4px;">Data e Ora Inizio:</label>
+                <input type="datetime-local" id="supermaster-pubblicazione" class="input-text" style="font-size: 12px; padding: 6px 8px;">
+              </div>
+              <div>
+                <label for="supermaster-scadenza" style="font-size: 11.5px; font-weight: 600; display: block; margin-bottom: 4px;">Data e Ora Scadenza:</label>
+                <input type="datetime-local" id="supermaster-scadenza" class="input-text" style="font-size: 12px; padding: 6px 8px;" placeholder="Nessuna scadenza">
+              </div>
+            </div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="impostaPresetScadenzaSupermaster(0)">Nessuna Scadenza</button>
+              <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="impostaPresetScadenzaSupermaster(3)">+3 Giorni</button>
+              <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="impostaPresetScadenzaSupermaster(7)">+7 Giorni</button>
+              <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="impostaPresetScadenzaSupermaster(30)">+1 Mese</button>
+            </div>
+          </div>
+
           <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
             <button type="button" class="btn btn-secondary" onclick="chiudiModalMessaggioSupermaster()">Annulla</button>
             <button type="submit" class="btn btn-primary" style="background: #f59e0b; border-color: #d97706; color: #000; font-weight: 700;">💾 Salva & Pubblica per Tutti</button>
@@ -1948,7 +2062,35 @@ window.apriModalMessaggioSupermaster = function() {
 
   const textarea = document.getElementById("textarea-messaggio-supermaster");
   if (textarea) textarea.value = currentMsg;
+
+  const pubInput = document.getElementById("supermaster-pubblicazione");
+  if (pubInput) {
+    if (currentPub) {
+      pubInput.value = currentPub;
+    } else {
+      const now = new Date();
+      now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+      pubInput.value = now.toISOString().slice(0, 16);
+    }
+  }
+
+  const scadInput = document.getElementById("supermaster-scadenza");
+  if (scadInput) scadInput.value = currentScad || "";
+
   modal.style.display = "flex";
+};
+
+window.impostaPresetScadenzaSupermaster = function(giorni) {
+  const scadInput = document.getElementById("supermaster-scadenza");
+  if (!scadInput) return;
+  if (giorni <= 0) {
+    scadInput.value = "";
+    return;
+  }
+  const d = new Date();
+  d.setDate(d.getDate() + giorni);
+  d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
+  scadInput.value = d.toISOString().slice(0, 16);
 };
 
 window.chiudiModalMessaggioSupermaster = function() {
@@ -1967,13 +2109,26 @@ window.salvaMessaggioSupermaster = async function(event) {
     return;
   }
 
+  const dataPub = document.getElementById("supermaster-pubblicazione")?.value || "";
+  const dataScad = document.getElementById("supermaster-scadenza")?.value || "";
+
   try {
-    const res = await callApi("aggiornaConfig", { Messaggio_Supermaster: nuovoTesto });
+    const payload = {
+      Messaggio_Supermaster: nuovoTesto,
+      Messaggio_Supermaster_Data_Pubblicazione: dataPub,
+      Messaggio_Supermaster_Data_Scadenza: dataScad
+    };
+    const res = await callApi("aggiornaConfig", payload);
     if (res.success) {
       appState.cachedConfig.Messaggio_Supermaster = nuovoTesto;
-      mostraToast("✅ Messaggio del Supermaster aggiornato!", "success");
+      appState.cachedConfig.Messaggio_Supermaster_Data_Pubblicazione = dataPub;
+      appState.cachedConfig.Messaggio_Supermaster_Data_Scadenza = dataScad;
+      mostraToast("✅ Comunicazione Direzione aggiornata con programmazione!", "success");
       chiudiModalMessaggioSupermaster();
       renderResidenzaView();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
     } else {
       mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
     }
@@ -2101,6 +2256,16 @@ window.apriModalBacheca = function(prefillData) {
     dataInput.value = prefillData || formatYMD(appState.selectedBachecaDate || new Date());
   }
 
+  const pubInput = document.getElementById("bacheca-modal-pubblicazione");
+  if (pubInput) {
+    const now = new Date();
+    now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
+    pubInput.value = now.toISOString().slice(0, 16);
+  }
+
+  const scadInput = document.getElementById("bacheca-modal-scadenza");
+  if (scadInput) scadInput.value = "";
+
   const autoreInput = document.getElementById("bacheca-modal-autore");
   if (autoreInput && appState.user) {
     autoreInput.value = appState.user.nome || "Direzione";
@@ -2139,6 +2304,12 @@ window.modificaAvvisoBacheca = function(id) {
   const prioritaSelect = document.getElementById("bacheca-modal-priorita");
   if (prioritaSelect) prioritaSelect.value = item.priorita || "normale";
 
+  const pubInput = document.getElementById("bacheca-modal-pubblicazione");
+  if (pubInput) pubInput.value = item.data_pubblicazione || "";
+
+  const scadInput = document.getElementById("bacheca-modal-scadenza");
+  if (scadInput) scadInput.value = item.data_scadenza || "";
+
   const titleEl = document.getElementById("bacheca-modal-title-text");
   if (titleEl) titleEl.innerText = "✏️ Modifica Evento / Bacheca";
 
@@ -2163,6 +2334,8 @@ window.handleSalvaAvvisoBacheca = async function(e) {
   const descrizione = document.getElementById("bacheca-modal-desc")?.value.trim();
   const autore = document.getElementById("bacheca-modal-autore")?.value.trim() || (appState.user ? appState.user.nome : "Direzione");
   const priorita = document.getElementById("bacheca-modal-priorita")?.value || "normale";
+  const data_pubblicazione = document.getElementById("bacheca-modal-pubblicazione")?.value || "";
+  const data_scadenza = document.getElementById("bacheca-modal-scadenza")?.value || "";
 
   if (!titolo) {
     mostraToast("Inserisci un titolo", "warning");
@@ -2183,7 +2356,9 @@ window.handleSalvaAvvisoBacheca = async function(e) {
       titolo,
       descrizione,
       autore,
-      priorita
+      priorita,
+      data_pubblicazione,
+      data_scadenza
     };
 
     const res = await callApi("salvaAvvisoBacheca", payload);
@@ -2200,6 +2375,8 @@ window.handleSalvaAvvisoBacheca = async function(e) {
         descrizione,
         autore,
         priorita,
+        data_pubblicazione,
+        data_scadenza,
         timestamp: new Date().toISOString()
       };
 
@@ -2520,8 +2697,8 @@ function renderMensaView() {
 
   const mode = appState.mensaViewMode || "settimana";
 
-  const dataInizioFmt = lunediSettimana.toLocaleDateString("it-IT", { day: "numeric", month: "short" });
-  const dataFineFmt = domenicaSettimana.toLocaleDateString("it-IT", { day: "numeric", month: "short", year: "numeric" });
+  const dataInizioFmt = formattaDataItaliana(lunediSettimana);
+  const dataFineFmt = formattaDataItaliana(domenicaSettimana);
 
   const dataVariazione = appState.cachedConfig.Data_Variazione_Menu;
   const testoVariazione = appState.cachedConfig.Testo_Variazione;
@@ -2579,7 +2756,7 @@ function renderMensaView() {
                 ${pastoVariazione === 'pranzo' ? '<span class="badge" style="background:#ffedd5; color:#9a3412; font-size:11px;">☀️ Solo Pranzo</span>' : ''}
                 ${pastoVariazione === 'cena' ? '<span class="badge" style="background:#e0e7ff; color:#3730a3; font-size:11px;">🌙 Solo Cena</span>' : ''}
                 ${pastoVariazione === 'entrambi' ? '<span class="badge" style="background:#fef3c7; color:#92400e; font-size:11px;">🍽️ Pranzo & Cena</span>' : ''}
-                ${dataVariazione ? `<span style="font-size: 11px; color: #b45309;">(Applicata al giorno: ${dataVariazione})</span>` : ''}
+                ${dataVariazione ? `<span style="font-size: 11px; color: #b45309;">(Applicata al giorno: ${formattaDataItaliana(dataVariazione)})</span>` : ''}
               </div>
               <p style="color: #78350f; font-size: 13px; margin-top: 4px; line-height: 1.4;">${escapeHtml(testoVariazione)}</p>
             </div>
@@ -2647,7 +2824,7 @@ function renderWeeklyScrollView(lunediDate) {
       <div class="weekly-day-card ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}" id="day-card-${dStr}">
         <div class="weekly-day-header">
           <div class="weekly-day-title">
-            <span>${giornoLabel}, ${dataFmt}</span>
+            <span>${giornoLabel}, ${formattaDataItaliana(d)}</span>
             ${isToday ? '<span class="badge badge-accent" style="font-size: 10px;">Oggi</span>' : ''}
           </div>
           <button type="button" class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px;" onclick="apriDettaglioGiornoMensa('${dStr}')">
@@ -2677,17 +2854,21 @@ function renderWeeklyScrollView(lunediDate) {
           </div>
 
           <div class="weekly-meal-dishes">
-            <div>
-              <strong>1°:</strong> ${escapeHtml(menuGiorno.pranzo?.primo || '-')} • 
-              <strong>2°:</strong> ${escapeHtml(menuGiorno.pranzo?.secondo || '-')} • 
-              <strong>Cont.:</strong> ${escapeHtml(menuGiorno.pranzo?.contorno || '-')}${menuGiorno.pranzo?.contorno2 ? ' • ' + escapeHtml(menuGiorno.pranzo.contorno2) : ''} • 
-              <strong>Dessert:</strong> ${escapeHtml(menuGiorno.pranzo?.dessert || '-')}
-            </div>
             ${isTuesdayOrThursday ? `
-              <div style="margin-top: 3px; font-size: 11px; color: #c2410c;">
-                🥪 <em>Opzione Busta da asporto sempre selezionabile</em>
+              <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 10px; margin-bottom: 4px;">
+                <div style="font-weight: 700; color: #9a3412; font-size: 12.5px;">🥪 Pranzo al sacco: Busta da Asporto</div>
+                <div style="font-size: 11.5px; color: #7c2d12; margin-top: 2px;">
+                  Comprende: <strong>pasto, frutta e snack/dolce, acqua e succo</strong>. (Menù servito in sala non previsto).
+                </div>
               </div>
-            ` : ''}
+            ` : `
+              <div>
+                <strong>1°:</strong> ${escapeHtml(menuGiorno.pranzo?.primo || '-')} • 
+                <strong>2°:</strong> ${escapeHtml(menuGiorno.pranzo?.secondo || '-')} • 
+                <strong>Cont.:</strong> ${escapeHtml(menuGiorno.pranzo?.contorno || '-')}${menuGiorno.pranzo?.contorno2 ? ' • ' + escapeHtml(menuGiorno.pranzo.contorno2) : ''} • 
+                <strong>Dessert:</strong> ${escapeHtml(menuGiorno.pranzo?.dessert || '-')}
+              </div>
+            `}
             ${variazionePranzo ? `
               <div class="cuoca-inline-variation">
                 👩‍🍳 <strong>Variazione Pranzo:</strong> ${escapeHtml(variazionePranzo)}
@@ -2704,23 +2885,25 @@ function renderWeeklyScrollView(lunediDate) {
 
           <div class="booking-inline-controls">
             ${prenPranzo ? `
-              <span class="presence-summary-badge">✅ Presenza Confermata</span>
+              <span class="presence-summary-badge">✅ Presenza Confermata ${isTuesdayOrThursday ? '(Busta)' : ''}</span>
               <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">
                 Annulla Presenza
               </button>
+            ` : (isTuesdayOrThursday ? `
+              <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, false)">
+                🥪 Richiedi Busta Pranzo
+              </button>
+              <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, true)">
+                ⏰ Ritiro Posticipato
+              </button>
             ` : `
               <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, false)">
-                ${isTuesdayOrThursday ? '🥪 Presente (Busta)' : '🍽️ Presente'}
+                🍽️ Presente
               </button>
               <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, true)">
                 ⏰ In Ritardo
               </button>
-              ${isTuesdayOrThursday ? `
-                <button type="button" class="btn-quick-book" style="border-color: #d97706; color: #b45309;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, false)">
-                  🥪 Richiedi Busta
-                </button>
-              ` : ''}
-            `}
+            `)}
           </div>
         </div>
 
@@ -2779,11 +2962,6 @@ function renderWeeklyScrollView(lunediDate) {
               <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', false, true)">
                 ⏰ In Ritardo
               </button>
-              ${isTuesdayOrThursday ? `
-                <button type="button" class="btn-quick-book" style="border-color: #d97706; color: #b45309;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', true, false)">
-                  🥪 Richiedi Busta
-                </button>
-              ` : ''}
             `}
           </div>
         </div>
@@ -2812,7 +2990,7 @@ function renderDailyDetailedView(dataSel) {
   const cenaLocked = isCenaBloccata(dataSel);
 
   const nomeGiornoFormat = capitalize(giornoKey);
-  const dataFormattata = dataSel.toLocaleDateString("it-IT", { day: "2-digit", month: "long", year: "numeric" });
+  const dataFormattata = formattaDataItaliana(dataSel);
 
   const emailUtente = appState.user ? appState.user.email.toLowerCase() : "";
   const prenPranzo = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "pranzo" && m.email.toLowerCase() === emailUtente);
@@ -2840,7 +3018,7 @@ function renderDailyDetailedView(dataSel) {
             <span class="meal-sub">${pranzoLocked ? '🔒 Chiuso (limite ore 13:30)' : '🟢 Prenotazioni aperte fino alle 13:30'}</span>
           </div>
         </div>
-        ${prenPranzo ? '<span class="meal-status-pill booked">✓ Presente</span>' : ''}
+        ${prenPranzo ? `<span class="meal-status-pill booked">✓ Presente ${prenPranzo.busta ? '(Busta)' : ''}</span>` : ''}
         ${isMaster ? `
           <span class="master-attendees-badge" title="Visualizza presenti nel Pannello Master" onclick="switchTab('master')">
             👥 Presenti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'pranzo').length}</span>
@@ -2850,44 +3028,35 @@ function renderDailyDetailedView(dataSel) {
       </div>
 
       <div class="meal-menu-body">
-        <div class="dish-list">
-          <div class="dish-item"><span class="dish-type">Primo:</span> <span class="dish-name">${escapeHtml(menuGiorno.pranzo?.primo || '-')}</span></div>
-          <div class="dish-item"><span class="dish-type">Secondo:</span> <span class="dish-name">${escapeHtml(menuGiorno.pranzo?.secondo || '-')}</span></div>
-          <div class="dish-item">
-            <span class="dish-type">Contorno:</span> 
-            <span class="dish-name">
-              ${escapeHtml(menuGiorno.pranzo?.contorno || '-')}
-              ${menuGiorno.pranzo?.contorno2 ? ` • ${escapeHtml(menuGiorno.pranzo.contorno2)}` : ''}
-            </span>
+        ${!isTuesdayOrThursday ? `
+          <div class="dish-list">
+            <div class="dish-item"><span class="dish-type">Primo:</span> <span class="dish-name">${escapeHtml(menuGiorno.pranzo?.primo || '-')}</span></div>
+            <div class="dish-item"><span class="dish-type">Secondo:</span> <span class="dish-name">${escapeHtml(menuGiorno.pranzo?.secondo || '-')}</span></div>
+            <div class="dish-item">
+              <span class="dish-type">Contorno:</span> 
+              <span class="dish-name">
+                ${escapeHtml(menuGiorno.pranzo?.contorno || '-')}
+                ${menuGiorno.pranzo?.contorno2 ? ` • ${escapeHtml(menuGiorno.pranzo.contorno2)}` : ''}
+              </span>
+            </div>
+            <div class="dish-item"><span class="dish-type">Dessert:</span> <span class="dish-name">${escapeHtml(menuGiorno.pranzo?.dessert || '-')}</span></div>
           </div>
-          <div class="dish-item"><span class="dish-type">Dessert:</span> <span class="dish-name">${escapeHtml(menuGiorno.pranzo?.dessert || '-')}</span></div>
-        </div>
-
-        ${isTuesdayOrThursday ? `
-          <div class="busta-classici-container" style="margin-top: 12px;">
-            <div class="busta-classici-header">
-              <span style="font-size: 24px;">🥪</span>
+        ` : `
+          <div class="busta-classici-container" style="margin-top: 4px; padding: 14px; background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 26px;">🥪</span>
               <div>
-                <strong style="color: #9a3412; font-size: 13px;">Disponibile opzione Busta da asporto</strong>
-                <p style="margin: 2px 0 0 0; font-size: 11px; color: #7c2d12;">
-                  Puoi richiedere la busta al sacco spuntando la casella sottostante.
+                <strong style="color: #9a3412; font-size: 14px;">Pranzo del ${nomeGiornoFormat}: Solo Busta da Asporto</strong>
+                <p style="margin: 4px 0 0 0; font-size: 13px; color: #7c2d12; line-height: 1.45;">
+                  Il ${nomeGiornoFormat} a pranzo non è previsto il menù servito in sala. È disponibile esclusivamente il pranzo al sacco.
                 </p>
+                <div style="margin-top: 8px; font-size: 12.5px; font-weight: 600; color: #92400e; background: #fef3c7; padding: 6px 12px; border-radius: 6px; display: inline-block;">
+                  🍱 <strong>La busta comprende:</strong> pasto, frutta e snack/dolce, acqua e succo.
+                </div>
               </div>
             </div>
-
-            <div class="busta-chips-grid">
-              ${CLASSICI_BUSTA.map(item => `
-                <div class="busta-chip">
-                  <span class="chip-icon">${item.icon}</span>
-                  <div>
-                    <strong>${item.nome}</strong>
-                    <small>${item.desc}</small>
-                  </div>
-                </div>
-              `).join("")}
-            </div>
           </div>
-        ` : ''}
+        `}
 
         ${variazionePranzo ? `
           <div class="cuoca-var-box has-var" style="margin-top: 10px;">
@@ -2917,14 +3086,19 @@ function renderDailyDetailedView(dataSel) {
         <div class="checkbox-group">
           ${isTuesdayOrThursday ? `
             <label class="custom-checkbox">
-              <input type="checkbox" id="pranzo-busta" checked ${pranzoLocked ? 'disabled' : ''}>
-              <span>Richiedi Busta (Pranzo al sacco)</span>
+              <input type="checkbox" id="pranzo-busta" checked disabled>
+              <span><strong>Pranzo al sacco: Busta</strong> (pasto, frutta, snack/dolce, acqua e succo)</span>
             </label>
-          ` : ''}
-          <label class="custom-checkbox">
-            <input type="checkbox" id="pranzo-ritardo" ${prenPranzo?.ritardo ? 'checked' : ''} ${pranzoLocked ? 'disabled' : ''}>
-            <span>Arrivo in Ritardo (Lasciare piatto coperto con nome)</span>
-          </label>
+            <label class="custom-checkbox">
+              <input type="checkbox" id="pranzo-ritardo" ${prenPranzo?.ritardo ? 'checked' : ''} ${pranzoLocked ? 'disabled' : ''}>
+              <span>Ritiro posticipato della busta</span>
+            </label>
+          ` : `
+            <label class="custom-checkbox">
+              <input type="checkbox" id="pranzo-ritardo" ${prenPranzo?.ritardo ? 'checked' : ''} ${pranzoLocked ? 'disabled' : ''}>
+              <span>Arrivo in Ritardo (Lasciare piatto coperto con nome)</span>
+            </label>
+          `}
         </div>
 
         <div class="form-group" style="margin-top: 10px;">
@@ -2933,7 +3107,7 @@ function renderDailyDetailedView(dataSel) {
 
         <div style="display: flex; gap: 8px;">
           <button type="submit" class="btn btn-primary" style="flex: 1;" ${pranzoLocked ? 'disabled' : ''}>
-            ${prenPranzo ? 'Aggiorna Presenza' : (isTuesdayOrThursday ? 'Presente (Busta)' : 'Presente')}
+            ${prenPranzo ? 'Aggiorna Presenza' : (isTuesdayOrThursday ? 'Prenota Busta Pranzo' : 'Presente')}
           </button>
           ${prenPranzo ? `
             <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">
@@ -3002,12 +3176,6 @@ function renderDailyDetailedView(dataSel) {
 
       <form id="form-prenota-cena" onsubmit="handlePrenotazioneMensa(event, 'cena')">
         <div class="checkbox-group">
-          ${isTuesdayOrThursday ? `
-            <label class="custom-checkbox">
-              <input type="checkbox" id="cena-busta" ${prenCena?.busta ? 'checked' : ''} ${cenaLocked ? 'disabled' : ''}>
-              <span>Richiedi Busta (Cena al sacco)</span>
-            </label>
-          ` : ''}
           <label class="custom-checkbox">
             <input type="checkbox" id="cena-ritardo" ${prenCena?.ritardo ? 'checked' : ''} ${cenaLocked ? 'disabled' : ''}>
             <span>Arrivo in Ritardo (Lasciare piatto coperto con nome)</span>
@@ -3168,7 +3336,9 @@ window.handlePrenotazioneMensa = async function(event, tipoPasto) {
   }
 
   const dataStr = formatYMD(appState.selectedDateMensa || new Date());
-  const busta = document.getElementById(`${tipoPasto}-busta`)?.checked || false;
+  const giornoKey = getNomeGiorno(appState.selectedDateMensa || new Date());
+  const isTuesdayOrThursday = (giornoKey === "martedi" || giornoKey === "giovedi");
+  const busta = (isTuesdayOrThursday && tipoPasto === "pranzo") ? true : (document.getElementById(`${tipoPasto}-busta`)?.checked || false);
   const ritardo = document.getElementById(`${tipoPasto}-ritardo`)?.checked || false;
   const note = document.getElementById(`${tipoPasto}-note`)?.value || "";
 
@@ -4338,47 +4508,46 @@ function renderMasterSection() {
     </div>
 
     <!-- ==================================================================
-         BARRA SCHEDE ORIZZONTALI MASTER (SCORREVOLI A DESTRA E SINISTRA)
+         BOTTONIERA DI COMANDO AMBIENTI E SEZIONI MASTER
          ================================================================== -->
-    <div class="master-tabs-bar" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 14px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
-      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px; flex-wrap: wrap;">
-        <div style="font-size: 12.5px; font-weight: 700; color: #475569; display: flex; align-items: center; gap: 6px;">
-          <span>📑</span> <span>Schede di Gestione Master (clicca o usa le frecce per scorrere):</span>
+    <div class="master-bottoniera-deck" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px; box-shadow: 0 2px 6px rgba(0,0,0,0.04);">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
+        <div style="font-size: 13px; font-weight: 800; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+          <span>🎛️</span> <span>Bottoniera Ambienti &amp; Gestione Master:</span>
         </div>
         <div style="display: flex; gap: 6px; align-items: center;">
-          <button type="button" class="btn btn-sm btn-outline" onclick="toggleVistaMasterSchede()" style="font-size: 11px; padding: 3px 10px; border-color: #cbd5e1; font-weight: 600;" title="Alterna tra visualizzazione a schede o tutto continuo">
-            ${isVistaTutto ? '📑 Torna a Vista Schede' : '📜 Mostra Tutte le Sezioni'}
+          <button type="button" class="btn btn-sm btn-outline" onclick="toggleVistaMasterSchede()" style="font-size: 11px; padding: 4px 10px; border-color: #cbd5e1; font-weight: 600;">
+            ${isVistaTutto ? '🎛️ Torna a Bottoniera' : '📜 Mostra Tutte le Sezioni'}
           </button>
         </div>
       </div>
 
-      <div style="display: flex; align-items: center; gap: 6px;">
-        <button type="button" class="btn btn-outline btn-sm" onclick="scrollMasterTabs(-1)" title="Scorri a sinistra" style="padding: 6px 11px; border-radius: 6px; font-weight: 800; font-size: 13px; background: #f8fafc; flex-shrink: 0;">
-          ◀
-        </button>
-        <div id="master-tabs-scroll-container" style="display: flex; gap: 8px; overflow-x: auto; padding: 4px 2px; scroll-behavior: smooth; -webkit-overflow-scrolling: touch; flex: 1;">
-          ${tabsDisponibili.map(t => {
-            const isActive = !isVistaTutto && t.id === activeTab;
-            return `
-              <button type="button"
-                id="master-tab-btn-${t.id}"
-                class="btn btn-sm"
-                onclick="cambiaSchedaMaster('${t.id}')"
-                style="white-space: nowrap; font-weight: ${isActive ? '800' : '600'}; font-size: 12.5px; padding: 7px 14px; border-radius: 8px; transition: all 0.15s ease; ${isActive ? `background: ${t.color}; color: #ffffff; border: 1px solid ${t.color}; box-shadow: 0 2px 4px rgba(0,0,0,0.12);` : 'background: #f8fafc; color: #334155; border: 1px solid #e2e8f0;'}"
-              >
-                <span>${t.icon}</span> ${t.label}
-                ${t.badge > 0 ? `
-                  <span style="margin-left: 6px; background: ${isActive ? '#ffffff' : t.color}; color: ${isActive ? t.color : '#ffffff'}; font-size: 10px; font-weight: 900; padding: 2px 6px; border-radius: 10px;">
-                    ${t.badge}
-                  </span>
-                ` : ''}
-              </button>
-            `;
-          }).join("")}
-        </div>
-        <button type="button" class="btn btn-outline btn-sm" onclick="scrollMasterTabs(1)" title="Scorri a destra" style="padding: 6px 11px; border-radius: 6px; font-weight: 800; font-size: 13px; background: #f8fafc; flex-shrink: 0;">
-          ▶
-        </button>
+      <!-- GRIGLIA TASTI BOTTONIERA (TACTILE BUTTON PAD) -->
+      <div class="master-bottoniera-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;">
+        ${tabsDisponibili.map(t => {
+          const isActive = !isVistaTutto && t.id === activeTab;
+          return `
+            <button type="button"
+              id="master-tab-btn-${t.id}"
+              class="master-key-btn"
+              onclick="cambiaSchedaMaster('${t.id}')"
+              style="position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; padding: 14px 10px; border-radius: 10px; text-align: center; cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); ${
+                isActive
+                  ? `background: ${t.color}; color: #ffffff; border: 2px solid ${t.color}; box-shadow: 0 4px 12px rgba(0,0,0,0.18); transform: translateY(-2px);`
+                  : `background: #f8fafc; color: #1e293b; border: 2px solid #e2e8f0;`
+              }"
+            >
+              ${t.badge > 0 ? `
+                <span style="position: absolute; top: 6px; right: 6px; background: ${isActive ? '#ffffff' : t.color}; color: ${isActive ? t.color : '#ffffff'}; font-size: 10px; font-weight: 900; padding: 2px 7px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.2);">
+                  ${t.badge}
+                </span>
+              ` : ''}
+              <span style="font-size: 24px; line-height: 1;">${t.icon}</span>
+              <span style="font-size: 12px; font-weight: 700; line-height: 1.25;">${escapeHtml(t.label)}</span>
+              ${isActive ? `<span style="width: 22px; height: 3px; background: #ffffff; border-radius: 2px; margin-top: 2px;"></span>` : ''}
+            </button>
+          `;
+        }).join('')}
       </div>
     </div>
   `;
@@ -6344,6 +6513,9 @@ function setupEventListeners() {
 }
 
 function switchTab(tabId) {
+  if (appState.currentTab && appState.currentTab !== tabId) {
+    appState.previousTab = appState.currentTab;
+  }
   appState.currentTab = tabId;
 
   // Toggle active class nav
@@ -6356,7 +6528,7 @@ function switchTab(tabId) {
   });
 
   // Toggle views
-  const views = ["info", "mensa", "spazi", "residenza", "manutenzione", "master", "cucina"];
+  const views = ["info", "mensa", "spazi", "residenza", "manutenzione", "master", "cucina", "calendario"];
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
     if (el) {
@@ -6370,6 +6542,9 @@ function switchTab(tabId) {
     }
   });
 
+  // Scroll back to top when switching tab
+  window.scrollTo({ top: 0, behavior: "smooth" });
+
   // Azioni specifiche per tab
   if (tabId === "info") renderBachecaView();
   if (tabId === "mensa") renderMensaView();
@@ -6378,9 +6553,340 @@ function switchTab(tabId) {
   if (tabId === "manutenzione") caricaGuastiRecenti();
   if (tabId === "master") caricaDatiMaster();
   if (tabId === "cucina") renderCucinaView();
+  if (tabId === "calendario") renderCalendarioGlobaleView();
 }
 
 window.switchTab = switchTab;
+
+window.renderCalendarioGlobaleView = function() {
+  const container = document.getElementById("calendario-globale-container");
+  if (!container) return;
+
+  const isMasterOrAdmin = haPermessiMaster();
+
+  // Filtri attivi
+  if (!appState.calendarioFiltroAmbiente) appState.calendarioFiltroAmbiente = "tutti";
+  if (!appState.calendarioFiltroPeriodo) appState.calendarioFiltroPeriodo = "prossimi";
+  if (appState.calendarioSearchText === undefined) appState.calendarioSearchText = "";
+
+  const filtroAmbiente = appState.calendarioFiltroAmbiente;
+  const filtroPeriodo = appState.calendarioFiltroPeriodo;
+  const searchText = (appState.calendarioSearchText || "").toLowerCase().trim();
+
+  // 1. Raccogliamo tutti gli appuntamenti da spazi e bacheca
+  const items = [];
+
+  const spazi = appState.prenotazioniSpazi || [];
+  spazi.forEach(s => {
+    const dStr = formattaDataConfronto(s.data);
+    if (!dStr) return;
+    const isMasterApp = String(s.email || "").startsWith("Master");
+    const tit = isMasterApp ? s.email.replace(/^Master\s*\(?|\)?$/g, "") : `Prenotazione ${s.risorsa}`;
+    items.push({
+      id: s.id || `SP_${s.risorsa}_${dStr}_${s.slot_orario}`,
+      origine: "spazio",
+      tipo: s.risorsa === "Chiesa" ? "chiesa" : "salatv",
+      categoria: s.risorsa,
+      data: dStr,
+      orario: s.slot_orario || "Orario non specificato",
+      titolo: tit || `${s.risorsa} (${s.slot_orario})`,
+      descrizione: s.note || (isMasterApp ? "Evento / celebrazione programmata dalla Direzione" : `Prenotato da ${s.email}`),
+      autore: s.email || "Residente",
+      stato: s.stato || "Approvato"
+    });
+  });
+
+  const bacheca = appState.bacheca || [];
+  bacheca.forEach(b => {
+    const dStr = formattaDataConfronto(b.data);
+    if (!dStr) return;
+    items.push({
+      id: b.id,
+      origine: "bacheca",
+      tipo: b.tipo || "avviso",
+      categoria: b.tipo === "compleanno" ? "Compleanno" : (b.tipo === "anniversario" ? "Anniversario" : "Bacheca"),
+      data: dStr,
+      orario: b.orario || "Tutto il giorno",
+      titolo: b.titolo || "Avviso Comunitario",
+      descrizione: b.descrizione || "",
+      autore: b.autore || "Direzione",
+      priorita: b.priorita || "normale",
+      data_pubblicazione: b.data_pubblicazione,
+      data_scadenza: b.data_scadenza
+    });
+  });
+
+  const oggiYMD = formatYMD(new Date());
+
+  let filtered = items.filter(it => {
+    if (searchText) {
+      const matchText = (it.titolo + " " + it.descrizione + " " + it.categoria + " " + it.autore + " " + it.data).toLowerCase();
+      if (!matchText.includes(searchText)) return false;
+    }
+
+    if (filtroAmbiente === "chiesa" && it.tipo !== "chiesa") return false;
+    if (filtroAmbiente === "salatv" && it.tipo !== "salatv") return false;
+    if (filtroAmbiente === "bacheca" && it.tipo !== "avviso" && it.tipo !== "evento") return false;
+    if (filtroAmbiente === "compleanno" && it.tipo !== "compleanno" && it.tipo !== "anniversario") return false;
+
+    if (filtroPeriodo === "prossimi") {
+      if (it.data < oggiYMD) return false;
+    } else if (filtroPeriodo === "mese") {
+      const curM = oggiYMD.slice(0, 7);
+      if (!it.data.startsWith(curM)) return false;
+    } else if (filtroPeriodo === "passati") {
+      if (it.data >= oggiYMD) return false;
+    }
+
+    return true;
+  });
+
+  filtered.sort((a, b) => {
+    if (a.data !== b.data) {
+      return filtroPeriodo === "passati" ? (b.data.localeCompare(a.data)) : (a.data.localeCompare(b.data));
+    }
+    return (a.orario || "").localeCompare(b.orario || "");
+  });
+
+  const gruppi = {};
+  filtered.forEach(it => {
+    if (!gruppi[it.data]) gruppi[it.data] = [];
+    gruppi[it.data].push(it);
+  });
+
+  const countChiesa = items.filter(i => i.tipo === "chiesa").length;
+  const countTv = items.filter(i => i.tipo === "salatv").length;
+  const countBacheca = items.filter(i => i.tipo === "avviso" || i.tipo === "evento").length;
+  const countCompleanni = items.filter(i => i.tipo === "compleanno" || i.tipo === "anniversario").length;
+
+  let html = `
+    <!-- HEADER CALENDARIO COMPLETO -->
+    <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; padding: 18px 20px; border-radius: 12px; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.12);">
+      <div class="flex-between" style="flex-wrap: wrap; gap: 12px;">
+        <div>
+          <button type="button" class="btn btn-sm btn-secondary" onclick="switchTab(appState.previousTab || 'info')" style="background: rgba(255,255,255,0.12); color: #fff; border: 1px solid rgba(255,255,255,0.25); margin-bottom: 8px; font-weight: 700;">
+            ◀ Torna alla Home / Bacheca
+          </button>
+          <h2 style="font-size: 22px; font-weight: 800; margin: 0 0 4px 0; color: #ffffff; display: flex; align-items: center; gap: 8px;">
+            <span>📅</span> Calendario &amp; Tutti gli Appuntamenti
+          </h2>
+          <p style="font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.45;">
+            Visione globale di tutte le celebrazioni in Chiesa, prenotazioni Sala TV, compleanni ed eventi comunitari della Residenza Newman.
+          </p>
+        </div>
+        ${isMasterOrAdmin ? `
+          <button type="button" class="btn btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px;">
+            <span>👑 ➕</span> Inserisci Appuntamento
+          </button>
+        ` : ''}
+      </div>
+    </div>
+
+    <!-- BARRA RICERCA & FILTRI CALENDARIO -->
+    <div class="card" style="padding: 14px 16px; margin-bottom: 16px;">
+      <!-- CAMPO DI RICERCA -->
+      <div style="position: relative; margin-bottom: 12px;">
+        <span style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); font-size: 16px; color: #64748b;">🔍</span>
+        <input type="text"
+          id="search-calendario-input"
+          class="input-text"
+          placeholder="Cerca evento, santa messa, compleanno, sala TV..."
+          value="${escapeHtml(appState.calendarioSearchText || '')}"
+          oninput="gestisciRicercaCalendario(this.value)"
+          style="padding-left: 38px; font-size: 14px; border-radius: 8px;"
+        >
+        ${appState.calendarioSearchText ? `
+          <button type="button" onclick="gestisciRicercaCalendario('')" style="position: absolute; right: 10px; top: 50%; transform: translateY(-50%); background: none; border: none; font-size: 16px; color: #64748b; cursor: pointer;">✕</button>
+        ` : ''}
+      </div>
+
+      <!-- BOTTONI FILTRO AMBIENTE / CATEGORIA -->
+      <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center; justify-content: space-between;">
+        <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-sm ${filtroAmbiente === 'tutti' ? 'btn-primary' : 'btn-outline'}" onclick="impostaFiltroAmbienteCalendario('tutti')" style="font-size: 12px; font-weight: 700;">
+            🌟 Tutti (${items.length})
+          </button>
+          <button type="button" class="btn btn-sm ${filtroAmbiente === 'chiesa' ? 'btn-primary' : 'btn-outline'}" onclick="impostaFiltroAmbienteCalendario('chiesa')" style="font-size: 12px; font-weight: 700; ${filtroAmbiente === 'chiesa' ? 'background: #9d174d; border-color: #9d174d;' : ''}">
+            ⛪ Chiesa (${countChiesa})
+          </button>
+          <button type="button" class="btn btn-sm ${filtroAmbiente === 'salatv' ? 'btn-primary' : 'btn-outline'}" onclick="impostaFiltroAmbienteCalendario('salatv')" style="font-size: 12px; font-weight: 700; ${filtroAmbiente === 'salatv' ? 'background: #2563eb; border-color: #2563eb;' : ''}">
+            📺 Sala TV (${countTv})
+          </button>
+          <button type="button" class="btn btn-sm ${filtroAmbiente === 'bacheca' ? 'btn-primary' : 'btn-outline'}" onclick="impostaFiltroAmbienteCalendario('bacheca')" style="font-size: 12px; font-weight: 700;">
+            📢 Bacheca (${countBacheca})
+          </button>
+          <button type="button" class="btn btn-sm ${filtroAmbiente === 'compleanno' ? 'btn-primary' : 'btn-outline'}" onclick="impostaFiltroAmbienteCalendario('compleanno')" style="font-size: 12px; font-weight: 700;">
+            🎂 Compleanni (${countCompleanni})
+          </button>
+        </div>
+
+        <!-- SELETTORE PERIODO -->
+        <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px;">
+          <span style="font-size: 12px; color: #64748b; font-weight: 600;">Periodo:</span>
+          <select class="input-select" style="font-size: 12px; padding: 4px 8px; width: auto;" onchange="impostaFiltroPeriodoCalendario(this.value)">
+            <option value="prossimi" ${filtroPeriodo === 'prossimi' ? 'selected' : ''}>📆 Prossimi Appuntamenti</option>
+            <option value="mese" ${filtroPeriodo === 'mese' ? 'selected' : ''}>🗓️ Questo Mese</option>
+            <option value="tutti" ${filtroPeriodo === 'tutti' ? 'selected' : ''}>🌟 Tutto l'Anno</option>
+            <option value="passati" ${filtroPeriodo === 'passati' ? 'selected' : ''}>⏮️ Eventi Passati</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- ELENCO CRONOLOGICO DEGLI APPUNTAMENTI -->
+    <div id="calendario-elenco-appuntamenti" style="display: flex; flex-direction: column; gap: 14px;">
+  `;
+
+  const dateKeys = Object.keys(gruppi);
+  if (dateKeys.length === 0) {
+    html += `
+      <div class="card" style="text-align: center; padding: 36px 20px; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1;">
+        <div style="font-size: 40px; margin-bottom: 8px;">🕊️</div>
+        <h3 style="margin: 0 0 6px 0; color: #1e293b; font-size: 17px; font-weight: 700;">Nessun appuntamento trovato</h3>
+        <p style="margin: 0; font-size: 13.5px;">Non ci sono impegni o celebrazioni corrispondenti ai filtri impostati.</p>
+        ${isMasterOrAdmin ? `
+          <div style="margin-top: 14px;">
+            <button type="button" class="btn btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; font-weight: 700;">
+              ➕ Aggiungi un Appuntamento Adesso
+            </button>
+          </div>
+        ` : ''}
+      </div>
+    `;
+  } else {
+    dateKeys.forEach(dateStr => {
+      const itemsDelGiorno = gruppi[dateStr];
+      const isOggi = dateStr === oggiYMD;
+
+      let dataIntestazione = dateStr;
+      try {
+        const [y, m, d] = dateStr.split("-");
+        const dt = new Date(parseInt(y, 10), parseInt(m, 10) - 1, parseInt(d, 10));
+        const giorniSettimana = ["Domenica", "Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato"];
+        const mesi = ["Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno", "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"];
+        dataIntestazione = `${giorniSettimana[dt.getDay()]} ${dt.getDate()} ${mesi[dt.getMonth()]} ${dt.getFullYear()}`;
+      } catch (e) {}
+
+      html += `
+        <div class="card" style="padding: 14px 16px; border-left: 5px solid ${isOggi ? '#16a34a' : '#0284c7'};">
+          <div class="flex-between" style="margin-bottom: 10px; border-bottom: 1px solid #f1f5f9; padding-bottom: 8px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <span style="font-size: 20px;">📅</span>
+              <strong style="font-size: 15px; color: #0f172a;">${escapeHtml(dataIntestazione)}</strong>
+              ${isOggi ? '<span class="badge" style="background: #dcfce7; color: #166534; font-weight: 800; font-size: 11px;">Oggi</span>' : ''}
+            </div>
+            <span class="text-xs text-muted" style="font-weight: 600;">${itemsDelGiorno.length} ${itemsDelGiorno.length === 1 ? 'appuntamento' : 'appuntamenti'}</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 10px;">
+            ${itemsDelGiorno.map(item => {
+              let icon = "📌";
+              let badgeColor = "#0284c7";
+              let badgeBg = "#e0f2fe";
+              let leftBorderColor = "#0284c7";
+
+              if (item.tipo === "chiesa") {
+                icon = "⛪";
+                badgeColor = "#9d174d";
+                badgeBg = "#fce7f3";
+                leftBorderColor = "#9d174d";
+              } else if (item.tipo === "salatv") {
+                icon = "📺";
+                badgeColor = "#2563eb";
+                badgeBg = "#dbeafe";
+                leftBorderColor = "#2563eb";
+              } else if (item.tipo === "compleanno") {
+                icon = "🎂";
+                badgeColor = "#b45309";
+                badgeBg = "#fef3c7";
+                leftBorderColor = "#f59e0b";
+              } else if (item.tipo === "anniversario") {
+                icon = "🔔";
+                badgeColor = "#6b21a8";
+                badgeBg = "#f3e8ff";
+                leftBorderColor = "#9333ea";
+              } else if (item.tipo === "evento") {
+                icon = "📆";
+                badgeColor = "#15803d";
+                badgeBg = "#dcfce7";
+                leftBorderColor = "#16a34a";
+              }
+
+              return `
+                <div class="card-inner" style="border-left: 3px solid ${leftBorderColor}; background: #ffffff; border-radius: 6px; padding: 10px 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.03);">
+                  <div class="flex-between" style="flex-wrap: wrap; gap: 6px; margin-bottom: 4px;">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                      <span class="badge" style="background: ${badgeBg}; color: ${badgeColor}; font-weight: 700; font-size: 11px;">
+                        ${icon} ${escapeHtml(item.categoria)}
+                      </span>
+                      <span class="badge" style="background: #f1f5f9; color: #334155; font-weight: 700; font-size: 11px;">
+                        ⏰ ${escapeHtml(item.orario)}
+                      </span>
+                      ${item.priorita === 'alta' ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 10px;">⭐ In Evidenza</span>' : ''}
+                    </div>
+                    ${(isMasterOrAdmin && item.origine === 'bacheca') ? `
+                      <div style="display: flex; gap: 4px;">
+                        <button type="button" class="btn btn-outline btn-sm" style="padding: 2px 7px; font-size: 11px;" onclick="modificaAvvisoBacheca('${item.id}')" title="Modifica">✏️ Modifica</button>
+                        <button type="button" class="btn btn-outline btn-sm" style="padding: 2px 7px; font-size: 11px; color: #dc2626;" onclick="eliminaAvvisoBacheca('${item.id}')" title="Elimina">✕</button>
+                      </div>
+                    ` : ''}
+                  </div>
+
+                  <h4 style="margin: 2px 0 4px 0; font-size: 14.5px; font-weight: 800; color: #0f172a;">
+                    ${escapeHtml(item.titolo)}
+                  </h4>
+
+                  ${item.descrizione ? `
+                    <p style="margin: 0; font-size: 13px; color: #475569; line-height: 1.45;">
+                      ${escapeHtml(item.descrizione)}
+                    </p>
+                  ` : ''}
+
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px; font-size: 11.5px; color: #64748b;">
+                    <span>Referente / Autore: <strong>${escapeHtml(item.autore)}</strong></span>
+                    ${item.tipo === "chiesa" || item.tipo === "salatv" ? `
+                      <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('spazi')" style="font-size: 11px; padding: 2px 8px;">
+                        Verifica Slot ${item.categoria}
+                      </button>
+                    ` : ''}
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      `;
+    });
+  }
+
+  html += `
+    </div>
+
+    <!-- PULSANTE INFERIORE DI RITORNO -->
+    <div style="margin-top: 20px; text-align: center;">
+      <button type="button" class="btn btn-secondary" onclick="switchTab(appState.previousTab || 'info')" style="font-weight: 700; padding: 10px 24px;">
+        ◀ Torna alla Bacheca
+      </button>
+    </div>
+  `;
+
+  container.innerHTML = html;
+};
+
+window.impostaFiltroAmbienteCalendario = function(filtro) {
+  appState.calendarioFiltroAmbiente = filtro;
+  renderCalendarioGlobaleView();
+};
+
+window.impostaFiltroPeriodoCalendario = function(periodo) {
+  appState.calendarioFiltroPeriodo = periodo;
+  renderCalendarioGlobaleView();
+};
+
+window.gestisciRicercaCalendario = function(val) {
+  appState.calendarioSearchText = val;
+  renderCalendarioGlobaleView();
+};
 
 function aggiornaUIUtente() {
   const avatarText = document.getElementById("header-user-avatar");
