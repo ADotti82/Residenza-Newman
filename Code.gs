@@ -19,6 +19,7 @@ const SHEET_MANUTENZIONE = "Manutenzione";
 const SHEET_CONFIG = "Configurazione";
 const SHEET_BACHECA = "Bacheca";
 const SHEET_MENU = "Menu_Base";
+const SHEET_ACCOGLIENZA = "Accoglienza";
 
 /**
  * Funzione di inizializzazione automatica del database.
@@ -28,7 +29,7 @@ const SHEET_MENU = "Menu_Base";
 function setupDatabase() {
   const ss = SpreadsheetApp.getActiveSpreadsheet();
 
-  // 1. Foglio Utenti
+  // 1. Foglio Utenti (con colonna Is_Utente_Mensa distinta da Perm_Mensa)
   let sUtenti = ss.getSheetByName(SHEET_UTENTI);
   if (!sUtenti) {
     sUtenti = ss.insertSheet(SHEET_UTENTI);
@@ -42,7 +43,8 @@ function setupDatabase() {
       "Perm_Admin",
       "Password",
       "Notif_Manutenzione",
-      "Notif_Spazi"
+      "Notif_Spazi",
+      "Is_Utente_Mensa"
     ]);
     // Aggiungi utente di default con pieni permessi
     sUtenti.appendRow([
@@ -55,10 +57,11 @@ function setupDatabase() {
       true,
       "newman2026",
       true,
+      true,
       true
     ]);
   } else {
-    // Se le colonne per Password e Notifiche non sono ancora presenti, aggiungile all'intestazione
+    // Se le colonne non sono ancora presenti, aggiungile all'intestazione
     const lastCol = sUtenti.getLastColumn();
     if (lastCol < 8) {
       sUtenti.getRange(1, 8).setValue("Password");
@@ -69,9 +72,12 @@ function setupDatabase() {
     if (lastCol < 10) {
       sUtenti.getRange(1, 10).setValue("Notif_Spazi");
     }
+    if (lastCol < 11) {
+      sUtenti.getRange(1, 11).setValue("Is_Utente_Mensa");
+    }
   }
 
-  // 2. Foglio Mensa
+  // 2. Foglio Mensa (con colonne Ospiti e Stato_Presenza)
   let sMensa = ss.getSheetByName(SHEET_MENSA);
   if (!sMensa) {
     sMensa = ss.insertSheet(SHEET_MENSA);
@@ -83,8 +89,18 @@ function setupDatabase() {
       "Busta",
       "Ritardo",
       "Note",
-      "Timestamp"
+      "Timestamp",
+      "Ospiti",
+      "Stato_Presenza"
     ]);
+  } else {
+    const lastColM = sMensa.getLastColumn();
+    if (lastColM < 9) {
+      sMensa.getRange(1, 9).setValue("Ospiti");
+    }
+    if (lastColM < 10) {
+      sMensa.getRange(1, 10).setValue("Stato_Presenza");
+    }
   }
 
   // 3. Foglio Prenotazioni_Spazi (Chiesa e Sala TV a slot di 30 min)
@@ -135,6 +151,10 @@ function setupDatabase() {
     sConfig.appendRow(["Data_Variazione_Menu", ""]);
     sConfig.appendRow(["Testo_Variazione", ""]);
     sConfig.appendRow(["Pasto_Variazione", "entrambi"]);
+    sConfig.appendRow(["Nome_Camera_1", "Camera 1 - Newman"]);
+    sConfig.appendRow(["Nome_Camera_2", "Camera 2 - San Filippo Neri"]);
+    sConfig.appendRow(["Nome_Camera_3", "Camera 3 - San Tommaso d'Aquino"]);
+    sConfig.appendRow(["Max_Ospiti_Mensa", "5"]);
     sConfig.appendRow([
       "Info_Regolamento",
       "Benvenuti alla Residenza Card. Newman.\n• Rispetto degli orari di silenzio dalle 23:00 alle 07:30 del mattino in tutti i corridoi e le aree comuni.\n• Orari comunitari: S. Messa ore 07:00, Pranzo ore 14:30, Cena ore 19:30.\n• Prenotazione pasti: Pranzo entro le 09:00 del mattino, Cena entro le 14:30. Per martedì e giovedì la busta va prenotata entro le 14:00 del giorno prima.\n• Spazi Comuni: Le richieste per Chiesa e Sala TV a slot di 30 minuti sono soggette ad approvazione del Master. Si raccomanda di lasciare gli ambienti in perfetto ordine dopo l'uso."
@@ -234,6 +254,32 @@ function setupDatabase() {
     for (let r = 0; r < righeMenuDefault.length; r++) {
       sMenu.appendRow(righeMenuDefault[r]);
     }
+  }
+
+  // 8. Foglio Accoglienza (Richieste Ospitalità in Camera con Doppia Autorizzazione)
+  let sAccoglienza = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  if (!sAccoglienza) {
+    sAccoglienza = ss.insertSheet(SHEET_ACCOGLIENZA);
+    sAccoglienza.appendRow([
+      "ID",
+      "Data_Richiesta",
+      "Richiedente_Email",
+      "Richiedente_Nome",
+      "Nome_Ospite",
+      "Numero_Ospiti",
+      "Data_Checkin",
+      "Data_Checkout",
+      "Camera_Assegnata",
+      "Motivo",
+      "Note",
+      "Stato",
+      "Auth1_Email",
+      "Auth1_Data",
+      "Auth1_Note",
+      "Auth2_Email",
+      "Auth2_Data",
+      "Auth2_Note"
+    ]);
   }
 
   return "Setup completato con successo!";
@@ -394,6 +440,24 @@ function doPost(e) {
       case "inizializzaMenuBase":
         return gestisciInizializzaMenuBase();
 
+      case "richiediAccoglienza":
+        return gestisciRichiestaAccoglienza(payload);
+
+      case "autorizza1Accoglienza":
+        return gestisciAutorizza1Accoglienza(payload);
+
+      case "autorizza2Accoglienza":
+        return gestisciAutorizza2Accoglienza(payload);
+
+      case "rifiutaAccoglienza":
+        return gestisciRifiutaAccoglienza(payload);
+
+      case "cancellaAccoglienza":
+        return gestisciCancellaAccoglienza(payload);
+
+      case "getAccoglienzaData":
+        return gestisciGetAccoglienzaData();
+
       default:
         return rispostaJSON({ success: false, error: "Azione non riconosciuta: " + action });
     }
@@ -454,7 +518,8 @@ function gestisciLogin(payload) {
           perm_manutenzione: Boolean(row[4]),
           perm_spazi: Boolean(row[5]),
           perm_admin: Boolean(row[6]),
-          hasPassword: Boolean(storedPass || password)
+          hasPassword: Boolean(storedPass || password),
+          is_utente_mensa: (row[10] !== undefined && row[10] !== "") ? Boolean(row[10]) : Boolean(row[3])
         }
       });
     }
@@ -499,7 +564,10 @@ function gestisciRegistrazione(email, nome, password) {
     false, // Perm_Manutenzione (non master manutenzione)
     true,  // Perm_Spazi (abilitato a prenotare Chiesa e Sala TV)
     false, // Perm_Admin (non supermaster)
-    password // Password utente
+    password, // Password utente
+    false, // Notif_Manutenzione
+    false, // Notif_Spazi
+    true   // Is_Utente_Mensa (di default abilitato alla mensa)
   ]);
 
   return rispostaJSON({
@@ -513,7 +581,8 @@ function gestisciRegistrazione(email, nome, password) {
       perm_manutenzione: false,
       perm_spazi: true,
       perm_admin: false,
-      hasPassword: true
+      hasPassword: true,
+      is_utente_mensa: true
     },
     message: "Registrazione completata con successo come Utente Base!"
   });
@@ -592,6 +661,7 @@ function gestisciApprovazione(payload) {
       if (payload.perm_admin !== undefined) sheet.getRange(i + 1, 7).setValue(Boolean(payload.perm_admin));
       if (payload.notif_manutenzione !== undefined) sheet.getRange(i + 1, 9).setValue(Boolean(payload.notif_manutenzione));
       if (payload.notif_spazi !== undefined) sheet.getRange(i + 1, 10).setValue(Boolean(payload.notif_spazi));
+      if (payload.is_utente_mensa !== undefined) sheet.getRange(i + 1, 11).setValue(Boolean(payload.is_utente_mensa));
 
       return rispostaJSON({ success: true, message: "Utente approvato con successo" });
     }
@@ -617,6 +687,7 @@ function gestisciAggiornaRuoliUtente(payload) {
       if (payload.perm_admin !== undefined) sheet.getRange(i + 1, 7).setValue(Boolean(payload.perm_admin));
       if (payload.notif_manutenzione !== undefined) sheet.getRange(i + 1, 9).setValue(Boolean(payload.notif_manutenzione));
       if (payload.notif_spazi !== undefined) sheet.getRange(i + 1, 10).setValue(Boolean(payload.notif_spazi));
+      if (payload.is_utente_mensa !== undefined) sheet.getRange(i + 1, 11).setValue(Boolean(payload.is_utente_mensa));
 
       return rispostaJSON({ success: true, message: "Ruoli e autorizzazioni aggiornati per " + emailTarget });
     }
@@ -684,7 +755,9 @@ function gestisciEliminaUtente(payload) {
 // ----------------------------------------------------------------------------
 
 function gestisciPrenotazioneMensa(payload) {
-  const { data, email, tipo_pasto, busta, ritardo, note, bypassTimeLock } = payload;
+  const { data, email, tipo_pasto, busta, ritardo, note, bypassTimeLock, ospiti, stato_presenza } = payload;
+  const numOspiti = Math.max(0, parseInt(ospiti || 0, 10));
+  const statoPresenza = stato_presenza || (payload.assente ? "Assente" : "Presente");
   if (!data || !email || !tipo_pasto) {
     return rispostaJSON({ success: false, error: "Campi obbligatori mancanti (data, email, tipo_pasto)" });
   }
@@ -768,6 +841,8 @@ function gestisciPrenotazioneMensa(payload) {
       sheet.getRange(i + 1, 6).setValue(Boolean(ritardo));
       sheet.getRange(i + 1, 7).setValue(note || "");
       sheet.getRange(i + 1, 8).setValue(new Date().toISOString());
+      sheet.getRange(i + 1, 9).setValue(numOspiti);
+      sheet.getRange(i + 1, 10).setValue(statoPresenza);
 
       return rispostaJSON({ success: true, id: row[0], aggiornato: true });
     }
@@ -783,7 +858,9 @@ function gestisciPrenotazioneMensa(payload) {
     Boolean(busta),
     Boolean(ritardo),
     note || "",
-    new Date().toISOString()
+    new Date().toISOString(),
+    numOspiti,
+    statoPresenza
   ]);
 
   return rispostaJSON({ success: true, id: id });
@@ -1199,7 +1276,40 @@ function getInfoData() {
           tipo_pasto: String(rowsM[i][3] || ""),
           busta: Boolean(rowsM[i][4]),
           ritardo: Boolean(rowsM[i][5]),
-          note: String(rowsM[i][6] || "")
+          note: String(rowsM[i][6] || ""),
+          ospiti: parseInt(rowsM[i][8] || 0, 10),
+          stato_presenza: String(rowsM[i][9] || "Presente")
+        });
+      }
+    }
+  }
+
+  // Recupera richieste di Accoglienza
+  const sAccoglienza = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  const accoglienza = [];
+  if (sAccoglienza) {
+    const rowsA = sAccoglienza.getDataRange().getValues();
+    for (let i = 1; i < rowsA.length; i++) {
+      if (rowsA[i][0]) {
+        accoglienza.push({
+          id: String(rowsA[i][0]),
+          data_richiesta: rowsA[i][1] ? String(rowsA[i][1]) : "",
+          richiedente_email: String(rowsA[i][2] || "").toLowerCase(),
+          richiedente_nome: String(rowsA[i][3] || ""),
+          nome_ospite: String(rowsA[i][4] || ""),
+          numero_ospiti: parseInt(rowsA[i][5] || 1, 10),
+          data_checkin: formattaDataGAS(rowsA[i][6]),
+          data_checkout: formattaDataGAS(rowsA[i][7]),
+          camera_assegnata: String(rowsA[i][8] || ""),
+          motivo: String(rowsA[i][9] || ""),
+          note: String(rowsA[i][10] || ""),
+          stato: String(rowsA[i][11] || "In Attesa 1a Autorizzazione"),
+          auth1_email: String(rowsA[i][12] || ""),
+          auth1_data: rowsA[i][13] ? String(rowsA[i][13]) : "",
+          auth1_note: String(rowsA[i][14] || ""),
+          auth2_email: String(rowsA[i][15] || ""),
+          auth2_data: rowsA[i][16] ? String(rowsA[i][16]) : "",
+          auth2_note: String(rowsA[i][17] || "")
         });
       }
     }
@@ -1274,11 +1384,16 @@ function getInfoData() {
       Variazioni_Per_Data: config["Variazioni_Per_Data"] || "",
       Messaggio_Supermaster: config["Messaggio_Supermaster"] || "Cari residenti, benvenuti nel portale digitale della Residenza Newman. Per qualsiasi necessità o urgenza la Direzione è a vostra disposizione.",
       Info_Regolamento: config["Info_Regolamento"] || "REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN\n1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità è alla base della convivenza.\n2. ORARI DI SILENZIO: Dalle ore 23:00 alle ore 07:30 del mattino è richiesto il silenzio assoluto nei corridoi e nelle aree comuni.\n3. MENSA COMUNITARIA:\n   • Pranzo alle 14:30 (prenotazioni aperte fino alle 13:30, 1h prima).\n   • Cena alle 19:30 (prenotazioni aperte fino alle 18:30, 1h prima).\n   • Martedì e Giovedì a pranzo: sono previsti i classici di busta (pranzo al sacco da asporto).\n4. PRENOTAZIONE SPAZI:\n   • Gli unici spazi soggetti a prenotazione sono la Chiesa / Cappella e la Sala TV.\n   • Gli slot sono di 30 minuti. Non serve conferma preventiva.\n5. MANUTENZIONE: Segnalare tempestivamente qualsiasi anomalia nell'apposita sezione Guasti.",
-      Info_Contatti: config["Info_Contatti"] || "CONTATTI E RECAPITI DELLA RESIDENZA:\n• Portineria / Accoglienza: Tel. +39 06 87654321 (Int. 101) - Attiva 07:00 - 22:30\n• Direzione Generale: direzione@residenzanewman.org (Int. 102)\n• Emergenze Notturne Custode: +39 333 1122334\n• Economato & Servizio Mensa: mensa@residenzanewman.org\n• Assistenza Tecnica Manutenzione: manutenzione@residenzanewman.org"
+      Info_Contatti: config["Info_Contatti"] || "CONTATTI E RECAPITI DELLA RESIDENZA:\n• Portineria / Accoglienza: Tel. +39 06 87654321 (Int. 101) - Attiva 07:00 - 22:30\n• Direzione Generale: direzione@residenzanewman.org (Int. 102)\n• Emergenze Notturne Custode: +39 333 1122334\n• Economato & Servizio Mensa: mensa@residenzanewman.org\n• Assistenza Tecnica Manutenzione: manutenzione@residenzanewman.org",
+      Nome_Camera_1: config["Nome_Camera_1"] || "Camera 1 - Newman",
+      Nome_Camera_2: config["Nome_Camera_2"] || "Camera 2 - San Filippo Neri",
+      Nome_Camera_3: config["Nome_Camera_3"] || "Camera 3 - San Tommaso d'Aquino",
+      Max_Ospiti_Mensa: config["Max_Ospiti_Mensa"] || "5"
     },
     prenotazioniSpazi: prenotazioniSpazi,
     prenotazioniMensa: prenotazioniMensa,
-    bacheca: bacheca
+    bacheca: bacheca,
+    accoglienza: accoglienza
   });
 }
 
@@ -1364,7 +1479,8 @@ function getMasterData(emailRichiedente) {
         perm_admin: Boolean(rows[i][6]),
         password: rows[i][7] ? String(rows[i][7]) : "",
         notif_manutenzione: Boolean(rows[i][8]),
-        notif_spazi: Boolean(rows[i][9])
+        notif_spazi: Boolean(rows[i][9]),
+        is_utente_mensa: (rows[i][10] !== undefined && rows[i][10] !== "") ? Boolean(rows[i][10]) : Boolean(rows[i][3])
       };
       utenti.push(u);
       if (u.stato === "In Attesa") utentiInAttesa.push(u);
@@ -1385,7 +1501,9 @@ function getMasterData(emailRichiedente) {
         busta: Boolean(rows[i][4]),
         ritardo: Boolean(rows[i][5]),
         note: rows[i][6],
-        timestamp: rows[i][7]
+        timestamp: rows[i][7],
+        ospiti: parseInt(rows[i][8] || 0, 10),
+        stato_presenza: String(rows[i][9] || "Presente")
       });
     }
   }
@@ -1453,6 +1571,37 @@ function getMasterData(emailRichiedente) {
     }
   }
 
+  // 6. Accoglienza
+  const sAccoglienza = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  const accoglienza = [];
+  if (sAccoglienza) {
+    const rowsA = sAccoglienza.getDataRange().getValues();
+    for (let i = 1; i < rowsA.length; i++) {
+      if (rowsA[i][0]) {
+        accoglienza.push({
+          id: String(rowsA[i][0]),
+          data_richiesta: rowsA[i][1] ? String(rowsA[i][1]) : "",
+          richiedente_email: String(rowsA[i][2] || "").toLowerCase(),
+          richiedente_nome: String(rowsA[i][3] || ""),
+          nome_ospite: String(rowsA[i][4] || ""),
+          numero_ospiti: parseInt(rowsA[i][5] || 1, 10),
+          data_checkin: formattaDataGAS(rowsA[i][6]),
+          data_checkout: formattaDataGAS(rowsA[i][7]),
+          camera_assegnata: String(rowsA[i][8] || ""),
+          motivo: String(rowsA[i][9] || ""),
+          note: String(rowsA[i][10] || ""),
+          stato: String(rowsA[i][11] || "In Attesa 1a Autorizzazione"),
+          auth1_email: String(rowsA[i][12] || ""),
+          auth1_data: rowsA[i][13] ? String(rowsA[i][13]) : "",
+          auth1_note: String(rowsA[i][14] || ""),
+          auth2_email: String(rowsA[i][15] || ""),
+          auth2_data: rowsA[i][16] ? String(rowsA[i][16]) : "",
+          auth2_note: String(rowsA[i][17] || "")
+        });
+      }
+    }
+  }
+
   return rispostaJSON({
     success: true,
     isMaster: isMaster,
@@ -1461,6 +1610,7 @@ function getMasterData(emailRichiedente) {
     mensa: mensa,
     guasti: guasti,
     prenotazioniSpazi: prenotazioniSpazi,
+    accoglienza: accoglienza,
     config: config
   });
 }
@@ -1868,6 +2018,216 @@ function inviaNotificaEmailMaster(tipo, oggetto, corpoTesto) {
   } catch (errEmail) {
     Logger.log("Errore durante l'invio della notifica email Master: " + errEmail.toString());
   }
+}
+
+// ----------------------------------------------------------------------------
+// GESTIONE ACCOGLIENZA (OSPITALITÀ IN CAMERA CON RIGOROSA DOPPIA AUTORIZZAZIONE)
+// ----------------------------------------------------------------------------
+
+function gestisciRichiestaAccoglienza(payload) {
+  const email = (payload.email || "").trim().toLowerCase();
+  const nome = payload.nome || "";
+  const nome_ospite = (payload.nome_ospite || "").trim();
+  const numero_ospiti = Math.max(1, parseInt(payload.numero_ospiti || 1, 10));
+  const data_checkin = payload.data_checkin;
+  const data_checkout = payload.data_checkout;
+  const motivo = payload.motivo || "";
+  const note = payload.note || "";
+  const camera_preferita = payload.camera_preferita || "";
+
+  if (!email || !nome_ospite || !data_checkin || !data_checkout) {
+    return rispostaJSON({ success: false, error: "Campi obbligatori mancanti per la richiesta di ospitalità" });
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sheet = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  if (!sheet) {
+    setupDatabase();
+    sheet = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  }
+
+  const id = generaId("ACC");
+  const dataRichiesta = new Date().toISOString();
+  const stato = "In Attesa 1a Autorizzazione";
+
+  sheet.appendRow([
+    id,
+    dataRichiesta,
+    email,
+    nome,
+    nome_ospite,
+    numero_ospiti,
+    formattaDataGAS(data_checkin),
+    formattaDataGAS(data_checkout),
+    camera_preferita,
+    motivo,
+    note,
+    stato,
+    "", // Auth1_Email
+    "", // Auth1_Data
+    "", // Auth1_Note
+    "", // Auth2_Email
+    "", // Auth2_Data
+    ""  // Auth2_Note
+  ]);
+
+  inviaNotificaEmailMaster(
+    "generale",
+    "[Residenza Newman] Nuova Richiesta Ospitalità Camere da Autorizzare",
+    "Il residente " + (nome || email) + " ha inviato una richiesta di ospitalità per l'ospite " + nome_ospite + " (" + formattaDataGAS(data_checkin) + " - " + formattaDataGAS(data_checkout) + ").\nStato: In Attesa 1a Autorizzazione."
+  );
+
+  return rispostaJSON({ success: true, id: id, message: "Richiesta di ospitalità inviata. In attesa della 1a autorizzazione con assegnazione camera." });
+}
+
+function gestisciAutorizza1Accoglienza(payload) {
+  const { id, approvatoreEmail, camera_assegnata, note } = payload;
+  if (!id || !camera_assegnata) {
+    return rispostaJSON({ success: false, error: "ID richiesta e Camera assegnata obbligatori" });
+  }
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Accoglienza non trovato" });
+
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      const checkin = String(rows[i][6]);
+      const checkout = String(rows[i][7]);
+
+      // Verifica che la camera non sia già occupata da una prenotazione confermata o autorizzata
+      for (let j = 1; j < rows.length; j++) {
+        if (j !== i && String(rows[j][8]) === String(camera_assegnata) && String(rows[j][11]) !== "Rifiutata") {
+          const cIn = String(rows[j][6]);
+          const cOut = String(rows[j][7]);
+          if (checkin < cOut && cIn < checkout) {
+            return rispostaJSON({
+              success: false,
+              error: "La camera " + camera_assegnata + " è già occupata nelle date richieste (" + formattaDataGAS(cIn) + " - " + formattaDataGAS(cOut) + ")."
+            });
+          }
+        }
+      }
+
+      sheet.getRange(i + 1, 9).setValue(String(camera_assegnata));
+      sheet.getRange(i + 1, 12).setValue("1a Autorizzazione Concessa");
+      sheet.getRange(i + 1, 13).setValue(String(approvatoreEmail || "").toLowerCase());
+      sheet.getRange(i + 1, 14).setValue(new Date().toISOString());
+      sheet.getRange(i + 1, 15).setValue(note || "");
+
+      inviaNotificaEmailMaster(
+        "generale",
+        "[Residenza Newman] Accoglienza: 1a Autorizzazione Concessa",
+        "La richiesta per l'ospite " + rows[i][4] + " è stata autorizzata con assegnazione della " + camera_assegnata + " da " + approvatoreEmail + ".\nÈ necessaria la 2a autorizzazione per confermare definitivamente il soggiorno."
+      );
+
+      return rispostaJSON({ success: true, message: "1a autorizzazione registrata. Camera assegnata: " + camera_assegnata });
+    }
+  }
+
+  return rispostaJSON({ success: false, error: "Richiesta non trovata" });
+}
+
+function gestisciAutorizza2Accoglienza(payload) {
+  const { id, approvatoreEmail, note } = payload;
+  if (!id) return rispostaJSON({ success: false, error: "ID richiesta obbligatorio" });
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Accoglienza non trovato" });
+
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      const statoAttuale = String(rows[i][11]);
+      if (statoAttuale !== "1a Autorizzazione Concessa") {
+        return rispostaJSON({ success: false, error: "La richiesta non ha ancora ricevuto la 1a autorizzazione con assegnazione camera." });
+      }
+
+      sheet.getRange(i + 1, 12).setValue("Confermata");
+      sheet.getRange(i + 1, 16).setValue(String(approvatoreEmail || "").toLowerCase());
+      sheet.getRange(i + 1, 17).setValue(new Date().toISOString());
+      sheet.getRange(i + 1, 18).setValue(note || "");
+
+      return rispostaJSON({ success: true, message: "2a autorizzazione completata con successo! Prenotazione camera confermata." });
+    }
+  }
+
+  return rispostaJSON({ success: false, error: "Richiesta non trovata" });
+}
+
+function gestisciRifiutaAccoglienza(payload) {
+  const { id, approvatoreEmail, note } = payload;
+  if (!id) return rispostaJSON({ success: false, error: "ID richiesta mancante" });
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Accoglienza non trovato" });
+
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      sheet.getRange(i + 1, 12).setValue("Rifiutata");
+      sheet.getRange(i + 1, 15).setValue("Rifiutata da " + approvatoreEmail + (note ? ": " + note : ""));
+      return rispostaJSON({ success: true, message: "Richiesta di ospitalità contrassegnata come Rifiutata" });
+    }
+  }
+
+  return rispostaJSON({ success: false, error: "Richiesta non trovata" });
+}
+
+function gestisciCancellaAccoglienza(payload) {
+  const { id } = payload;
+  if (!id) return rispostaJSON({ success: false, error: "ID richiesta mancante" });
+
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Accoglienza non trovato" });
+
+  const rows = sheet.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === String(id)) {
+      sheet.deleteRow(i + 1);
+      return rispostaJSON({ success: true, message: "Richiesta cancellata con successo" });
+    }
+  }
+
+  return rispostaJSON({ success: false, error: "Richiesta non trovata" });
+}
+
+function gestisciGetAccoglienzaData() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sheet = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  const lista = [];
+  if (sheet) {
+    const rows = sheet.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0]) {
+        lista.push({
+          id: String(rows[i][0]),
+          data_richiesta: rows[i][1] ? String(rows[i][1]) : "",
+          richiedente_email: String(rows[i][2] || "").toLowerCase(),
+          richiedente_nome: String(rows[i][3] || ""),
+          nome_ospite: String(rows[i][4] || ""),
+          numero_ospiti: parseInt(rows[i][5] || 1, 10),
+          data_checkin: formattaDataGAS(rows[i][6]),
+          data_checkout: formattaDataGAS(rows[i][7]),
+          camera_assegnata: String(rows[i][8] || ""),
+          motivo: String(rows[i][9] || ""),
+          note: String(rows[i][10] || ""),
+          stato: String(rows[i][11] || "In Attesa 1a Autorizzazione"),
+          auth1_email: String(rows[i][12] || ""),
+          auth1_data: rows[i][13] ? String(rows[i][13]) : "",
+          auth1_note: String(rows[i][14] || ""),
+          auth2_email: String(rows[i][15] || ""),
+          auth2_data: rows[i][16] ? String(rows[i][16]) : "",
+          auth2_note: String(rows[i][17] || "")
+        });
+      }
+    }
+  }
+  return rispostaJSON({ success: true, accoglienza: lista });
 }
 
 

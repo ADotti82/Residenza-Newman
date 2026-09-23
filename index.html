@@ -2267,6 +2267,89 @@
         color: #000 !important;
       }
     }
+
+    /* ==========================================================================
+       STILI SPECIFICI MODULO ACCOGLIENZA (OSPITALITÀ 3 CAMERE & DOPPIA AUTH)
+       ========================================================================== */
+    .accoglienza-room-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      margin-bottom: 12px;
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+    }
+    .accoglienza-room-card:hover {
+      border-color: var(--accent);
+    }
+    .room-badge-pill {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .badge-room-1 { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+    .badge-room-2 { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .badge-room-3 { background: #f3e8ff; color: #6b21a8; border: 1px solid #e9d5ff; }
+
+    .stepper-auth {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 11.5px;
+    }
+    .stepper-auth-step {
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-weight: 600;
+      background: var(--surface-alt);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+    }
+    .stepper-auth-step.active {
+      background: #fef3c7;
+      color: #92400e;
+      border-color: #f59e0b;
+      font-weight: 700;
+    }
+    .stepper-auth-step.completed {
+      background: #dcfce7;
+      color: #166534;
+      border-color: #22c55e;
+      font-weight: 700;
+    }
+    .stepper-auth-step.rejected {
+      background: #fee2e2;
+      color: #991b1b;
+      border-color: #ef4444;
+      font-weight: 700;
+    }
+
+    /* Selettore Ospiti Mensa */
+    .mensa-guest-selector {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-size: 12px;
+    }
+    .mensa-guest-selector select {
+      border: none;
+      background: transparent;
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--primary);
+      cursor: pointer;
+      outline: none;
+    }
   </style>
 </head>
 <body>
@@ -2452,37 +2535,33 @@
         </div>
       </section>
 
+      <!-- ====================================================================
+           VISTA 9: ACCOGLIENZA (OSPITALITÀ 3 CAMERE CON DOPPIA AUTORIZZAZIONE)
+           ==================================================================== -->
+      <section class="view-container hidden" id="view-accoglienza">
+        <div id="accoglienza-container">
+          <!-- Popolato dinamicamente da renderAccoglienzaView() in app.js -->
+        </div>
+      </section>
+
     </main>
 
     <!-- ======================================================================
-         BOTTOM NAVIGATION BAR FISSA (6 TAB)
+         BOTTOM NAVIGATION BAR FISSA MOBILE-FIRST (5 TAB RESIDENTI + MASTER)
          ====================================================================== -->
     <nav class="bottom-nav" id="bottom-nav">
-      <!-- Tab Bacheca -->
-      <button type="button" class="bottom-nav-item active" data-tab="info" id="nav-tab-info">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
-          <line x1="8" y1="2" x2="8" y2="6"></line>
-          <line x1="16" y1="2" x2="16" y2="6"></line>
-          <line x1="4" y1="10" x2="20" y2="10"></line>
+      <!-- Tab Home (Bacheca & Calendario Integrati) -->
+      <button type="button" class="bottom-nav-item active" data-tab="info" id="nav-tab-info" title="Home: Bacheca & Calendario">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+          <polyline points="9 22 9 12 15 12 15 22"></polyline>
         </svg>
-        <span>Bacheca</span>
+        <span>Home</span>
       </button>
 
-      <!-- Tab Calendario Globale -->
-      <button type="button" class="bottom-nav-item" data-tab="calendario" id="nav-tab-calendario">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect>
-          <line x1="16" y1="2" x2="16" y2="6"></line>
-          <line x1="8" y1="2" x2="8" y2="6"></line>
-          <line x1="3" y1="10" x2="21" y2="10"></line>
-        </svg>
-        <span>Calendario</span>
-      </button>
-
-      <!-- Tab Mensa -->
-      <button type="button" class="bottom-nav-item" data-tab="mensa" id="nav-tab-mensa">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <!-- Tab Mensa (visibile solo se utente con Is_Utente_Mensa = true) -->
+      <button type="button" class="bottom-nav-item" data-tab="mensa" id="nav-tab-mensa" title="Mensa Comunitaria">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M18 8h1a4 4 0 0 1 0 8h-1"></path>
           <path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path>
           <line x1="6" y1="1" x2="6" y2="4"></line>
@@ -2492,41 +2571,167 @@
         <span>Mensa</span>
       </button>
 
-      <!-- Tab Spazi -->
-      <button type="button" class="bottom-nav-item" data-tab="spazi" id="nav-tab-spazi">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <!-- Tab Accoglienza (Gestione Camere Ospitalità & Calendari) -->
+      <button type="button" class="bottom-nav-item" data-tab="accoglienza" id="nav-tab-accoglienza" title="Accoglienza & Ospitalità">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M3 7v11a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V7"></path>
+          <path d="M21 10H3"></path>
+          <path d="M7 14h.01"></path>
+          <path d="M17 14h.01"></path>
+          <circle cx="7" cy="7" r="2"></circle>
+          <circle cx="17" cy="7" r="2"></circle>
+        </svg>
+        <span>Accoglienza</span>
+      </button>
+
+      <!-- Tab Spazi (Chiesa & Sala TV - Richiesta di Prenotazione) -->
+      <button type="button" class="bottom-nav-item" data-tab="spazi" id="nav-tab-spazi" title="Richiesta Spazi Comuni">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <circle cx="12" cy="12" r="10"></circle>
           <polyline points="12 6 12 12 16 14"></polyline>
         </svg>
         <span>Spazi</span>
       </button>
 
-      <!-- Tab La Residenza -->
-      <button type="button" class="bottom-nav-item" data-tab="residenza" id="nav-tab-residenza">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
-          <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
-          <polyline points="9 22 9 12 15 12 15 22"></polyline>
-        </svg>
-        <span>Residenza</span>
-      </button>
-
-      <!-- Tab Segnalazioni -->
-      <button type="button" class="bottom-nav-item" data-tab="manutenzione" id="nav-tab-manutenzione">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <!-- Tab Segnalazioni (Guasti & Manutenzione) -->
+      <button type="button" class="bottom-nav-item" data-tab="manutenzione" id="nav-tab-manutenzione" title="Segnalazioni & Riparazioni">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
         </svg>
         <span>Segnalazioni</span>
       </button>
 
-      <!-- Tab Master (visibile solo se ha permessi) -->
-      <button type="button" class="bottom-nav-item" data-tab="master" id="nav-tab-master" style="display: none;">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+      <!-- Tab Master (visibile solo se perm_admin o ruolo master) -->
+      <button type="button" class="bottom-nav-item" data-tab="master" id="nav-tab-master" style="display: none;" title="Pannello Master">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path>
         </svg>
         <span>Master</span>
       </button>
     </nav>
 
+  </div>
+
+  <!-- ======================================================================
+       MODAL ACCOGLIENZA: NUOVA RICHIESTA DI OSPITALITÀ
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-nuova-accoglienza" style="display: none;" onclick="if(event.target === this) chiudiModalNuovaAccoglienza()">
+    <div class="modal-card" style="max-width: 500px;">
+      <div class="flex-between" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px;">
+        <div class="flex-align" style="gap: 10px;">
+          <span style="font-size: 24px;">🛏️</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 16px;">Richiesta Ospitalità Camere</h3>
+            <span class="text-xs text-muted">Procedura a doppia autorizzazione (Soggetta ad approvazione Master)</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalNuovaAccoglienza()" title="Chiudi">✕</button>
+      </div>
+
+      <div class="banner-info" style="font-size: 12px; line-height: 1.45; margin-bottom: 14px; background: #f0fdf4; border: 1px solid #bbf7d0; color: #166534; padding: 10px 12px; border-radius: 8px;">
+        ℹ️ La presente richiesta viene inoltrata alla Direzione/Master per la <strong>1ª Autorizzazione</strong> con assegnazione della camera tra le 3 disponibili, seguita dalla <strong>2ª Autorizzazione di conferma definitiva</strong>.
+      </div>
+
+      <form id="form-nuova-accoglienza" onsubmit="handleInviaRichiestaAccoglienza(event)">
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label for="acc-ospite-nome" class="form-label" style="font-size: 12px; font-weight: 700;">Nome e Cognome Ospite *</label>
+          <input type="text" id="acc-ospite-nome" class="input-text" placeholder="Es. Mario Rossi / Don Luigi" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label for="acc-checkin" class="form-label" style="font-size: 12px; font-weight: 700;">Data Check-in *</label>
+            <input type="date" id="acc-checkin" class="input-text" required onchange="aggiornaMinCheckout()">
+          </div>
+          <div class="form-group">
+            <label for="acc-checkout" class="form-label" style="font-size: 12px; font-weight: 700;">Data Check-out *</label>
+            <input type="date" id="acc-checkout" class="input-text" required>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+          <div class="form-group">
+            <label for="acc-num-ospiti" class="form-label" style="font-size: 12px; font-weight: 700;">Numero Persone</label>
+            <select id="acc-num-ospiti" class="input-text">
+              <option value="1" selected>1 Persona</option>
+              <option value="2">2 Persone</option>
+              <option value="3">3 Persone</option>
+              <option value="4">4 Persone</option>
+              <option value="5">5 Persone</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="acc-camera-preferita" class="form-label" style="font-size: 12px; font-weight: 700;">Camera Preferita (opzionale)</label>
+            <select id="acc-camera-preferita" class="input-text">
+              <option value="" selected>Nessuna preferenza</option>
+              <option value="Camera 1" id="opt-cam-1">Camera 1</option>
+              <option value="Camera 2" id="opt-cam-2">Camera 2</option>
+              <option value="Camera 3" id="opt-cam-3">Camera 3</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label for="acc-note" class="form-label" style="font-size: 12px; font-weight: 700;">Motivo del soggiorno / Note per la Direzione</label>
+          <textarea id="acc-note" class="input-text" rows="2" placeholder="Es. Visita familiare, conferenza accademica, orario previsto di arrivo..."></textarea>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary" onclick="chiudiModalNuovaAccoglienza()" style="flex: 1;">Annulla</button>
+          <button type="submit" id="btn-submit-accoglienza" class="btn btn-primary" style="flex: 2; font-weight: 700;">
+            📨 Invia Richiesta di Prenotazione
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL ACCOGLIENZA: ASSEGNAZIONE CAMERA & 1ª AUTORIZZAZIONE MASTER
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-autorizza1-accoglienza" style="display: none;" onclick="if(event.target === this) chiudiModalAutorizza1Accoglienza()">
+    <div class="modal-card" style="max-width: 480px;">
+      <div class="flex-between" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px;">
+        <div class="flex-align" style="gap: 10px;">
+          <span style="font-size: 24px;">🔑</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 16px;">1ª Autorizzazione: Assegna Camera</h3>
+            <span class="text-xs text-muted">Gestione Master Accoglienza</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalAutorizza1Accoglienza()" title="Chiudi">✕</button>
+      </div>
+
+      <div id="modal-autorizza1-info" style="background: var(--surface-alt); padding: 10px 12px; border-radius: 8px; margin-bottom: 14px; font-size: 12.5px; line-height: 1.5;">
+        <!-- Dettagli richiesta inseriti dinamicamente -->
+      </div>
+
+      <form id="form-autorizza1-accoglienza" onsubmit="handleConfermaAutorizza1(event)">
+        <input type="hidden" id="auth1-richiesta-id">
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="auth1-camera-assegnata" class="form-label" style="font-size: 12.5px; font-weight: 700;">Seleziona Camera da Assegnare *</label>
+          <select id="auth1-camera-assegnata" class="input-text" required style="font-weight: 700; font-size: 13px;">
+            <option value="" disabled selected>-- Scegli la camera --</option>
+            <option value="Camera 1" id="auth1-opt-cam-1">Camera 1</option>
+            <option value="Camera 2" id="auth1-opt-cam-2">Camera 2</option>
+            <option value="Camera 3" id="auth1-opt-cam-3">Camera 3</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label for="auth1-note-master" class="form-label" style="font-size: 12px; font-weight: 700;">Note / Istruzioni Master (opzionale)</label>
+          <textarea id="auth1-note-master" class="input-text" rows="2" placeholder="Es. Camera preparata con lenzuola supplementari..."></textarea>
+        </div>
+
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-secondary" onclick="chiudiModalAutorizza1Accoglienza()" style="flex: 1;">Annulla</button>
+          <button type="submit" id="btn-conferma-auth1" class="btn btn-primary" style="flex: 2; font-weight: 700;">
+            ✓ Concedi 1ª Autorizzazione
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
 
   <!-- ======================================================================

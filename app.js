@@ -357,14 +357,34 @@ function applicaMenuBaseDaGoogleSheets(menuBase) {
 // Database Mock Locale iniziale (attivo quando non è configurato un backend GAS)
 const INITIAL_MOCK_DB = {
   utenti: [
-    { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true, notif_manutenzione: true, notif_spazi: true, password: "newman2026" },
-    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: true, password: "newman2026" },
-    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: false, password: "newman2026" },
-    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false, notif_manutenzione: true, notif_spazi: false, password: "newman2026" }
+    { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true, notif_manutenzione: true, notif_spazi: true, password: "newman2026" },
+    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: true, password: "newman2026" },
+    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: false, password: "newman2026" },
+    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false, notif_manutenzione: true, notif_spazi: false, password: "newman2026" }
   ],
   mensa: [
-    { id: "M_001", data: "2026-09-16", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, note: "Piatto standard", timestamp: "2026-09-16T09:00:00Z" },
-    { id: "M_002", data: "2026-09-16", email: "donandreadotti@gmail.com", tipo_pasto: "pranzo", busta: false, ritardo: true, note: "Arrivo alle 13:45 causa lezioni", timestamp: "2026-09-16T09:30:00Z" }
+    { id: "M_001", data: "2026-09-16", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Piatto standard", timestamp: "2026-09-16T09:00:00Z" },
+    { id: "M_002", data: "2026-09-16", email: "donandreadotti@gmail.com", tipo_pasto: "pranzo", busta: false, ritardo: true, ospiti: 0, stato_presenza: "Ritardo", note: "Arrivo alle 13:45 causa lezioni", timestamp: "2026-09-16T09:30:00Z" }
+  ],
+  accoglienza: [
+    {
+      id: "ACC_001",
+      data_richiesta: "2026-09-20T10:00:00Z",
+      email_richiedente: "francesco.studente@newman.it",
+      nome_richiedente: "Francesco Rossi",
+      ospite_nome: "Prof. Mario Rossi",
+      checkin: "2026-09-25",
+      checkout: "2026-09-27",
+      num_ospiti: 1,
+      camera_richiesta: "Camera 1",
+      camera_assegnata: "Camera 1",
+      stato: "Confermata",
+      autorizzato1_da: "donandreadotti@gmail.com",
+      data_autorizzazione1: "2026-09-21T09:00:00Z",
+      autorizzato2_da: "donandreadotti@gmail.com",
+      data_autorizzazione2: "2026-09-22T08:30:00Z",
+      note: "Docente in visita accademica"
+    }
   ],
   prenotazioni_spazi: [
     { id: "S_001", risorsa: "Chiesa", data: "2026-09-16", slot_orario: "07:00 - 07:30", email: "donrocco@newman.it", timestamp: "2026-09-15T20:00:00Z" },
@@ -448,18 +468,24 @@ const INITIAL_MOCK_DB = {
     Data_Variazione_Menu: "2026-09-16",
     Testo_Variazione: "Oggi a pranzo dessert sostituito con Gelato artigianale offerto dalla Direzione per la festa della Residenza!",
     Pasto_Variazione: "pranzo",
+    Nome_Camera_1: "Camera Newman",
+    Nome_Camera_2: "Camera San Filippo Neri",
+    Nome_Camera_3: "Camera Santa Teresa",
+    Max_Ospiti_Mensa: "5",
     Info_Regolamento: `REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN
 1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità sacerdotale e accademica è alla base della nostra convivenza.
 2. ORARI DI SILENZIO: Dalle ore 23:00 alle ore 07:30 del mattino è richiesto il silenzio nei corridoi e negli spazi comuni per favorire il riposo e la preghiera.
 3. MENSA COMUNITARIA:
-   • Pranzo alle 14:30 (prenotazioni e disdette aperte fino alle 13:30, 1h prima).
-   • Cena alle 19:30 (prenotazioni e disdette aperte fino alle 18:30, 1h prima).
-   • Martedì e Giovedì a pranzo: sono previsti i classici di busta (pranzo al sacco da asporto), sempre con possibilità di variazione straordinaria da parte della cuoca.
+   • Pranzo alle 14:30.
+   • Cena alle 19:30.
+   • Martedì e Giovedì a pranzo: pasto, frutta e snack/dolce, acqua e succo.
 4. PRENOTAZIONE DEGLI SPAZI COMUNI:
-   • Gli unici spazi soggetti a prenotazione sono la Chiesa / Cappella e la Sala TV.
-   • Le prenotazioni avvengono a slot di 30 minuti ciascuno. Non è richiesta conferma previa: la prenotazione è immediatamente attiva.
-   • Riservatezza: l'utente visualizza le proprie prenotazioni; il Master visualizza l'occupante; tutti gli altri residenti vedono lo slot come 'Occupato'.
-5. MANUTENZIONE E CURA DEI LOCALI:
+   • Gli unici spazi soggetti a richiesta di prenotazione sono la Chiesa / Cappella e la Sala TV.
+   • Gli slot sono di 30 minuti ciascuno. Ogni prenotazione costituisce una richiesta soggetta ad autorizzazione del Master.
+   • Riservatezza: l'utente visualizza le proprie richieste; il Master visualizza l'occupante; tutti gli altri residenti vedono lo slot come 'Occupato' o 'In Valutazione'.
+5. ACCOGLIENZA E OSPITALITÀ:
+   • La disponibilità delle 3 camere dedicate è gestita tramite procedura a doppia autorizzazione (richiesta -> assegnazione camera da Master -> conferma definitiva).
+6. MANUTENZIONE E CURA DEI LOCALI:
    • Qualsiasi guasto o anomalia in camera o nelle aree comuni va tempestivamente registrato nell'apposita sezione Guasti.`,
     Info_Contatti: `CONTATTI E RECAPITI DELLA RESIDENZA:
 • Portineria / Accoglienza: Tel. +39 06 87654321 (Int. 101) - Attiva 07:00 - 22:30
@@ -476,7 +502,7 @@ const INITIAL_MOCK_DB = {
 const appState = {
   user: null,                  // Oggetto utente correntemente loggato
   backendUrl: "",              // URL Google Apps Script Web App
-  currentTab: "info",          // Tab corrente: info | mensa | spazi | residenza | manutenzione | master
+  currentTab: "info",          // Tab corrente: info | mensa | accoglienza | spazi | manutenzione | master
   mensaViewMode: "settimana",  // "settimana" (default panoramica scorrevole) oppure "giorno"
   selectedDateMensa: null,     // Data selezionata per la mensa (oggetto Date)
   cachedConfig: {},            // Configurazione scaricata dal backend
@@ -487,6 +513,7 @@ const appState = {
   selectedSpazioData: "",      // Data selezionata per prenotazione spazi (YYYY-MM-DD)
   selectedSpazioFascia: "tutti", // Filtro fascia: tutti | mattina | pomeriggio | sera
   mensaBookings: [],           // Prenotazioni mensa
+  accoglienzaList: [],         // Richieste e prenotazioni camere accoglienza
   guasti: [],                  // Lista segnalazioni / guasti
   manutenzioneList: [],        // Alias per garantire compatibilità ovunque
   tuttiUtenti: [],             // Elenco completo residenti (per Admin)
@@ -553,7 +580,24 @@ function initStorage() {
             u.notif_spazi = Boolean(u.perm_spazi || u.perm_admin);
             needsSave = true;
           }
+          if (u.is_utente_mensa === undefined) {
+            u.is_utente_mensa = true;
+            needsSave = true;
+          }
         });
+      }
+      if (!parsed.accoglienza || parsed.accoglienza.length === 0) {
+        parsed.accoglienza = INITIAL_MOCK_DB.accoglienza;
+        needsSave = true;
+      }
+      if (!parsed.configurazione) {
+        parsed.configurazione = INITIAL_MOCK_DB.configurazione;
+        needsSave = true;
+      } else {
+        if (!parsed.configurazione.Nome_Camera_1) parsed.configurazione.Nome_Camera_1 = "Camera Newman";
+        if (!parsed.configurazione.Nome_Camera_2) parsed.configurazione.Nome_Camera_2 = "Camera San Filippo Neri";
+        if (!parsed.configurazione.Nome_Camera_3) parsed.configurazione.Nome_Camera_3 = "Camera Santa Teresa";
+        if (!parsed.configurazione.Max_Ospiti_Mensa) parsed.configurazione.Max_Ospiti_Mensa = "5";
       }
       if (needsSave) {
         localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(parsed));
@@ -757,6 +801,7 @@ function mockBackendExecution(action, params) {
       const idx = db.utenti.findIndex(u => u.email.toLowerCase() === emailTarget);
       if (idx !== -1) {
         db.utenti[idx].stato = "Approvato";
+        if (params.is_utente_mensa !== undefined) db.utenti[idx].is_utente_mensa = Boolean(params.is_utente_mensa);
         if (params.perm_mensa !== undefined) db.utenti[idx].perm_mensa = Boolean(params.perm_mensa);
         if (params.perm_manutenzione !== undefined) db.utenti[idx].perm_manutenzione = Boolean(params.perm_manutenzione);
         if (params.perm_spazi !== undefined) db.utenti[idx].perm_spazi = Boolean(params.perm_spazi);
@@ -770,7 +815,7 @@ function mockBackendExecution(action, params) {
     }
 
     case "prenotaMensa": {
-      const { data, email, tipo_pasto, busta, ritardo, note } = params;
+      const { data, email, tipo_pasto, busta, ritardo, note, ospiti, stato_presenza } = params;
       const dataStr = formattaDataConfronto(data);
       const existIdx = db.mensa.findIndex(m => formattaDataConfronto(m.data) === dataStr && m.email.toLowerCase() === email.toLowerCase() && m.tipo_pasto === tipo_pasto);
       const entry = {
@@ -780,7 +825,34 @@ function mockBackendExecution(action, params) {
         tipo_pasto,
         busta: Boolean(busta),
         ritardo: Boolean(ritardo),
+        ospiti: parseInt(ospiti) || 0,
+        stato_presenza: stato_presenza || (ritardo ? "Ritardo" : "Presente"),
         note: note || "",
+        timestamp: new Date().toISOString()
+      };
+      if (existIdx !== -1) {
+        db.mensa[existIdx] = { ...db.mensa[existIdx], ...entry };
+      } else {
+        db.mensa.push(entry);
+      }
+      localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+      return { success: true, id: entry.id };
+    }
+
+    case "segnaAssenteMensa": {
+      const { data, email, tipo_pasto } = params;
+      const dataStr = formattaDataConfronto(data);
+      const existIdx = db.mensa.findIndex(m => formattaDataConfronto(m.data) === dataStr && m.email.toLowerCase() === email.toLowerCase() && m.tipo_pasto === tipo_pasto);
+      const entry = {
+        id: "M_" + Date.now(),
+        data: dataStr,
+        email,
+        tipo_pasto,
+        busta: false,
+        ritardo: false,
+        ospiti: 0,
+        stato_presenza: "Assente",
+        note: params.note || "Segnalata assenza",
         timestamp: new Date().toISOString()
       };
       if (existIdx !== -1) {
@@ -789,7 +861,7 @@ function mockBackendExecution(action, params) {
         db.mensa.push(entry);
       }
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
-      return { success: true, id: entry.id };
+      return { success: true, message: "Assenza registrata" };
     }
 
     case "cancellaPrenotazioneMensa": {
@@ -928,6 +1000,7 @@ function mockBackendExecution(action, params) {
       const emailTarget = String(params.emailTarget || "").trim().toLowerCase();
       const utente = db.utenti.find(u => u.email.toLowerCase() === emailTarget);
       if (utente) {
+        if (params.is_utente_mensa !== undefined) utente.is_utente_mensa = Boolean(params.is_utente_mensa);
         if (params.perm_mensa !== undefined) utente.perm_mensa = Boolean(params.perm_mensa);
         if (params.perm_manutenzione !== undefined) utente.perm_manutenzione = Boolean(params.perm_manutenzione);
         if (params.perm_spazi !== undefined) utente.perm_spazi = Boolean(params.perm_spazi);
@@ -962,6 +1035,7 @@ function mockBackendExecution(action, params) {
             email,
             nome: nome || email.split("@")[0],
             stato: "Approvato",
+            is_utente_mensa: item.is_utente_mensa !== undefined ? Boolean(item.is_utente_mensa) : true,
             perm_mensa: item.perm_mensa !== undefined ? Boolean(item.perm_mensa) : true,
             perm_manutenzione: item.perm_manutenzione !== undefined ? Boolean(item.perm_manutenzione) : false,
             perm_spazi: item.perm_spazi !== undefined ? Boolean(item.perm_spazi) : true,
@@ -1057,13 +1131,106 @@ function mockBackendExecution(action, params) {
       return { success: db.bacheca.length < initLen, message: "Avviso bacheca rimosso" };
     }
 
+    case "richiediAccoglienza":
+    case "richiestaAccoglienza": {
+      if (!db.accoglienza) db.accoglienza = [];
+      const item = {
+        id: "ACC_" + Date.now().toString().slice(-6),
+        data_richiesta: new Date().toISOString(),
+        richiedente_email: (params.email || params.email_richiedente || (appState.user ? appState.user.email : "")).toLowerCase(),
+        richiedente_nome: params.nome || params.nome_richiedente || (appState.user ? appState.user.nome : ""),
+        nome_ospite: params.nome_ospite || params.ospite_nome || "",
+        numero_ospiti: Math.max(1, parseInt(params.numero_ospiti || params.num_ospiti || 1, 10)),
+        data_checkin: params.data_checkin || params.checkin || "",
+        data_checkout: params.data_checkout || params.checkout || "",
+        camera_preferita: params.camera_preferita || params.camera_richiesta || "",
+        camera_assegnata: "",
+        stato: "In Attesa 1a Autorizzazione",
+        auth1_email: "",
+        auth1_data: "",
+        auth1_note: "",
+        auth2_email: "",
+        auth2_data: "",
+        auth2_note: "",
+        motivo: params.motivo || "",
+        note: params.note || params.motivo || ""
+      };
+      db.accoglienza.unshift(item);
+      localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+      return { success: true, id: item.id, item, message: "Richiesta inviata. In attesa della 1ª autorizzazione Master." };
+    }
+
+    case "autorizza1Accoglienza": {
+      if (!db.accoglienza) db.accoglienza = [];
+      const { id, camera_assegnata, approvatoreEmail, note } = params;
+      const acc = db.accoglienza.find(a => String(a.id) === String(id));
+      if (acc) {
+        acc.camera_assegnata = camera_assegnata || acc.camera_preferita || "Camera 1";
+        acc.stato = "1a Autorizzazione Concessa";
+        acc.auth1_email = approvatoreEmail || (appState.user ? appState.user.email : "Master");
+        acc.auth1_data = new Date().toISOString();
+        acc.auth1_note = note || "";
+        if (note) acc.note = (acc.note ? acc.note + " | " : "") + note;
+        localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        return { success: true, message: `1ª Autorizzazione concessa. Camera assegnata: ${acc.camera_assegnata}` };
+      }
+      return { success: false, error: "Richiesta non trovata" };
+    }
+
+    case "autorizza2Accoglienza": {
+      if (!db.accoglienza) db.accoglienza = [];
+      const { id, approvatoreEmail, note } = params;
+      const acc = db.accoglienza.find(a => String(a.id) === String(id));
+      if (acc) {
+        acc.stato = "Confermata";
+        acc.auth2_email = approvatoreEmail || (appState.user ? appState.user.email : "Master");
+        acc.auth2_data = new Date().toISOString();
+        acc.auth2_note = note || "";
+        if (note) acc.note = (acc.note ? acc.note + " | " : "") + note;
+        localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        return { success: true, message: "2ª Autorizzazione completata. Prenotazione Confermata!" };
+      }
+      return { success: false, error: "Richiesta non trovata" };
+    }
+
+    case "rifiutaAccoglienza": {
+      if (!db.accoglienza) db.accoglienza = [];
+      const { id, motivo, note, approvatoreEmail } = params;
+      const acc = db.accoglienza.find(a => String(a.id) === String(id));
+      if (acc) {
+        acc.stato = "Rifiutata";
+        acc.auth1_note = "Rifiutata da " + (approvatoreEmail || "Master") + (motivo || note ? ": " + (motivo || note) : "");
+        if (motivo || note) acc.note = (acc.note ? acc.note + " | " : "") + (motivo || note);
+        localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        return { success: true, message: "Richiesta ospitalità rifiutata" };
+      }
+      return { success: false, error: "Richiesta non trovata" };
+    }
+
+    case "cancellaAccoglienza": {
+      if (!db.accoglienza) db.accoglienza = [];
+      const { id } = params;
+      db.accoglienza = db.accoglienza.filter(a => String(a.id) !== String(id));
+      localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+      return { success: true, message: "Richiesta ospitalità cancellata" };
+    }
+
+    case "getAccoglienzaData": {
+      return {
+        success: true,
+        accoglienza: db.accoglienza || [],
+        config: db.configurazione || {}
+      };
+    }
+
     case "getInfoData": {
       return {
         success: true,
         config: db.configurazione,
         prenotazioniSpazi: db.prenotazioni_spazi,
         prenotazioniMensa: db.mensa,
-        bacheca: db.bacheca || []
+        bacheca: db.bacheca || [],
+        accoglienza: db.accoglienza || []
       };
     }
 
@@ -1076,6 +1243,7 @@ function mockBackendExecution(action, params) {
         guasti: db.manutenzione,
         prenotazioniSpazi: db.prenotazioni_spazi || [],
         bacheca: db.bacheca || [],
+        accoglienza: db.accoglienza || [],
         config: db.configurazione
       };
     }
@@ -1086,6 +1254,10 @@ function mockBackendExecution(action, params) {
       if (params.Info_Contatti !== undefined) db.configurazione.Info_Contatti = params.Info_Contatti;
       if (params.Data_Variazione_Menu !== undefined) db.configurazione.Data_Variazione_Menu = params.Data_Variazione_Menu;
       if (params.Testo_Variazione !== undefined) db.configurazione.Testo_Variazione = params.Testo_Variazione;
+      if (params.Nome_Camera_1 !== undefined) db.configurazione.Nome_Camera_1 = params.Nome_Camera_1;
+      if (params.Nome_Camera_2 !== undefined) db.configurazione.Nome_Camera_2 = params.Nome_Camera_2;
+      if (params.Nome_Camera_3 !== undefined) db.configurazione.Nome_Camera_3 = params.Nome_Camera_3;
+      if (params.Max_Ospiti_Mensa !== undefined) db.configurazione.Max_Ospiti_Mensa = String(params.Max_Ospiti_Mensa);
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
       return { success: true, message: "Configurazione salvata!" };
     }
@@ -1129,6 +1301,7 @@ async function caricaDatiBackend() {
   renderResidenzaView();
   renderMensaView();
   renderSpaziView();
+  if (typeof renderAccoglienzaView === "function") renderAccoglienzaView();
 
   try {
     const data = await callApi("getInfoData");
@@ -1144,6 +1317,9 @@ async function caricaDatiBackend() {
       if (data.menuBase) {
         applicaMenuBaseDaGoogleSheets(data.menuBase);
       }
+      if (data.accoglienza) {
+        appState.accoglienzaList = data.accoglienza;
+      }
 
       // Aggiorna viste
       renderBachecaView();
@@ -1151,6 +1327,7 @@ async function caricaDatiBackend() {
       verificaAlertVariazione();
       renderSlotSpazi();
       renderMensaView();
+      if (typeof renderAccoglienzaView === "function") renderAccoglienzaView();
     }
 
     // Se l'utente ha permessi Master, carica anche i dati del Master
@@ -2837,14 +3014,16 @@ function renderWeeklyScrollView(lunediDate) {
           <div class="weekly-meal-header">
             <div class="weekly-meal-title">
               <span>☀️ Pranzo (14:30)</span>
-              ${prenPranzo ? `
-                <span class="meal-status-pill booked">✓ Presente ${prenPranzo.busta ? '(Busta)' : ''} ${prenPranzo.ritardo ? '(Ritardo)' : ''}</span>
-              ` : `
+              ${prenPranzo ? (
+                (prenPranzo.stato_presenza === 'assente' || prenPranzo.stato_presenza === 'Assente') ?
+                  `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>` :
+                  `<span class="meal-status-pill booked">✓ Presente ${prenPranzo.ospiti > 0 ? `(+${prenPranzo.ospiti} ospiti)` : ''} ${prenPranzo.busta ? '(Busta)' : ''} ${prenPranzo.ritardo ? '(Ritardo)' : ''}</span>`
+              ) : `
                 <span class="meal-status-pill not-booked">Non segnato</span>
               `}
               ${isMaster ? `
                 <span class="master-attendees-badge" title="Visualizza presenti nel Pannello Master" onclick="switchTab('master')">
-                  👥 Presenti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'pranzo').length}</span>
+                  👥 Pasti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'pranzo' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((sum, m) => sum + 1 + (parseInt(m.ospiti, 10) || 0), 0)}</span>
                 </span>
               ` : ''}
             </div>
@@ -2884,17 +3063,27 @@ function renderWeeklyScrollView(lunediDate) {
           </div>
 
           <div class="booking-inline-controls">
-            ${prenPranzo ? `
-              <span class="presence-summary-badge">✅ Presenza Confermata ${isTuesdayOrThursday ? '(Busta)' : ''}</span>
-              <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">
-                Annulla Presenza
-              </button>
-            ` : (isTuesdayOrThursday ? `
+            ${prenPranzo ? (
+              (prenPranzo.stato_presenza === 'assente' || prenPranzo.stato_presenza === 'Assente') ? `
+                <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+                <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">
+                  Rimuovi Assenza
+                </button>
+              ` : `
+                <span class="presence-summary-badge">✅ Presenza ${prenPranzo.ospiti > 0 ? `(+${prenPranzo.ospiti})` : ''} ${isTuesdayOrThursday ? '(Busta)' : ''}</span>
+                <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">
+                  Annulla Presenza
+                </button>
+              `
+            ) : (isTuesdayOrThursday ? `
               <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, false)">
                 🥪 Richiedi Busta Pranzo
               </button>
               <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, true)">
                 ⏰ Ritiro Posticipato
+              </button>
+              <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">
+                ❌ Assente
               </button>
             ` : `
               <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, false)">
@@ -2902,6 +3091,9 @@ function renderWeeklyScrollView(lunediDate) {
               </button>
               <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, true)">
                 ⏰ In Ritardo
+              </button>
+              <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">
+                ❌ Assente
               </button>
             `)}
           </div>
@@ -2912,14 +3104,16 @@ function renderWeeklyScrollView(lunediDate) {
           <div class="weekly-meal-header">
             <div class="weekly-meal-title">
               <span>🌙 Cena (19:30)</span>
-              ${prenCena ? `
-                <span class="meal-status-pill booked">✓ Presente ${prenCena.busta ? '(Busta)' : ''} ${prenCena.ritardo ? '(Ritardo)' : ''}</span>
-              ` : `
+              ${prenCena ? (
+                (prenCena.stato_presenza === 'assente' || prenCena.stato_presenza === 'Assente') ?
+                  `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>` :
+                  `<span class="meal-status-pill booked">✓ Presente ${prenCena.ospiti > 0 ? `(+${prenCena.ospiti} ospiti)` : ''} ${prenCena.ritardo ? '(Ritardo)' : ''}</span>`
+              ) : `
                 <span class="meal-status-pill not-booked">Non segnato</span>
               `}
               ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `
                 <span class="master-attendees-badge" title="Visualizza presenti nel Pannello Master" onclick="switchTab('master')">
-                  👥 Presenti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'cena').length}</span>
+                  👥 Pasti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'cena' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((sum, m) => sum + 1 + (parseInt(m.ospiti, 10) || 0), 0)}</span>
                 </span>
               ` : ''}
             </div>
@@ -2950,17 +3144,27 @@ function renderWeeklyScrollView(lunediDate) {
           </div>
 
           <div class="booking-inline-controls">
-            ${prenCena ? `
-              <span class="presence-summary-badge">✅ Presenza Confermata</span>
-              <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">
-                Annulla Presenza
-              </button>
-            ` : `
+            ${prenCena ? (
+              (prenCena.stato_presenza === 'assente' || prenCena.stato_presenza === 'Assente') ? `
+                <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+                <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">
+                  Rimuovi Assenza
+                </button>
+              ` : `
+                <span class="presence-summary-badge">✅ Presenza ${prenCena.ospiti > 0 ? `(+${prenCena.ospiti})` : ''}</span>
+                <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">
+                  Annulla Presenza
+                </button>
+              `
+            ) : `
               <button type="button" class="btn-quick-book" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', false, false)">
                 🍽️ Presente
               </button>
               <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', false, true)">
                 ⏰ In Ritardo
+              </button>
+              <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'cena')">
+                ❌ Assente
               </button>
             `}
           </div>
@@ -2988,6 +3192,7 @@ function renderDailyDetailedView(dataSel) {
   const isMaster = haPermessiMaster() || (appState.user && appState.user.perm_mensa);
   const pranzoLocked = isPranzoBloccato(dataSel);
   const cenaLocked = isCenaBloccata(dataSel);
+  const maxOspiti = parseInt(appState.cachedConfig?.Max_Ospiti_Mensa || 5, 10);
 
   const nomeGiornoFormat = capitalize(giornoKey);
   const dataFormattata = formattaDataItaliana(dataSel);
@@ -2995,6 +3200,12 @@ function renderDailyDetailedView(dataSel) {
   const emailUtente = appState.user ? appState.user.email.toLowerCase() : "";
   const prenPranzo = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "pranzo" && m.email.toLowerCase() === emailUtente);
   const prenCena = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "cena" && m.email.toLowerCase() === emailUtente);
+
+  const isAssentePranzo = prenPranzo && (prenPranzo.stato_presenza === 'assente' || prenPranzo.stato_presenza === 'Assente');
+  const isAssenteCena = prenCena && (prenCena.stato_presenza === 'assente' || prenCena.stato_presenza === 'Assente');
+
+  const totPastiPranzo = appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'pranzo' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((sum, m) => sum + 1 + (parseInt(m.ospiti, 10) || 0), 0);
+  const totPastiCena = appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'cena' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((sum, m) => sum + 1 + (parseInt(m.ospiti, 10) || 0), 0);
 
   return `
     <div class="card" style="margin-bottom: 12px; background: var(--surface-alt);">
@@ -3018,10 +3229,14 @@ function renderDailyDetailedView(dataSel) {
             <span class="meal-sub">${pranzoLocked ? '🔒 Chiuso (limite ore 13:30)' : '🟢 Prenotazioni aperte fino alle 13:30'}</span>
           </div>
         </div>
-        ${prenPranzo ? `<span class="meal-status-pill booked">✓ Presente ${prenPranzo.busta ? '(Busta)' : ''}</span>` : ''}
+        ${prenPranzo ? (
+          isAssentePranzo ?
+            `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>` :
+            `<span class="meal-status-pill booked">✓ Presente ${prenPranzo.ospiti > 0 ? `(+${prenPranzo.ospiti})` : ''} ${prenPranzo.busta ? '(Busta)' : ''}</span>`
+        ) : ''}
         ${isMaster ? `
           <span class="master-attendees-badge" title="Visualizza presenti nel Pannello Master" onclick="switchTab('master')">
-            👥 Presenti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'pranzo').length}</span>
+            👥 Pasti: <span class="count-num">${totPastiPranzo}</span>
           </span>
         ` : ''}
         <span class="badge ${pranzoLocked ? 'badge-danger' : 'badge-success'}">${pranzoLocked ? 'Chiuso' : 'Aperto'}</span>
@@ -3101,17 +3316,30 @@ function renderDailyDetailedView(dataSel) {
           `}
         </div>
 
+        <div style="margin-top: 10px; padding: 8px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <div class="flex-between">
+            <div>
+              <label for="pranzo-ospiti" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block;">👥 Ospiti al tavolo:</label>
+              <span class="text-xs text-muted">Coperti aggiuntivi da preparare (max ${maxOspiti})</span>
+            </div>
+            <input type="number" id="pranzo-ospiti" class="input-text" min="0" max="${maxOspiti}" value="${prenPranzo?.ospiti || 0}" style="width: 65px; text-align: center; font-weight: 700; padding: 4px;" ${pranzoLocked ? 'disabled' : ''}>
+          </div>
+        </div>
+
         <div class="form-group" style="margin-top: 10px;">
           <input type="text" id="pranzo-note" class="input-text" placeholder="Note per la cucina (opzionale)..." value="${escapeHtml(prenPranzo?.note || '')}" ${pranzoLocked ? 'disabled' : ''}>
         </div>
 
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="submit" class="btn btn-primary" style="flex: 1;" ${pranzoLocked ? 'disabled' : ''}>
-            ${prenPranzo ? 'Aggiorna Presenza' : (isTuesdayOrThursday ? 'Prenota Busta Pranzo' : 'Presente')}
+            ${prenPranzo && !isAssentePranzo ? 'Aggiorna Presenza' : (isTuesdayOrThursday ? 'Prenota Busta Pranzo' : 'Presente')}
+          </button>
+          <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-size: 12px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">
+            ❌ Segna Assente
           </button>
           ${prenPranzo ? `
             <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">
-              Annulla Presenza
+              Annulla
             </button>
           ` : ''}
         </div>
@@ -3128,10 +3356,14 @@ function renderDailyDetailedView(dataSel) {
             <span class="meal-sub">${cenaLocked ? '🔒 Chiuso (limite ore 18:30)' : '🟢 Prenotazioni aperte fino alle 18:30'}</span>
           </div>
         </div>
-        ${prenCena ? '<span class="meal-status-pill booked">✓ Presente</span>' : ''}
+        ${prenCena ? (
+          isAssenteCena ?
+            `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>` :
+            `<span class="meal-status-pill booked">✓ Presente ${prenCena.ospiti > 0 ? `(+${prenCena.ospiti})` : ''}</span>`
+        ) : ''}
         ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `
           <span class="master-attendees-badge" title="Visualizza presenti nel Pannello Master" onclick="switchTab('master')">
-            👥 Presenti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'cena').length}</span>
+            👥 Pasti: <span class="count-num">${totPastiCena}</span>
           </span>
         ` : ''}
         <span class="badge ${cenaLocked ? 'badge-danger' : 'badge-success'}">${cenaLocked ? 'Chiuso' : 'Aperto'}</span>
@@ -3182,17 +3414,30 @@ function renderDailyDetailedView(dataSel) {
           </label>
         </div>
 
+        <div style="margin-top: 10px; padding: 8px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
+          <div class="flex-between">
+            <div>
+              <label for="cena-ospiti" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block;">👥 Ospiti al tavolo:</label>
+              <span class="text-xs text-muted">Coperti aggiuntivi da preparare (max ${maxOspiti})</span>
+            </div>
+            <input type="number" id="cena-ospiti" class="input-text" min="0" max="${maxOspiti}" value="${prenCena?.ospiti || 0}" style="width: 65px; text-align: center; font-weight: 700; padding: 4px;" ${cenaLocked ? 'disabled' : ''}>
+          </div>
+        </div>
+
         <div class="form-group" style="margin-top: 10px;">
           <input type="text" id="cena-note" class="input-text" placeholder="Note per la cucina (opzionale)..." value="${escapeHtml(prenCena?.note || '')}" ${cenaLocked ? 'disabled' : ''}>
         </div>
 
-        <div style="display: flex; gap: 8px;">
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="submit" class="btn btn-primary" style="flex: 1;" ${cenaLocked ? 'disabled' : ''}>
-            ${prenCena ? 'Aggiorna Presenza' : 'Presente'}
+            ${prenCena && !isAssenteCena ? 'Aggiorna Presenza' : 'Presente'}
+          </button>
+          <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-size: 12px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'cena')">
+            ❌ Segna Assente
           </button>
           ${prenCena ? `
             <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">
-              Annulla Presenza
+              Annulla
             </button>
           ` : ''}
         </div>
@@ -3267,6 +3512,8 @@ window.quickSegnaPresenza = async function(dataStr, tipoPasto, busta, ritardo) {
     tipo_pasto: tipoPasto,
     busta: Boolean(busta),
     ritardo: Boolean(ritardo),
+    ospiti: 0,
+    stato_presenza: "presente",
     note: ""
   };
 
@@ -3282,6 +3529,8 @@ window.quickSegnaPresenza = async function(dataStr, tipoPasto, busta, ritardo) {
         tipo_pasto: tipoPasto,
         busta: Boolean(busta),
         ritardo: Boolean(ritardo),
+        ospiti: 0,
+        stato_presenza: "presente",
         note: ""
       };
       if (existIdx !== -1) {
@@ -3295,6 +3544,55 @@ window.quickSegnaPresenza = async function(dataStr, tipoPasto, busta, ritardo) {
       if (haPermessiMaster()) caricaDatiMaster();
     } else {
       mostraToast("Errore: " + (res.error || "Impossibile salvare la presenza"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di connessione", "error");
+  }
+};
+
+window.quickSegnaAssente = async function(dataStr, tipoPasto) {
+  if (!appState.user) {
+    mostraModalAuth(true);
+    return;
+  }
+
+  const payload = {
+    data: dataStr,
+    email: appState.user.email,
+    tipo_pasto: tipoPasto,
+    stato_presenza: "assente",
+    busta: false,
+    ritardo: false,
+    ospiti: 0,
+    note: "Assente comunicato"
+  };
+
+  try {
+    const res = await callApi("prenotaMensa", payload);
+    if (res.success) {
+      const existIdx = appState.mensaBookings.findIndex(m => String(m.data).split("T")[0] === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase());
+      const entry = {
+        id: res.id || ("M_" + Date.now()),
+        data: dataStr,
+        email: appState.user.email,
+        tipo_pasto: tipoPasto,
+        busta: false,
+        ritardo: false,
+        ospiti: 0,
+        stato_presenza: "assente",
+        note: "Assente comunicato"
+      };
+      if (existIdx !== -1) {
+        appState.mensaBookings[existIdx] = entry;
+      } else {
+        appState.mensaBookings.push(entry);
+      }
+
+      mostraToast(`Assenza a ${tipoPasto} comunicata alla cucina`, "info");
+      renderMensaView();
+      if (haPermessiMaster()) caricaDatiMaster();
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile registrare assenza"), "error");
     }
   } catch (err) {
     mostraToast("Errore di connessione", "error");
@@ -3341,6 +3639,7 @@ window.handlePrenotazioneMensa = async function(event, tipoPasto) {
   const busta = (isTuesdayOrThursday && tipoPasto === "pranzo") ? true : (document.getElementById(`${tipoPasto}-busta`)?.checked || false);
   const ritardo = document.getElementById(`${tipoPasto}-ritardo`)?.checked || false;
   const note = document.getElementById(`${tipoPasto}-note`)?.value || "";
+  const ospiti = Math.max(0, parseInt(document.getElementById(`${tipoPasto}-ospiti`)?.value || "0", 10));
 
   const payload = {
     data: dataStr,
@@ -3348,6 +3647,8 @@ window.handlePrenotazioneMensa = async function(event, tipoPasto) {
     tipo_pasto: tipoPasto,
     busta: busta,
     ritardo: ritardo,
+    ospiti: ospiti,
+    stato_presenza: "presente",
     note: note
   };
 
@@ -3367,6 +3668,8 @@ window.handlePrenotazioneMensa = async function(event, tipoPasto) {
         tipo_pasto: tipoPasto,
         busta: Boolean(busta),
         ritardo: Boolean(ritardo),
+        ospiti: ospiti,
+        stato_presenza: "presente",
         note: note
       };
       if (existIdx !== -1) {
@@ -4069,6 +4372,748 @@ window.rifiutaRichiestaSpazio = async function(id) {
 };
 
 // ----------------------------------------------------------------------------
+// LOGICA SEZIONE: ACCOGLIENZA E OSPITALITÀ 3 CAMERE (DOPPIA AUTORIZZAZIONE)
+// ----------------------------------------------------------------------------
+
+function getNomeCamera(camNum) {
+  const cfg = appState.cachedConfig || {};
+  if (camNum === 1 || camNum === "1" || camNum === "Camera 1") return cfg.Nome_Camera_1 || "Camera Newman";
+  if (camNum === 2 || camNum === "2" || camNum === "Camera 2") return cfg.Nome_Camera_2 || "Camera San Filippo Neri";
+  if (camNum === 3 || camNum === "3" || camNum === "Camera 3") return cfg.Nome_Camera_3 || "Camera Santa Teresa";
+  return cfg[`Nome_Camera_${camNum}`] || `Camera ${camNum}`;
+}
+
+function getTutteCamereNomi() {
+  return [
+    getNomeCamera(1),
+    getNomeCamera(2),
+    getNomeCamera(3)
+  ];
+}
+
+function calcolaNottiSoggiorno(checkinStr, checkoutStr) {
+  if (!checkinStr || !checkoutStr) return 1;
+  const d1 = new Date(checkinStr + "T00:00:00");
+  const d2 = new Date(checkoutStr + "T00:00:00");
+  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 1;
+  const diffTime = d2.getTime() - d1.getTime();
+  const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+  return Math.max(1, diffDays);
+}
+
+function renderAccoglienzaView() {
+  const container = document.getElementById("accoglienza-container");
+  if (!container) return;
+
+  const camereNomi = getTutteCamereNomi();
+  const accList = appState.accoglienzaList || [];
+  const oggiYMD = formatYMD(new Date());
+  const isMaster = haPermessiMaster();
+  const userEmail = (appState.user?.email || "").toLowerCase();
+
+  // Calcolo occupazione per ciascuna delle 3 camere
+  const camereStato = camereNomi.map((nomeCam, idx) => {
+    // Prenotazioni attive o autorizzate per questa camera
+    const prenotazioniCam = accList.filter(a => {
+      const cam = a.camera_assegnata || "";
+      const st = a.stato || "";
+      return (cam.toLowerCase() === nomeCam.toLowerCase() || cam === `Camera ${idx + 1}`) &&
+             (st === "Confermata" || st === "1a Autorizzazione Concessa");
+    });
+
+    // Occupazione oggi
+    const occupazioneOggi = prenotazioniCam.find(a => {
+      const cIn = formattaDataConfronto(a.data_checkin || a.checkin);
+      const cOut = formattaDataConfronto(a.data_checkout || a.checkout);
+      return cIn <= oggiYMD && oggiYMD < cOut;
+    });
+
+    // Prossimi soggiorni
+    const prossimiSoggiorni = prenotazioniCam.filter(a => {
+      const cOut = formattaDataConfronto(a.data_checkout || a.checkout);
+      return cOut >= oggiYMD;
+    }).sort((a, b) => {
+      const d1 = formattaDataConfronto(a.data_checkin || a.checkin);
+      const d2 = formattaDataConfronto(b.data_checkin || b.checkin);
+      return d1.localeCompare(d2);
+    });
+
+    return {
+      num: idx + 1,
+      nome: nomeCam,
+      occupataOggi: Boolean(occupazioneOggi),
+      dettagliOggi: occupazioneOggi,
+      prossimi: prossimiSoggiorni
+    };
+  });
+
+  // Filtro richieste da visualizzare: se master mostra tutte o permesse, se residente solo le sue
+  const richiesteUtente = isMaster
+    ? accList
+    : accList.filter(a => {
+        const em = (a.richiedente_email || a.email_richiedente || a.email || "").toLowerCase();
+        return em === userEmail;
+      });
+
+  let html = `
+    <!-- BANNER TESTATA ACCOGLIENZA -->
+    <div class="card" style="margin-bottom: 14px; border-top: 4px solid #166534;">
+      <div class="flex-between" style="flex-wrap: wrap; gap: 10px;">
+        <div>
+          <h2 class="card-title" style="display: flex; align-items: center; gap: 8px; margin: 0 0 4px 0;">
+            <span style="font-size: 24px;">🛏️</span> Ospitalità & Camere Ospiti
+          </h2>
+          <p class="card-desc" style="margin: 0;">
+            Gestione delle 3 camere dedicate agli ospiti dei residenti. Procedura con doppia autorizzazione della Direzione.
+          </p>
+        </div>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-primary" onclick="apriModalNuovaAccoglienza()" style="background: #166534; border-color: #166534; font-weight: 700; box-shadow: 0 2px 6px rgba(22,101,52,0.25);">
+            ➕ Richiedi Alloggio Ospite
+          </button>
+          ${isMaster ? `
+            <button type="button" class="btn btn-outline" onclick="switchTab('master'); window.cambiaSchedaMaster && window.cambiaSchedaMaster('accoglienza');" style="color: #166534; border-color: #86efac;">
+              👑 Gestione Master Camere
+            </button>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+
+    <!-- PANORAMICA DELLE 3 CAMERE DEDICATE -->
+    <div style="margin-bottom: 18px;">
+      <h3 style="font-size: 14px; font-weight: 800; color: #1e293b; margin: 0 0 10px 4px; display: flex; align-items: center; gap: 6px;">
+        <span>🚪</span> Disponibilità Camere Soggiorno
+      </h3>
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+        ${camereStato.map(c => `
+          <div class="card" style="margin: 0; padding: 14px; border: 1px solid ${c.occupataOggi ? '#fed7aa' : '#bbf7d0'}; background: ${c.occupataOggi ? '#fff7ed' : '#ffffff'};">
+            <div class="flex-between" style="align-items: flex-start; margin-bottom: 8px;">
+              <div>
+                <span style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">Camera ${c.num}</span>
+                <h4 style="margin: 2px 0 0 0; font-size: 15px; font-weight: 700; color: #0f172a;">${escapeHtml(c.nome)}</h4>
+              </div>
+              <span class="badge" style="${c.occupataOggi ? 'background:#ffedd5; color:#c2410c;' : 'background:#dcfce7; color:#166534;'} font-weight: 700; font-size: 11px;">
+                ${c.occupataOggi ? '🔴 Occupata Oggi' : '🟢 Libera Oggi'}
+              </span>
+            </div>
+
+            <div style="font-size: 12px; color: #64748b; margin-bottom: 10px;">
+              Dotazioni: Letto matrimoniale/singolo, bagno privato, Wi-Fi, scrivania studio.
+            </div>
+
+            ${c.occupataOggi ? `
+              <div style="background: rgba(255,255,255,0.7); border: 1px solid #fed7aa; border-radius: 6px; padding: 8px 10px; font-size: 12px; margin-bottom: 8px;">
+                <strong>Ospite attuale:</strong> ${escapeHtml(c.dettagliOggi.nome_ospite || c.dettagliOggi.ospite_nome || 'Ospite')}<br>
+                <span class="text-xs text-muted">Fino al ${formattaDataItaliana(c.dettagliOggi.data_checkout || c.dettagliOggi.checkout)}</span>
+              </div>
+            ` : ''}
+
+            <!-- Prossimi soggiorni -->
+            <div style="border-top: 1px solid var(--border); padding-top: 8px; margin-top: 6px;">
+              <span style="font-size: 11.5px; font-weight: 700; color: #475569;">Prossimi soggiorni:</span>
+              ${c.prossimi.length === 0 ? `
+                <div style="font-size: 11.5px; color: #94a3b8; font-style: italic; margin-top: 2px;">Nessuna prenotazione futura programmata.</div>
+              ` : `
+                <ul style="margin: 4px 0 0 0; padding-left: 16px; font-size: 11.5px; color: #334155; line-height: 1.45;">
+                  ${c.prossimi.slice(0, 3).map(p => `
+                    <li>
+                      <strong>${formattaDataItaliana(p.data_checkin || p.checkin)} ➜ ${formattaDataItaliana(p.data_checkout || p.checkout)}:</strong>
+                      ${escapeHtml(p.nome_ospite || p.ospite_nome || 'Ospite')}
+                      <span class="badge" style="font-size: 9.5px; padding: 1px 5px; ${p.stato === 'Confermata' ? 'background:#dcfce7; color:#166534;' : 'background:#dbeafe; color:#1e40af;'}">
+                        ${p.stato === 'Confermata' ? 'Confermata' : '1ª Auth'}
+                      </span>
+                    </li>
+                  `).join("")}
+                </ul>
+              `}
+            </div>
+          </div>
+        `).join("")}
+      </div>
+    </div>
+
+    <!-- ELENCO RICHIESTE OSPITALITÀ -->
+    <div class="card" style="margin-bottom: 16px;">
+      <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+        <div>
+          <h3 class="card-title" style="margin: 0; font-size: 16px;">
+            ${isMaster ? '📋 Tutte le Richieste di Ospitalità' : '📋 Le Mie Richieste di Ospitalità'}
+          </h3>
+          <span class="text-xs text-muted">
+            ${isMaster ? 'Panoramica completa di tutte le richieste residenti con stato autorizzativo' : 'Stato delle tue richieste di prenotazione per ospiti'}
+          </span>
+        </div>
+        <div style="display: flex; gap: 6px;">
+          <button type="button" class="btn btn-secondary btn-sm" onclick="caricaDatiBackend()" style="font-size: 11.5px;">
+            🔄 Aggiorna
+          </button>
+        </div>
+      </div>
+
+      ${richiesteUtente.length === 0 ? `
+        <div style="text-align: center; padding: 28px 14px; color: #64748b;">
+          <div style="font-size: 38px; margin-bottom: 8px;">📭</div>
+          <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">Nessuna richiesta di ospitalità presente</div>
+          <p style="font-size: 12.5px; max-width: 420px; margin: 0 auto 14px auto;">
+            Puoi richiedere una delle 3 camere dedicate per ospitare familiari, sacerdoti o colleghi accademici per brevi soggiorni.
+          </p>
+          <button type="button" class="btn btn-primary btn-sm" onclick="apriModalNuovaAccoglienza()" style="background: #166534; border-color: #166534;">
+            ➕ Invia Richiesta di Prenotazione
+          </button>
+        </div>
+      ` : `
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+          ${richiesteUtente.map(a => {
+            const checkin = a.data_checkin || a.checkin || "";
+            const checkout = a.data_checkout || a.checkout || "";
+            const notti = calcolaNottiSoggiorno(checkin, checkout);
+            const nomeOspite = a.nome_ospite || a.ospite_nome || "Ospite";
+            const richiedente = a.richiedente_nome || a.nome_richiedente || a.richiedente_email || a.email_richiedente || "Residente";
+            const stato = a.stato || "In Attesa 1a Autorizzazione";
+            const camAss = a.camera_assegnata || "";
+            const camPref = a.camera_preferita || a.camera_richiesta || "";
+            const numPersone = parseInt(a.numero_ospiti || a.num_ospiti || 1, 10);
+            const note = a.note || a.motivo || "";
+
+            let statoBadge = "";
+            if (stato === "Confermata") {
+              statoBadge = `<span class="badge" style="background:#dcfce7; color:#166534; font-weight:700;">✓ Soggiorno Confermato</span>`;
+            } else if (stato === "1a Autorizzazione Concessa") {
+              statoBadge = `<span class="badge" style="background:#dbeafe; color:#1e40af; font-weight:700;">🔑 1ª Auth Concessa (${escapeHtml(camAss || 'Camera Assegnata')})</span>`;
+            } else if (stato === "Rifiutata") {
+              statoBadge = `<span class="badge" style="background:#fee2e2; color:#991b1b; font-weight:700;">✕ Rifiutata</span>`;
+            } else {
+              statoBadge = `<span class="badge" style="background:#fef3c7; color:#92400e; font-weight:700;">⏳ In Attesa 1ª Autorizzazione</span>`;
+            }
+
+            return `
+              <div class="card-inner" style="border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; background: #ffffff;">
+                <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+                  <div class="flex-align" style="gap: 8px;">
+                    <span style="font-size: 20px;">👤</span>
+                    <div>
+                      <strong style="font-size: 14px; color: #0f172a;">${escapeHtml(nomeOspite)}</strong>
+                      ${isMaster ? `<span class="text-xs text-muted" style="margin-left: 6px;">(Richiesta di: ${escapeHtml(richiedente)})</span>` : ''}
+                    </div>
+                  </div>
+                  <div>${statoBadge}</div>
+                </div>
+
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 12px; color: #475569; margin-bottom: 8px; background: #f8fafc; padding: 8px 10px; border-radius: 6px;">
+                  <div>
+                    <strong>Date:</strong> ${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)}
+                    <span class="text-xs text-muted">(${notti} ${notti === 1 ? 'notte' : 'notti'})</span>
+                  </div>
+                  <div>
+                    <strong>Persone:</strong> ${numPersone} ${numPersone === 1 ? 'persona' : 'persone'}
+                  </div>
+                  <div>
+                    <strong>Camera:</strong> ${camAss ? `<span style="color:#166534; font-weight:700;">${escapeHtml(camAss)}</span>` : (camPref ? `<span class="text-muted">Pref: ${escapeHtml(camPref)}</span>` : 'Nessuna preferenza')}
+                  </div>
+                  ${note ? `<div style="grid-column: 1 / -1;"><strong>Note / Motivo:</strong> ${escapeHtml(note)}</div>` : ''}
+                </div>
+
+                <!-- Dettagli Autorizzazioni Tracciate -->
+                ${(a.auth1_email || a.auth2_email || a.autorizzato1_da || a.autorizzato2_da) ? `
+                  <div style="font-size: 11.5px; color: #64748b; margin-bottom: 8px; padding-left: 4px;">
+                    ${(a.auth1_email || a.autorizzato1_da) ? `<div>🔑 1ª Auth da: <strong>${escapeHtml((a.auth1_email || a.autorizzato1_da).split('@')[0])}</strong> ${a.auth1_data || a.data_autorizzazione1 ? `il ${formattaDataItaliana(a.auth1_data || a.data_autorizzazione1)}` : ''}</div>` : ''}
+                    ${(a.auth2_email || a.autorizzato2_da) ? `<div>✓ 2ª Auth da: <strong>${escapeHtml((a.auth2_email || a.autorizzato2_da).split('@')[0])}</strong> ${a.auth2_data || a.data_autorizzazione2 ? `il ${formattaDataItaliana(a.auth2_data || a.data_autorizzazione2)}` : ''}</div>` : ''}
+                  </div>
+                ` : ''}
+
+                <!-- Azioni Richiesta -->
+                <div class="flex-between" style="flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">
+                  <span class="text-xs text-muted">ID: ${escapeHtml(a.id || '')}</span>
+                  <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    ${isMaster && stato === "In Attesa 1a Autorizzazione" ? `
+                      <button type="button" class="btn btn-primary btn-sm" onclick="apriModalAutorizza1Accoglienza('${a.id}')" style="background: #166534; border-color: #166534; font-size: 11.5px; font-weight: 700;">
+                        🔑 Assegna Camera (1ª Auth)
+                      </button>
+                      <button type="button" class="btn btn-secondary btn-sm" onclick="handleRifiutaAccoglienza('${a.id}')" style="color: #dc2626; border-color: #fca5a5; font-size: 11.5px;">
+                        ✕ Rifiuta
+                      </button>
+                    ` : ''}
+
+                    ${isMaster && stato === "1a Autorizzazione Concessa" ? `
+                      <button type="button" class="btn btn-primary btn-sm" onclick="handleConfermaAutorizza2('${a.id}')" style="background: #2563eb; border-color: #2563eb; font-size: 11.5px; font-weight: 700;">
+                        ✓ Conferma Definitiva (2ª Auth)
+                      </button>
+                      <button type="button" class="btn btn-secondary btn-sm" onclick="handleRifiutaAccoglienza('${a.id}')" style="color: #dc2626; border-color: #fca5a5; font-size: 11.5px;">
+                        ✕ Rifiuta
+                      </button>
+                    ` : ''}
+
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="handleEliminaAccoglienza('${a.id}')" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;">
+                      🗑️ ${isMaster ? 'Elimina' : 'Annulla'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `}
+    </div>
+
+    <!-- GUIDA E REGOLAMENTO OSPITALITÀ -->
+    <div class="card" style="background: #f8fafc; border: 1px solid #cbd5e1;">
+      <h4 style="margin: 0 0 8px 0; font-size: 13.5px; color: #1e293b; display: flex; align-items: center; gap: 6px;">
+        <span>ℹ️</span> <strong>Procedura e Regole di Ospitalità Residenza Newman:</strong>
+      </h4>
+      <div style="font-size: 12px; line-height: 1.55; color: #475569;">
+        <ol style="margin: 0; padding-left: 20px;">
+          <li><strong>Invio Richiesta:</strong> inoltra la richiesta con almeno 48 ore di anticipo indicando nome dell'ospite, date e numero di persone.</li>
+          <li><strong>1ª Autorizzazione (Assegnazione Camera):</strong> il Master valuta la disponibilità e assegna formalmente una delle 3 camere dedicate.</li>
+          <li><strong>2ª Autorizzazione (Conferma Direzione):</strong> la Direzione convalida definitivamente il soggiorno rilasciando la conferma.</li>
+          <li><strong>Mensa per Ospiti:</strong> per prenotare i pasti per i tuoi ospiti, utilizza la scheda <strong>Mensa</strong> indicando il numero di ospiti (fino a 5 coperti).</li>
+          <li><strong>Ritiro Chiavi:</strong> le chiavi della camera vanno ritirate in Portineria all'arrivo dell'ospite negli orari di servizio (07:00 - 22:30).</li>
+        </ol>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+// ----------------------------------------------------------------------------
+// MODAL NUOVA RICHIESTA ACCOGLIENZA
+// ----------------------------------------------------------------------------
+function apriModalNuovaAccoglienza() {
+  if (!appState.user) {
+    mostraToast("Effettua l'accesso per richiedere l'ospitalità in camera", "info");
+    mostraModalAuth(true);
+    return;
+  }
+
+  const modal = document.getElementById("modal-nuova-accoglienza");
+  if (!modal) return;
+
+  // Aggiorna nomi camere nel select preferenze
+  const c1 = getNomeCamera(1);
+  const c2 = getNomeCamera(2);
+  const c3 = getNomeCamera(3);
+
+  const opt1 = document.getElementById("opt-cam-1");
+  if (opt1) { opt1.value = c1; opt1.textContent = c1; }
+  const opt2 = document.getElementById("opt-cam-2");
+  if (opt2) { opt2.value = c2; opt2.textContent = c2; }
+  const opt3 = document.getElementById("opt-cam-3");
+  if (opt3) { opt3.value = c3; opt3.textContent = c3; }
+
+  // Set min checkin date to today
+  const oggiYMD = formatYMD(new Date());
+  const inCheckin = document.getElementById("acc-checkin");
+  const inCheckout = document.getElementById("acc-checkout");
+  if (inCheckin) {
+    inCheckin.min = oggiYMD;
+    if (!inCheckin.value) inCheckin.value = oggiYMD;
+  }
+  if (inCheckout) {
+    const domani = new Date();
+    domani.setDate(domani.getDate() + 1);
+    inCheckout.min = formatYMD(domani);
+    if (!inCheckout.value) inCheckout.value = formatYMD(domani);
+  }
+
+  modal.style.display = "flex";
+}
+
+function chiudiModalNuovaAccoglienza() {
+  const modal = document.getElementById("modal-nuova-accoglienza");
+  if (modal) modal.style.display = "none";
+}
+
+function aggiornaMinCheckout() {
+  const inCheckin = document.getElementById("acc-checkin");
+  const inCheckout = document.getElementById("acc-checkout");
+  if (inCheckin && inCheckout && inCheckin.value) {
+    const d = new Date(inCheckin.value + "T00:00:00");
+    d.setDate(d.getDate() + 1);
+    const minOut = formatYMD(d);
+    inCheckout.min = minOut;
+    if (inCheckout.value && inCheckout.value <= inCheckin.value) {
+      inCheckout.value = minOut;
+    }
+  }
+}
+
+async function handleInviaRichiestaAccoglienza(event) {
+  if (event) event.preventDefault();
+
+  if (!appState.user) {
+    mostraToast("Effettua l'accesso per richiedere l'ospitalità", "warning");
+    mostraModalAuth(true);
+    return;
+  }
+
+  const nomeOspite = document.getElementById("acc-ospite-nome")?.value?.trim();
+  const checkin = document.getElementById("acc-checkin")?.value;
+  const checkout = document.getElementById("acc-checkout")?.value;
+  const numOspiti = document.getElementById("acc-num-ospiti")?.value || "1";
+  const cameraPreferita = document.getElementById("acc-camera-preferita")?.value || "";
+  const note = document.getElementById("acc-note")?.value?.trim() || "";
+
+  if (!nomeOspite) {
+    mostraToast("Inserisci il nome e cognome dell'ospite", "warning");
+    return;
+  }
+  if (!checkin || !checkout) {
+    mostraToast("Seleziona data di check-in e check-out", "warning");
+    return;
+  }
+  if (checkout <= checkin) {
+    mostraToast("La data di check-out deve essere successiva a quella di check-in", "warning");
+    return;
+  }
+
+  const btnSubmit = document.getElementById("btn-submit-accoglienza");
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.innerText = "⏳ Invio richiesta...";
+  }
+
+  try {
+    const payload = {
+      email: appState.user.email,
+      nome: appState.user.nome,
+      nome_ospite: nomeOspite,
+      numero_ospiti: parseInt(numOspiti, 10),
+      data_checkin: checkin,
+      data_checkout: checkout,
+      camera_preferita: cameraPreferita,
+      motivo: note,
+      note: note
+    };
+
+    const res = await callApi("richiediAccoglienza", payload);
+
+    if (res.success) {
+      mostraToast("✅ Richiesta di ospitalità inviata! In attesa della 1ª autorizzazione Master.", "success");
+      chiudiModalNuovaAccoglienza();
+      document.getElementById("form-nuova-accoglienza")?.reset();
+
+      // Aggiorna stato locale
+      const nuovaRichiesta = res.item || {
+        id: res.id || ("ACC_" + Date.now().toString().slice(-6)),
+        data_richiesta: new Date().toISOString(),
+        richiedente_email: appState.user.email,
+        richiedente_nome: appState.user.nome,
+        nome_ospite: nomeOspite,
+        numero_ospiti: parseInt(numOspiti, 10),
+        data_checkin: checkin,
+        data_checkout: checkout,
+        camera_preferita: cameraPreferita,
+        camera_assegnata: "",
+        stato: "In Attesa 1a Autorizzazione",
+        note: note
+      };
+
+      if (!appState.accoglienzaList) appState.accoglienzaList = [];
+      appState.accoglienzaList.unshift(nuovaRichiesta);
+
+      renderAccoglienzaView();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile inviare la richiesta"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante l'invio della richiesta", "error");
+  } finally {
+    if (btnSubmit) {
+      btnSubmit.disabled = false;
+      btnSubmit.innerText = "📨 Invia Richiesta di Prenotazione";
+    }
+  }
+}
+
+// ----------------------------------------------------------------------------
+// MODAL 1ª AUTORIZZAZIONE MASTER: ASSEGNAZIONE CAMERA
+// ----------------------------------------------------------------------------
+function apriModalAutorizza1Accoglienza(id) {
+  if (!id) return;
+  const acc = (appState.accoglienzaList || []).find(a => String(a.id) === String(id));
+  if (!acc) {
+    mostraToast("Richiesta non trovata", "warning");
+    return;
+  }
+
+  const modal = document.getElementById("modal-autorizza1-accoglienza");
+  if (!modal) return;
+
+  const infoEl = document.getElementById("modal-autorizza1-info");
+  const idInput = document.getElementById("auth1-richiesta-id");
+  const camSelect = document.getElementById("auth1-camera-assegnata");
+
+  if (idInput) idInput.value = id;
+
+  // Aggiorna nomi camere nel select
+  const c1 = getNomeCamera(1);
+  const c2 = getNomeCamera(2);
+  const c3 = getNomeCamera(3);
+
+  const opt1 = document.getElementById("auth1-opt-cam-1");
+  if (opt1) { opt1.value = c1; opt1.textContent = c1; }
+  const opt2 = document.getElementById("auth1-opt-cam-2");
+  if (opt2) { opt2.value = c2; opt2.textContent = c2; }
+  const opt3 = document.getElementById("auth1-opt-cam-3");
+  if (opt3) { opt3.value = c3; opt3.textContent = c3; }
+
+  // Pre-seleziona camera richiesta se corrisponde
+  const pref = acc.camera_preferita || acc.camera_richiesta || "";
+  if (camSelect) {
+    if (pref === c1 || pref === "Camera 1") camSelect.value = c1;
+    else if (pref === c2 || pref === "Camera 2") camSelect.value = c2;
+    else if (pref === c3 || pref === "Camera 3") camSelect.value = c3;
+    else camSelect.value = c1;
+  }
+
+  const checkin = acc.data_checkin || acc.checkin;
+  const checkout = acc.data_checkout || acc.checkout;
+  const notti = calcolaNottiSoggiorno(checkin, checkout);
+
+  if (infoEl) {
+    infoEl.innerHTML = `
+      <div style="font-weight: 700; color: #0f172a; margin-bottom: 2px;">
+        Ospite: ${escapeHtml(acc.nome_ospite || acc.ospite_nome || 'Ospite')}
+      </div>
+      <div class="text-xs text-muted">
+        Richiedente: <strong>${escapeHtml(acc.richiedente_nome || acc.nome_richiedente || acc.richiedente_email || 'Residente')}</strong>
+      </div>
+      <div style="margin-top: 6px; font-size: 12px; color: #334155;">
+        📅 <strong>Date:</strong> ${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)} (${notti} ${notti === 1 ? 'notte' : 'notti'})<br>
+        👥 <strong>Persone:</strong> ${acc.numero_ospiti || acc.num_ospiti || 1}<br>
+        ${pref ? `🏷️ <strong>Preferenza indicata:</strong> ${escapeHtml(pref)}<br>` : ''}
+        ${acc.note ? `💬 <strong>Note:</strong> ${escapeHtml(acc.note)}` : ''}
+      </div>
+    `;
+  }
+
+  modal.style.display = "flex";
+}
+
+function chiudiModalAutorizza1Accoglienza() {
+  const modal = document.getElementById("modal-autorizza1-accoglienza");
+  if (modal) modal.style.display = "none";
+}
+
+async function handleConfermaAutorizza1(event) {
+  if (event) event.preventDefault();
+
+  const id = document.getElementById("auth1-richiesta-id")?.value;
+  const cameraAssegnata = document.getElementById("auth1-camera-assegnata")?.value;
+  const noteMaster = document.getElementById("auth1-note-master")?.value?.trim() || "";
+
+  if (!id || !cameraAssegnata) {
+    mostraToast("Seleziona la camera da assegnare", "warning");
+    return;
+  }
+
+  const btnSubmit = document.getElementById("btn-conferma-auth1");
+  if (btnSubmit) {
+    btnSubmit.disabled = true;
+    btnSubmit.innerText = "⏳ Assegnazione in corso...";
+  }
+
+  const masterEmail = appState.user?.email || "Master";
+
+  try {
+    const res = await callApi("autorizza1Accoglienza", {
+      id,
+      camera_assegnata: cameraAssegnata,
+      note: noteMaster,
+      approvatoreEmail: masterEmail
+    });
+
+    if (res.success) {
+      mostraToast("✅ 1ª Autorizzazione concessa! Camera assegnata: " + cameraAssegnata, "success");
+      chiudiModalAutorizza1Accoglienza();
+
+      // Aggiorna localmente
+      const acc = (appState.accoglienzaList || []).find(a => String(a.id) === String(id));
+      if (acc) {
+        acc.stato = "1a Autorizzazione Concessa";
+        acc.camera_assegnata = cameraAssegnata;
+        acc.auth1_email = masterEmail;
+        acc.auth1_data = new Date().toISOString();
+        if (noteMaster) acc.auth1_note = noteMaster;
+      }
+
+      renderAccoglienzaView();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile concedere 1ª autorizzazione"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante la prima autorizzazione", "error");
+  } finally {
+    if (btnSubmit) {
+      btnSubmit.disabled = false;
+      btnSubmit.innerText = "✓ Concedi 1ª Autorizzazione";
+    }
+  }
+}
+
+// ----------------------------------------------------------------------------
+// 2ª AUTORIZZAZIONE MASTER: CONFERMA DEFINITIVA
+// ----------------------------------------------------------------------------
+async function handleConfermaAutorizza2(id) {
+  if (!id) return;
+  const acc = (appState.accoglienzaList || []).find(a => String(a.id) === String(id));
+  const nomeOspite = acc?.nome_ospite || acc?.ospite_nome || "l'ospite";
+
+  if (!confirm(`Confermi la 2ª autorizzazione definitiva per il soggiorno di ${nomeOspite}?`)) {
+    return;
+  }
+
+  const masterEmail = appState.user?.email || "Master";
+
+  try {
+    const res = await callApi("autorizza2Accoglienza", {
+      id,
+      approvatoreEmail: masterEmail
+    });
+
+    if (res.success) {
+      mostraToast("✅ 2ª Autorizzazione completata! Soggiorno definitivamente confermato.", "success");
+      if (acc) {
+        acc.stato = "Confermata";
+        acc.auth2_email = masterEmail;
+        acc.auth2_data = new Date().toISOString();
+      }
+      renderAccoglienzaView();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile completare 2ª autorizzazione"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante la 2ª autorizzazione", "error");
+  }
+}
+
+// ----------------------------------------------------------------------------
+// RIFIUTO RICHIESTA ACCOGLIENZA
+// ----------------------------------------------------------------------------
+async function handleRifiutaAccoglienza(id) {
+  if (!id) return;
+  const motivo = prompt("Motivo del rifiuto della richiesta di ospitalità (opzionale):");
+  if (motivo === null) return; // Annullato da utente
+
+  const masterEmail = appState.user?.email || "Master";
+
+  try {
+    const res = await callApi("rifiutaAccoglienza", {
+      id,
+      motivo: motivo || "",
+      note: motivo || "",
+      approvatoreEmail: masterEmail
+    });
+
+    if (res.success) {
+      mostraToast("Richiesta di ospitalità contrassegnata come Rifiutata", "info");
+      const acc = (appState.accoglienzaList || []).find(a => String(a.id) === String(id));
+      if (acc) {
+        acc.stato = "Rifiutata";
+        acc.auth1_note = "Rifiutata da " + masterEmail + (motivo ? ": " + motivo : "");
+      }
+      renderAccoglienzaView();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile rifiutare la richiesta"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante il rifiuto della richiesta", "error");
+  }
+}
+
+// ----------------------------------------------------------------------------
+// ELIMINAZIONE / CANCELLAZIONE RICHIESTA ACCOGLIENZA
+// ----------------------------------------------------------------------------
+async function handleEliminaAccoglienza(id) {
+  if (!id) return;
+  if (!confirm("Confermi di voler eliminare/annullare questa richiesta di ospitalità?")) {
+    return;
+  }
+
+  try {
+    const res = await callApi("cancellaAccoglienza", { id });
+    if (res.success) {
+      mostraToast("Richiesta di ospitalità eliminata", "info");
+      appState.accoglienzaList = (appState.accoglienzaList || []).filter(a => String(a.id) !== String(id));
+      renderAccoglienzaView();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile eliminare la richiesta"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore durante l'eliminazione della richiesta", "error");
+  }
+}
+
+// ----------------------------------------------------------------------------
+// SALVATAGGIO CONFIGURAZIONE CAMERE MASTER
+// ----------------------------------------------------------------------------
+async function handleSalvaConfigurazioneCamere(event) {
+  if (event) event.preventDefault();
+
+  const cam1 = document.getElementById("cfg-camera-1")?.value?.trim() || "Camera Newman";
+  const cam2 = document.getElementById("cfg-camera-2")?.value?.trim() || "Camera San Filippo Neri";
+  const cam3 = document.getElementById("cfg-camera-3")?.value?.trim() || "Camera Santa Teresa";
+  const maxOspiti = document.getElementById("cfg-max-ospiti-mensa")?.value?.trim() || "5";
+
+  try {
+    const res = await callApi("aggiornaConfig", {
+      Nome_Camera_1: cam1,
+      Nome_Camera_2: cam2,
+      Nome_Camera_3: cam3,
+      Max_Ospiti_Mensa: maxOspiti
+    });
+
+    if (res.success) {
+      appState.cachedConfig = appState.cachedConfig || {};
+      appState.cachedConfig.Nome_Camera_1 = cam1;
+      appState.cachedConfig.Nome_Camera_2 = cam2;
+      appState.cachedConfig.Nome_Camera_3 = cam3;
+      appState.cachedConfig.Max_Ospiti_Mensa = maxOspiti;
+
+      mostraToast("✅ Nomi delle camere e regole salvati con successo!", "success");
+      renderAccoglienzaView();
+      if (document.getElementById("master-dynamic-content")) {
+        renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore nel salvataggio della configurazione: " + (res.error || ""), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante il salvataggio della configurazione camere", "error");
+  }
+}
+
+// Esposizione globale funzioni Accoglienza
+window.renderAccoglienzaView = renderAccoglienzaView;
+window.apriModalNuovaAccoglienza = apriModalNuovaAccoglienza;
+window.chiudiModalNuovaAccoglienza = chiudiModalNuovaAccoglienza;
+window.aggiornaMinCheckout = aggiornaMinCheckout;
+window.handleInviaRichiestaAccoglienza = handleInviaRichiestaAccoglienza;
+window.apriModalAutorizza1Accoglienza = apriModalAutorizza1Accoglienza;
+window.chiudiModalAutorizza1Accoglienza = chiudiModalAutorizza1Accoglienza;
+window.handleConfermaAutorizza1 = handleConfermaAutorizza1;
+window.handleConfermaAutorizza2 = handleConfermaAutorizza2;
+window.handleRifiutaAccoglienza = handleRifiutaAccoglienza;
+window.handleEliminaAccoglienza = handleEliminaAccoglienza;
+window.handleSalvaConfigurazioneCamere = handleSalvaConfigurazioneCamere;
+
+// ----------------------------------------------------------------------------
 // LOGICA SEZIONE 4: MANUTENZIONE (CON RESIZE CANVAS A MAX 800PX)
 // ----------------------------------------------------------------------------
 
@@ -4385,6 +5430,7 @@ async function caricaDatiMaster() {
       appState.cachedConfig = res.config || appState.cachedConfig || {};
       if (res.bacheca) appState.bacheca = res.bacheca;
       if (res.prenotazioniSpazi) appState.prenotazioniSpazi = res.prenotazioniSpazi;
+      if (res.accoglienza) appState.accoglienzaList = res.accoglienza;
     }
     renderMasterSection();
   } catch (err) {
@@ -4456,11 +5502,14 @@ function renderMasterSection() {
 
   const inAttesaSpazi = prenotazioniSpazi.filter(p => p.stato === "In Attesa");
   const guastiAperti = tutteSegnalazioni.filter(g => g.stato !== "Risolto");
+  const accoglienzaList = appState.accoglienzaList || [];
+  const inAttesaAccoglienza = accoglienzaList.filter(a => a.stato === "In Attesa 1a Autorizzazione" || a.stato === "1a Autorizzazione Concessa");
 
   // Calcolo schede disponibili in base ai permessi
   const tabsDisponibili = [];
   if (perm_admin) {
     tabsDisponibili.push({ id: "utenti", label: "Residenti & Ruoli", icon: "👥", badge: utentiInAttesa.length, color: "#d97706" });
+    tabsDisponibili.push({ id: "accoglienza", label: "Accoglienza & Camere", icon: "🛏️", badge: inAttesaAccoglienza.length, color: "#166534" });
   }
   if (perm_spazi) {
     tabsDisponibili.push({ id: "spazi", label: "Ambienti & Approvazioni", icon: "⛪", badge: inAttesaSpazi.length, color: "#9d174d" });
@@ -4616,7 +5665,8 @@ function renderMasterSection() {
                 <tr>
                   <th>Residente</th>
                   <th>Stato</th>
-                  <th>Mensa</th>
+                  <th style="color: #ea580c; text-align: center;" title="Abilita/disabilita accesso alla mensa comunitaria">🍽️ Utente Mensa</th>
+                  <th>Master Mensa</th>
                   <th>Manutenzione</th>
                   <th>Spazi</th>
                   <th>Supermaster</th>
@@ -4627,7 +5677,7 @@ function renderMasterSection() {
                 </tr>
               </thead>
               <tbody>
-                ${tuttiUtenti.length === 0 ? '<tr><td colspan="10" style="text-align:center; padding: 14px; color: #64748b;">Nessun utente caricato.</td></tr>' : ''}
+                ${tuttiUtenti.length === 0 ? '<tr><td colspan="11" style="text-align:center; padding: 14px; color: #64748b;">Nessun utente caricato.</td></tr>' : ''}
                 ${tuttiUtenti.map(u => `
                   <tr>
                     <td>
@@ -4636,6 +5686,9 @@ function renderMasterSection() {
                     </td>
                     <td>
                       <span class="badge ${u.stato === 'Approvato' ? 'badge-success' : 'badge-warning'}">${escapeHtml(u.stato || 'Attivo')}</span>
+                    </td>
+                    <td style="text-align: center;">
+                      <input type="checkbox" id="edit-is-mensa-${escapeHtml(u.email)}" ${u.is_utente_mensa !== false ? 'checked' : ''} title="Abilitato alla Mensa comunitaria">
                     </td>
                     <td style="text-align: center;">
                       <input type="checkbox" id="edit-p-mensa-${escapeHtml(u.email)}" ${u.perm_mensa ? 'checked' : ''} title="Permesso Master Mensa">
@@ -4728,6 +5781,227 @@ function renderMasterSection() {
             </div>
             <button type="submit" class="btn btn-primary btn-block">Salva Regolamento & Contatti</button>
           </form>
+        </div>
+      </div>
+    `;
+  }
+
+  // ==========================================================================
+  // SCHEDA ACCOGLIENZA: GESTIONE OSPITALITÀ, CAMERE E DOPPIA AUTORIZZAZIONE
+  // ==========================================================================
+  if (perm_admin && (isVistaTutto || activeTab === "accoglienza")) {
+    const cam1 = getNomeCamera(1);
+    const cam2 = getNomeCamera(2);
+    const cam3 = getNomeCamera(3);
+    const maxOspMensa = appState.cachedConfig?.Max_Ospiti_Mensa || "5";
+
+    const inAttesa1 = accoglienzaList.filter(a => (a.stato || "") === "In Attesa 1a Autorizzazione");
+    const inAttesa2 = accoglienzaList.filter(a => (a.stato || "") === "1a Autorizzazione Concessa");
+    const confermate = accoglienzaList.filter(a => (a.stato || "") === "Confermata");
+    const altre = accoglienzaList.filter(a => (a.stato || "") === "Rifiutata");
+
+    html += `
+      <!-- BLOCCO GESTIONE ACCOGLIENZA E CAMERE OSPITI -->
+      <div class="master-block card" id="master-accoglienza-card" style="border-top: 4px solid #166534;">
+        <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 22px;">🛏️</span>
+            <div>
+              <h3 class="card-title" style="margin: 0;">Gestione Camere Ospitalità & Autorizzazioni</h3>
+              <span class="text-xs text-muted">Procedura a doppia autorizzazione (1ª Assegnazione Camera & 2ª Conferma Definitiva)</span>
+            </div>
+          </div>
+          <button type="button" class="btn btn-primary btn-sm" onclick="apriModalNuovaAccoglienza()" style="background: #166534; border-color: #166534; font-size: 11px; font-weight: 700;">
+            ➕ Nuova Richiesta Rapida
+          </button>
+        </div>
+
+        <!-- CONFIGURAZIONE NOMI CAMERE E MASSIMO OSPITI -->
+        <div class="card-inner" style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin: 12px 0;">
+          <h4 style="margin: 0 0 10px 0; color: #166534; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+            <span>⚙️</span> <strong>Nomi delle 3 Camere Dedicate & Regole Ospiti:</strong>
+          </h4>
+          <form onsubmit="handleSalvaConfigurazioneCamere(event)">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 10px;">
+              <div class="form-group">
+                <label for="cfg-camera-1" class="form-label" style="font-size: 11.5px; font-weight: 700;">Nome Camera 1</label>
+                <input type="text" id="cfg-camera-1" class="input-text" value="${escapeHtml(cam1)}" required style="font-size: 12px;">
+              </div>
+              <div class="form-group">
+                <label for="cfg-camera-2" class="form-label" style="font-size: 11.5px; font-weight: 700;">Nome Camera 2</label>
+                <input type="text" id="cfg-camera-2" class="input-text" value="${escapeHtml(cam2)}" required style="font-size: 12px;">
+              </div>
+              <div class="form-group">
+                <label for="cfg-camera-3" class="form-label" style="font-size: 11.5px; font-weight: 700;">Nome Camera 3</label>
+                <input type="text" id="cfg-camera-3" class="input-text" value="${escapeHtml(cam3)}" required style="font-size: 12px;">
+              </div>
+              <div class="form-group">
+                <label for="cfg-max-ospiti-mensa" class="form-label" style="font-size: 11.5px; font-weight: 700;">Max Ospiti Mensa / Residente</label>
+                <input type="number" id="cfg-max-ospiti-mensa" class="input-text" value="${escapeHtml(maxOspMensa)}" min="1" max="20" required style="font-size: 12px;">
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm" style="background: #166534; border-color: #166534; font-size: 11.5px; font-weight: 700;">
+              💾 Salva Nomi Camere & Regole
+            </button>
+          </form>
+        </div>
+
+        <!-- 1. RICHIESTE IN ATTESA DELLA 1ª AUTORIZZAZIONE -->
+        <div style="margin-top: 14px;">
+          <h4 style="font-size: 13.5px; font-weight: 800; color: #92400e; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
+            <span>⏳</span> In Attesa 1ª Autorizzazione (Assegnazione Camera) (${inAttesa1.length})
+          </h4>
+          <div class="table-responsive">
+            <table class="master-table">
+              <thead>
+                <tr>
+                  <th>Ospite</th>
+                  <th>Richiedente</th>
+                  <th>Date Soggiorno</th>
+                  <th>Persone</th>
+                  <th>Preferenza</th>
+                  <th>Note</th>
+                  <th style="text-align: right;">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${inAttesa1.length === 0 ? '<tr><td colspan="7" style="text-align:center; padding: 12px; color: #64748b;">Nessuna richiesta in attesa di 1ª autorizzazione.</td></tr>' : ''}
+                ${inAttesa1.map(a => {
+                  const checkin = a.data_checkin || a.checkin || "";
+                  const checkout = a.data_checkout || a.checkout || "";
+                  const notti = calcolaNottiSoggiorno(checkin, checkout);
+                  const ospite = a.nome_ospite || a.ospite_nome || "Ospite";
+                  const richiedente = a.richiedente_nome || a.nome_richiedente || a.richiedente_email || "Residente";
+                  const pref = a.camera_preferita || a.camera_richiesta || "Nessuna";
+                  return `
+                    <tr>
+                      <td><strong>${escapeHtml(ospite)}</strong></td>
+                      <td>${escapeHtml(richiedente)}</td>
+                      <td>
+                        <strong>${formattaDataItaliana(checkin)}</strong> ➜ <strong>${formattaDataItaliana(checkout)}</strong>
+                        <div class="text-xs text-muted">(${notti} ${notti === 1 ? 'notte' : 'notti'})</div>
+                      </td>
+                      <td style="text-align: center;">${a.numero_ospiti || a.num_ospiti || 1}</td>
+                      <td><span class="badge" style="background: #f1f5f9; color: #475569;">${escapeHtml(pref)}</span></td>
+                      <td style="font-size: 11.5px; max-width: 180px;">${escapeHtml(a.note || a.motivo || '-')}</td>
+                      <td style="text-align: right; white-space: nowrap;">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="apriModalAutorizza1Accoglienza('${a.id}')" style="background: #166534; border-color: #166534; font-size: 11px; font-weight: 700; padding: 3px 8px;">
+                          🔑 Assegna Camera
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="handleRifiutaAccoglienza('${a.id}')" style="color: #dc2626; border-color: #fca5a5; font-size: 11px; padding: 3px 8px;">
+                          ✕ Rifiuta
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 2. RICHIESTE IN ATTESA DELLA 2ª AUTORIZZAZIONE (CONFERMA DEFINITIVA) -->
+        <div style="margin-top: 18px;">
+          <h4 style="font-size: 13.5px; font-weight: 800; color: #1e40af; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
+            <span>🔑</span> In Attesa 2ª Autorizzazione (Conferma Definitiva Direzione) (${inAttesa2.length})
+          </h4>
+          <div class="table-responsive">
+            <table class="master-table">
+              <thead>
+                <tr>
+                  <th>Ospite</th>
+                  <th>Richiedente</th>
+                  <th>Date Soggiorno</th>
+                  <th>Camera Assegnata</th>
+                  <th>1ª Auth da</th>
+                  <th>Note</th>
+                  <th style="text-align: right;">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${inAttesa2.length === 0 ? '<tr><td colspan="7" style="text-align:center; padding: 12px; color: #64748b;">Nessuna richiesta in attesa di 2ª autorizzazione.</td></tr>' : ''}
+                ${inAttesa2.map(a => {
+                  const checkin = a.data_checkin || a.checkin || "";
+                  const checkout = a.data_checkout || a.checkout || "";
+                  const notti = calcolaNottiSoggiorno(checkin, checkout);
+                  const ospite = a.nome_ospite || a.ospite_nome || "Ospite";
+                  const richiedente = a.richiedente_nome || a.nome_richiedente || a.richiedente_email || "Residente";
+                  const camAss = a.camera_assegnata || "Camera 1";
+                  const auth1Da = a.auth1_email || a.autorizzato1_da || "Master";
+                  return `
+                    <tr>
+                      <td><strong>${escapeHtml(ospite)}</strong></td>
+                      <td>${escapeHtml(richiedente)}</td>
+                      <td>
+                        <strong>${formattaDataItaliana(checkin)}</strong> ➜ <strong>${formattaDataItaliana(checkout)}</strong>
+                        <div class="text-xs text-muted">(${notti} ${notti === 1 ? 'notte' : 'notti'})</div>
+                      </td>
+                      <td><span class="badge" style="background: #dbeafe; color: #1e40af; font-weight: 700;">${escapeHtml(camAss)}</span></td>
+                      <td style="font-size: 11px;">${escapeHtml(auth1Da.split('@')[0])}</td>
+                      <td style="font-size: 11.5px; max-width: 180px;">${escapeHtml(a.note || a.motivo || '-')}</td>
+                      <td style="text-align: right; white-space: nowrap;">
+                        <button type="button" class="btn btn-primary btn-sm" onclick="handleConfermaAutorizza2('${a.id}')" style="background: #2563eb; border-color: #2563eb; font-size: 11px; font-weight: 700; padding: 3px 8px;">
+                          ✓ Conferma Definitiva
+                        </button>
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="handleRifiutaAccoglienza('${a.id}')" style="color: #dc2626; border-color: #fca5a5; font-size: 11px; padding: 3px 8px;">
+                          ✕ Rifiuta
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- 3. SOGGIORNI CONFERMATI & STORICO -->
+        <div style="margin-top: 18px;">
+          <h4 style="font-size: 13.5px; font-weight: 800; color: #166534; margin: 0 0 8px 0; display: flex; align-items: center; gap: 6px;">
+            <span>✓</span> Soggiorni Confermati & Storico Prenotazioni (${confermate.length + altre.length})
+          </h4>
+          <div class="table-responsive">
+            <table class="master-table">
+              <thead>
+                <tr>
+                  <th>Ospite</th>
+                  <th>Richiedente</th>
+                  <th>Date</th>
+                  <th>Camera</th>
+                  <th>Stato</th>
+                  <th>Note</th>
+                  <th style="text-align: right;">Elimina</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(confermate.length === 0 && altre.length === 0) ? '<tr><td colspan="7" style="text-align:center; padding: 12px; color: #64748b;">Nessun soggiorno confermato nello storico.</td></tr>' : ''}
+                ${[...confermate, ...altre].map(a => {
+                  const checkin = a.data_checkin || a.checkin || "";
+                  const checkout = a.data_checkout || a.checkout || "";
+                  const ospite = a.nome_ospite || a.ospite_nome || "Ospite";
+                  const richiedente = a.richiedente_nome || a.nome_richiedente || a.richiedente_email || "Residente";
+                  const camAss = a.camera_assegnata || "-";
+                  const st = a.stato || "";
+                  const badgeStyle = st === "Confermata" ? "background:#dcfce7; color:#166534;" : "background:#fee2e2; color:#991b1b;";
+                  return `
+                    <tr>
+                      <td><strong>${escapeHtml(ospite)}</strong></td>
+                      <td>${escapeHtml(richiedente)}</td>
+                      <td>${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)}</td>
+                      <td>${escapeHtml(camAss)}</td>
+                      <td><span class="badge" style="${badgeStyle} font-weight: 700; font-size: 10.5px;">${escapeHtml(st)}</span></td>
+                      <td style="font-size: 11.5px; max-width: 180px;">${escapeHtml(a.note || a.motivo || '-')}</td>
+                      <td style="text-align: right;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="handleEliminaAccoglienza('${a.id}')" style="color: #dc2626; border-color: #fca5a5; font-size: 10.5px; padding: 2px 6px;">
+                          🗑️
+                        </button>
+                      </td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     `;
@@ -5481,6 +6755,7 @@ function renderMasterSection() {
 // HANDLER MASTER: SALVATAGGIO RUOLI UTENTE
 // ----------------------------------------------------------------------------
 window.salvaRuoliUtente = async function(email) {
+  const isMensa = document.getElementById(`edit-is-mensa-${email}`)?.checked ?? true;
   const permMensa = document.getElementById(`edit-p-mensa-${email}`)?.checked || false;
   const permManut = document.getElementById(`edit-p-manut-${email}`)?.checked || false;
   const permSpazi = document.getElementById(`edit-p-spazi-${email}`)?.checked || false;
@@ -5491,6 +6766,7 @@ window.salvaRuoliUtente = async function(email) {
   try {
     const res = await callApi("aggiornaRuoliUtente", {
       emailTarget: email,
+      is_utente_mensa: isMensa,
       perm_mensa: permMensa,
       perm_manutenzione: permManut,
       perm_spazi: permSpazi,
@@ -5500,9 +6776,10 @@ window.salvaRuoliUtente = async function(email) {
     });
 
     if (res.success) {
-      mostraToast(`✅ Ruoli e notifiche aggiornati per ${email}!`, "success");
+      mostraToast(`✅ Ruoli e permessi aggiornati per ${email}!`, "success");
       // Aggiorna stato locale se stiamo modificando l'utente loggato
       if (appState.user && appState.user.email.toLowerCase() === email.toLowerCase()) {
+        appState.user.is_utente_mensa = isMensa;
         appState.user.perm_mensa = permMensa;
         appState.user.perm_manutenzione = permManut;
         appState.user.perm_spazi = permSpazi;
@@ -5510,6 +6787,7 @@ window.salvaRuoliUtente = async function(email) {
         appState.user.notif_manutenzione = notifManut;
         appState.user.notif_spazi = notifSpazi;
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+        aggiornaUIUtente();
       }
       caricaDatiMaster();
     } else {
@@ -6528,7 +7806,7 @@ function switchTab(tabId) {
   });
 
   // Toggle views
-  const views = ["info", "mensa", "spazi", "residenza", "manutenzione", "master", "cucina", "calendario"];
+  const views = ["info", "mensa", "spazi", "accoglienza", "residenza", "manutenzione", "master", "cucina", "calendario"];
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
     if (el) {
@@ -6549,6 +7827,7 @@ function switchTab(tabId) {
   if (tabId === "info") renderBachecaView();
   if (tabId === "mensa") renderMensaView();
   if (tabId === "spazi") renderSpaziView();
+  if (tabId === "accoglienza") renderAccoglienzaView();
   if (tabId === "residenza") renderResidenzaView();
   if (tabId === "manutenzione") caricaGuastiRecenti();
   if (tabId === "master") caricaDatiMaster();
@@ -6893,6 +8172,7 @@ function aggiornaUIUtente() {
   const userName = document.getElementById("header-user-name");
   const userRole = document.getElementById("header-user-role");
   const masterNav = document.getElementById("nav-tab-master");
+  const mensaNav = document.getElementById("nav-tab-mensa");
 
   if (appState.user) {
     if (avatarText) {
@@ -6911,12 +8191,23 @@ function aggiornaUIUtente() {
     if (masterNav) {
       masterNav.style.display = haPermessiMaster() ? "flex" : "none";
     }
+
+    if (mensaNav) {
+      const isMensaEnabled = appState.user.is_utente_mensa !== false;
+      mensaNav.style.display = isMensaEnabled ? "flex" : "none";
+      if (!isMensaEnabled && appState.currentTab === "mensa") {
+        switchTab("info");
+      }
+    }
   } else {
     if (avatarText) avatarText.innerText = "👤";
     if (userName) userName.innerText = "Ospite";
     if (userRole) userRole.innerText = "Accedi";
     if (masterNav) {
       masterNav.style.display = "none";
+    }
+    if (mensaNav) {
+      mensaNav.style.display = "flex";
     }
   }
 }
