@@ -16,7 +16,7 @@ const STORAGE_KEYS = {
 };
 
 // URL predefinito del Backend Google Apps Script per tutti i residenti
-const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbys9aPfUH6PXGCmHPDWset6pgvwG1kmxUlDFv3Yaiq8uAfp_2uiswm7DNd8_tQqDHHxVg/exec";
+const DEFAUconst DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbys9aPfUH6PXGCmHPDWset6pgvwG1kmxUlDFv3Yaiq8uAfp_2uiswm7DNd8_tQqDHHxVg/exec";
 // Bindings globali immediati per gli eventi inline HTML onclick
 window.mostraModalAuth = function(mostra) {
   const modal = document.getElementById("modal-auth");

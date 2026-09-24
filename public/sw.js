@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'newman-static-v3';
-const API_CACHE = 'newman-api-v3';
+const STATIC_CACHE = 'newman-static-v4';
+const API_CACHE = 'newman-api-v4';
 
 const STATIC_ASSETS = [
   '/',
@@ -15,9 +15,12 @@ const STATIC_ASSETS = [
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('Pre-cache static assets warning:', err);
-      });
+      // Cacha ogni asset singolarmente: se uno manca, gli altri vengono comunque cachati
+      return Promise.allSettled(
+        STATIC_ASSETS.map(url =>
+          cache.add(url).catch(err => console.log('Skip:', url))
+        )
+      );
     }).then(() => self.skipWaiting())
   );
 });
