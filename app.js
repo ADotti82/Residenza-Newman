@@ -14,7 +14,6 @@ const STORAGE_KEYS = {
   LOCAL_DB: "newman_local_mock_db",
   BYPASS_TIME_LOCK: "newman_bypass_time_lock"
 };
-
 // URL predefinito del Backend Google Apps Script per tutti i residenti
 const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbys9aPfUH6PXGCmHPDWset6pgvwG1kmxUlDFv3Yaiq8uAfp_2uiswm7DNd8_tQqDHHxVg/exec";
 // Bindings globali immediati per gli eventi inline HTML onclick
