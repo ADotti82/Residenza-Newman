@@ -16,7 +16,7 @@ const STORAGE_KEYS = {
 };
 
 // URL predefinito del Backend Google Apps Script per tutti i residenti
-const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbwGOPkCRL8gIHEcvv_yTmmlSWwyt2r5_jqrU7JMqzNorN6By4hccBIwB-GhvmLwoY3pTw/exec";
+const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbyVBW5DbTvusVeq6ycoeVlitajjitiL71mJXQY4dzU7Q8ufGdaty3Qcf92tif5gY55KuA/exec";
 
 // Bindings globali immediati per gli eventi inline HTML onclick
 window.mostraModalAuth = function(mostra) {
@@ -306,7 +306,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
 function initStorage() {
   let storedBackendUrl = localStorage.getItem(STORAGE_KEYS.BACKEND_URL);
-  if (!storedBackendUrl && DEFAULT_GAS_URL) {
+  // Se non c'è URL salvato o se era memorizzato il vecchio URL di default, aggiorna al nuovo DEFAULT_GAS_URL
+  if (!storedBackendUrl || storedBackendUrl.includes("AKfycbwGOPkCRL8gIHEcvv_yTmmlSWwyt2r5_jqrU7JMqzNorN6By4hccBIwB-GhvmLwoY3pTw")) {
     storedBackendUrl = DEFAULT_GAS_URL;
     localStorage.setItem(STORAGE_KEYS.BACKEND_URL, DEFAULT_GAS_URL);
   }
