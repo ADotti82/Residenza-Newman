@@ -17,7 +17,6 @@ const STORAGE_KEYS = {
 
 // URL predefinito del Backend Google Apps Script per tutti i residenti
 const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbys9aPfUH6PXGCmHPDWset6pgvwG1kmxUlDFv3Yaiq8uAfp_2uiswm7DNd8_tQqDHHxVg/exec";
-
 // Bindings globali immediati per gli eventi inline HTML onclick
 window.mostraModalAuth = function(mostra) {
   const modal = document.getElementById("modal-auth");
@@ -303,14 +302,18 @@ document.addEventListener("DOMContentLoaded", () => {
   setupEventListeners();
   checkAuthAndLoad();
 });
-
 function initStorage() {
-  let storedBackendUrl = localStorage.getItem(STORAGE_KEYS.BACKEND_URL);
-  if (!storedBackendUrl && DEFAULT_GAS_URL) {
-    storedBackendUrl = DEFAULT_GAS_URL;
-    localStorage.setItem(STORAGE_KEYS.BACKEND_URL, DEFAULT_GAS_URL);
+  // ✅ FIX: Forza il reset dell'URL GAS se è quello vecchio/rotto
+  const URL_CORRETTO = "https://script.google.com/macros/s/AKfycbys9aPfUH6PXGCmHPDWset6pgvwG1kmxUlDFv3Yaiq8uAfp_2uiswm7DNd8_tQqDHHxVg/exec";
+  const storedBackendUrl = localStorage.getItem(STORAGE_KEYS.BACKEND_URL);
+  
+  // Se l'URL salvato è assente, vecchio o non contiene l'ID corretto, lo sostituisce
+  if (!storedBackendUrl || !storedBackendUrl.includes("AKfycbys9aPfUH6PXGCmHPDWset6pgvwG1kmxUlDFv3Yaiq8uAfp")) {
+    localStorage.setItem(STORAGE_KEYS.BACKEND_URL, URL_CORRETTO);
+    console.log("🔄 URL GAS resettato al default corretto");
   }
-  appState.backendUrl = storedBackendUrl || DEFAULT_GAS_URL || "";
+  
+  appState.backendUrl = localStorage.getItem(STORAGE_KEYS.BACKEND_URL);
   appState.bypassTimeLock = localStorage.getItem(STORAGE_KEYS.BYPASS_TIME_LOCK) === "true";
   appState.selectedBachecaDate = new Date();
   appState.selectedSpazioData = formatYMD(new Date());

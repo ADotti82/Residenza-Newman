@@ -1,5 +1,5 @@
-const STATIC_CACHE = 'newman-static-v2';
-const API_CACHE = 'newman-api-v2';
+const STATIC_CACHE = 'newman-static-v3';
+const API_CACHE = 'newman-api-v3';
 
 const STATIC_ASSETS = [
   '/',
