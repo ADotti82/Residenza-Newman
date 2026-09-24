@@ -392,8 +392,38 @@ function checkAuthAndLoad() {
 // LAYER DI RETE E API
 // ----------------------------------------------------------------------------
 
+function getCachedApiResponse(action) {
+  try {
+    const raw = localStorage.getItem(`newman_cache_${action}`);
+    if (raw) return JSON.parse(raw);
+  } catch (e) {
+    console.warn("Errore lettura cache API:", e);
+  }
+  return null;
+}
+
+function setCachedApiResponse(action, data) {
+  try {
+    if (data && (data.success || !data.error)) {
+      localStorage.setItem(`newman_cache_${action}`, JSON.stringify(data));
+    }
+  } catch (e) {
+    console.warn("Errore scrittura cache API:", e);
+  }
+}
+
 async function callApi(action, params = {}) {
   const payload = { action, ...params };
+
+  // Stale-While-Revalidate: applica prima i dati cached (UI istantanea) per azioni di lettura
+  const cachedData = getCachedApiResponse(action);
+  if (cachedData && typeof params.onCachedData === "function") {
+    try {
+      params.onCachedData(cachedData);
+    } catch (e) {
+      console.warn("Errore applicazione onCachedData:", e);
+    }
+  }
 
   if (appState.backendUrl && !appState.isOfflineMode) {
     try {
@@ -403,16 +433,22 @@ async function callApi(action, params = {}) {
         body: JSON.stringify(payload)
       });
       const data = await response.json();
+      if (data && data.success) {
+        setCachedApiResponse(action, data);
+      }
       return data;
     } catch (err) {
       console.warn("Chiamata GAS fallita. Uso fallback locale.", err);
       mostraToast("Server GAS non raggiungibile. Operazione in modalità locale.", "warning");
-      return mockBackendExecution(action, params);
+      const fallbackData = mockBackendExecution(action, params);
+      return fallbackData;
     }
   } else {
-    return new Promise(resolve => {
-      setTimeout(() => resolve(mockBackendExecution(action, params)), 250);
-    });
+    const mockData = mockBackendExecution(action, params);
+    if (mockData && mockData.success) {
+      setCachedApiResponse(action, mockData);
+    }
+    return Promise.resolve(mockData);
   }
 }
 
@@ -840,6 +876,26 @@ function mockBackendExecution(action, params) {
     case "getAccoglienzaData":
       return { success: true, accoglienza: db.accoglienza || [], config: db.configurazione || {} };
 
+    case "getBootstrap": {
+      const email = String(params.email || (appState.user && appState.user.email) || "").toLowerCase();
+      const utente = db.utenti.find(u => String(u.email).toLowerCase() === email);
+      const isMasterUser = Boolean(utente && (utente.perm_admin || utente.perm_mensa || utente.perm_manutenzione || utente.perm_spazi));
+      return {
+        success: true,
+        config: db.configurazione,
+        prenotazioniSpazi: db.prenotazioni_spazi,
+        prenotazioniMensa: db.mensa,
+        bacheca: db.bacheca || [],
+        accoglienza: db.accoglienza || [],
+        menuBase: null,
+        ...(isMasterUser ? {
+          utentiInAttesa: db.utenti.filter(u => u.stato === "In Attesa"),
+          tuttiUtenti: db.utenti,
+          guasti: db.manutenzione
+        } : {})
+      };
+    }
+
     case "getInfoData":
       return {
         success: true,
@@ -897,33 +953,64 @@ function mockBackendExecution(action, params) {
 // CARICAMENTO E AGGIORNAMENTO DATI
 // ----------------------------------------------------------------------------
 
-async function caricaDatiBackend() {
+function applicaDatiBootstrap(data) {
+  if (!data || !data.success) return;
+  if (data.config) appState.cachedConfig = data.config;
+  if (data.prenotazioniSpazi) appState.prenotazioniSpazi = data.prenotazioniSpazi;
+  if (data.bacheca) appState.bacheca = data.bacheca;
+  if (data.prenotazioniMensa || data.mensa) appState.mensaBookings = data.prenotazioniMensa || data.mensa;
+  if (data.menuBase) applicaMenuBaseDaGoogleSheets(data.menuBase);
+  if (data.accoglienza) appState.accoglienzaList = data.accoglienza;
+
+  if (haPermessiMaster()) {
+    if (data.utentiInAttesa) appState.utentiInAttesa = data.utentiInAttesa;
+    if (data.tuttiUtenti) appState.tuttiUtenti = data.tuttiUtenti;
+    if (data.guasti) {
+      appState.guasti = data.guasti;
+      appState.manutenzioneList = data.guasti;
+    }
+  }
+
+  // Esecuzione render delle viste
   renderBachecaView();
   renderResidenzaView();
+  verificaAlertVariazione();
+  renderSlotSpazi();
   renderMensaView();
-  renderSpaziView();
   if (typeof renderAccoglienzaView === "function") renderAccoglienzaView();
+  if (haPermessiMaster() && typeof renderMasterSection === "function") renderMasterSection();
+}
+
+async function caricaDatiBackend() {
+  // Parallelizza i render iniziali per massimizzare la reattività
+  requestAnimationFrame(() => {
+    renderBachecaView();
+    renderResidenzaView();
+    renderMensaView();
+    renderSpaziView();
+    if (typeof renderAccoglienzaView === "function") renderAccoglienzaView();
+  });
+
+  const isMaster = haPermessiMaster();
+  const emailUtente = appState.user ? appState.user.email : "";
 
   try {
-    const data = await callApi("getInfoData");
-    if (data && data.success) {
-      appState.cachedConfig = data.config || {};
-      appState.prenotazioniSpazi = data.prenotazioniSpazi || [];
-      if (data.bacheca) appState.bacheca = data.bacheca;
-      if (data.prenotazioniMensa) appState.mensaBookings = data.prenotazioniMensa;
-      if (data.menuBase) applicaMenuBaseDaGoogleSheets(data.menuBase);
-      if (data.accoglienza) appState.accoglienzaList = data.accoglienza;
-
-      renderBachecaView();
-      renderResidenzaView();
-      verificaAlertVariazione();
-      renderSlotSpazi();
-      renderMensaView();
-      if (typeof renderAccoglienzaView === "function") renderAccoglienzaView();
-    }
-
-    if (haPermessiMaster()) {
-      caricaDatiMaster();
+    if (isMaster) {
+      // Per utenti master unifica getInfoData + getMasterData in un'unica chiamata getBootstrap
+      const data = await callApi("getBootstrap", {
+        email: emailUtente,
+        onCachedData: (cached) => applicaDatiBootstrap(cached)
+      });
+      if (data && data.success) {
+        applicaDatiBootstrap(data);
+      }
+    } else {
+      const data = await callApi("getInfoData", {
+        onCachedData: (cached) => applicaDatiBootstrap(cached)
+      });
+      if (data && data.success) {
+        applicaDatiBootstrap(data);
+      }
     }
   } catch (err) {
     console.error("Errore caricamento dati:", err);
@@ -1112,15 +1199,46 @@ function calcolaCalendarioRomano(date) {
 // LOGICA SEZIONE 1: BACHECA & CALENDARIO ROMANO
 // ----------------------------------------------------------------------------
 
-function renderBachecaView() {
+function computeFastHash(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash;
+}
+
+const renderCacheHashes = {
+  bacheca: null,
+  residenza: null,
+  mensa: null,
+  spaziSlots: null,
+  accoglienza: null
+};
+
+function renderBachecaView(force = false) {
   const container = document.getElementById("bacheca-container");
   if (!container) return;
 
   if (!appState.selectedBachecaDate) appState.selectedBachecaDate = new Date();
 
   const currentDate = appState.selectedBachecaDate;
-  const cal = calcolaCalendarioRomano(currentDate);
   const dataYMD = formatYMD(currentDate);
+
+  // Memoizzazione basata su hash dei dati rilevanti
+  const stateHash = computeFastHash(JSON.stringify({
+    dataYMD,
+    bacheca: appState.bacheca,
+    isMaster: haPermessiMaster()
+  }));
+
+  if (!force && renderCacheHashes.bacheca === stateHash && container.innerHTML.trim() !== "") {
+    return;
+  }
+  renderCacheHashes.bacheca = stateHash;
+
+  const cal = calcolaCalendarioRomano(currentDate);
   const oggiYMD = formatYMD(new Date());
   const isOggi = (dataYMD === oggiYMD);
 
@@ -1290,19 +1408,33 @@ window.selezionaDataBacheca = function(dateStr) {
 // LA RESIDENZA (REGOLAMENTO, ORARI E CONTATTI)
 // ----------------------------------------------------------------------------
 
-function renderResidenzaView() {
+function renderResidenzaView(force = false) {
   const container = document.getElementById("residenza-container");
   if (!container) return;
 
   const rawReg = appState.cachedConfig?.Info_Regolamento;
+  const rawCont = appState.cachedConfig?.Info_Contatti;
+  const rawMsg = appState.cachedConfig?.Messaggio_Supermaster;
+  const isMaster = haPermessiMaster();
+
+  const stateHash = computeFastHash(JSON.stringify({
+    rawReg,
+    rawCont,
+    rawMsg,
+    isMaster
+  }));
+
+  if (!force && renderCacheHashes.residenza === stateHash && container.innerHTML.trim() !== "") {
+    return;
+  }
+  renderCacheHashes.residenza = stateHash;
+
   const regText = (rawReg && typeof rawReg === "string" && rawReg.trim().length > 5) ? rawReg.trim()
     : `REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN\n1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità è alla base della convivenza.`;
 
-  const rawCont = appState.cachedConfig?.Info_Contatti;
   const contText = (rawCont && typeof rawCont === "string" && rawCont.trim().length > 5) ? rawCont.trim()
     : `CONTATTI E RECAPITI DELLA RESIDENZA:\n• Portineria: Tel. +39 06 87654321`;
 
-  const rawMsg = appState.cachedConfig?.Messaggio_Supermaster;
   const msgSupermaster = (rawMsg && typeof rawMsg === "string" && rawMsg.trim().length > 0) ? rawMsg.trim()
     : "Cari residenti, benvenuti nel portale digitale della Residenza Newman.";
 
@@ -1804,18 +1936,38 @@ function getVariazioneCuocaPerData(dStr, tipoPasto) {
   return null;
 }
 
-function renderMensaView() {
+function renderMensaView(force = false) {
   const container = document.getElementById("mensa-container");
   if (!container) return;
 
   const dataSel = appState.selectedDateMensa || new Date();
   const lunediSettimana = getLunediDellaSettimana(dataSel);
+  const mode = appState.mensaViewMode || "settimana";
+
+  // Memoizzazione basata su hash dello stato mensa
+  const stateHash = computeFastHash(JSON.stringify({
+    mode,
+    dataSelYMD: formatYMD(dataSel),
+    lunediYMD: formatYMD(lunediSettimana),
+    mensaBookings: appState.mensaBookings,
+    configVar: appState.cachedConfig?.Variazioni_Per_Data,
+    testoVar: appState.cachedConfig?.Testo_Variazione,
+    dataVar: appState.cachedConfig?.Data_Variazione_Menu,
+    bypassTimeLock: appState.bypassTimeLock,
+    isMaster: haPermessiMaster() || (appState.user && appState.user.perm_mensa),
+    userEmail: appState.user ? appState.user.email : ""
+  }));
+
+  if (!force && renderCacheHashes.mensa === stateHash && container.innerHTML.trim() !== "") {
+    return;
+  }
+  renderCacheHashes.mensa = stateHash;
+
   const domenicaSettimana = new Date(lunediSettimana);
   domenicaSettimana.setDate(lunediSettimana.getDate() + 6);
 
   const settimanaCiclo = getSettimanaMenu(lunediSettimana);
   const numSettimana = (settimanaCiclo === "settimana1") ? 1 : 2;
-  const mode = appState.mensaViewMode || "settimana";
   const dataInizioFmt = formattaDataItaliana(lunediSettimana);
   const dataFineFmt = formattaDataItaliana(domenicaSettimana);
 
@@ -1880,9 +2032,108 @@ function renderMensaView() {
   container.innerHTML = html;
 }
 
-function renderWeeklyScrollView(lunediDate) {
+function renderSingleWeeklyDayCard(d, isToday, isSelected) {
   const giorniNomi = ["lunedi", "martedi", "mercoledi", "giovedi", "venerdi", "sabato", "domenica"];
   const giorniLabels = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
+  const dStr = formatYMD(d);
+  const dayIndex = (d.getDay() + 6) % 7; // Lunedì = 0
+  const giornoKey = giorniNomi[dayIndex];
+  const giornoLabel = giorniLabels[dayIndex];
+  const cicloSettimana = getSettimanaMenu(d);
+  const menuGiorno = MENU_14_GIORNI[cicloSettimana][giornoKey] || {};
+  const isTuesdayOrThursday = (giornoKey === "martedi" || giornoKey === "giovedi");
+  const variazionePranzo = getVariazioneCuocaPerData(dStr, "pranzo");
+  const variazioneCena = getVariazioneCuocaPerData(dStr, "cena");
+  const isMaster = haPermessiMaster() || (appState.user && appState.user.perm_mensa);
+  const pranzoLocked = isPranzoBloccato(d);
+  const cenaLocked = isCenaBloccata(d);
+  const emailUtente = appState.user ? appState.user.email.toLowerCase() : "";
+  const prenPranzo = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "pranzo" && m.email.toLowerCase() === emailUtente);
+  const prenCena = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "cena" && m.email.toLowerCase() === emailUtente);
+
+  return `
+    <div class="weekly-day-card ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}" id="day-card-${dStr}">
+      <div class="weekly-day-header">
+        <div class="weekly-day-title">
+          <span>${giornoLabel}, ${formattaDataItaliana(d)}</span>
+          ${isToday ? '<span class="badge badge-accent" style="font-size: 10px;">Oggi</span>' : ''}
+        </div>
+        <button type="button" class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px;" onclick="apriDettaglioGiornoMensa('${dStr}')">Dettagli & Note</button>
+      </div>
+
+      <div class="weekly-meal-row">
+        <div class="weekly-meal-header">
+          <div class="weekly-meal-title">
+            <span>☀️ Pranzo (14:30)</span>
+            ${prenPranzo ? ((prenPranzo.stato_presenza === 'assente' || prenPranzo.stato_presenza === 'Assente') ? `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>` : `<span class="meal-status-pill booked">✓ Presente ${prenPranzo.ospiti > 0 ? `(+${prenPranzo.ospiti})` : ''} ${prenPranzo.busta ? '(Busta)' : ''} ${prenPranzo.ritardo ? '(Ritardo)' : ''}</span>`) : `<span class="meal-status-pill not-booked">Non segnato</span>`}
+            ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')">👥 Pasti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'pranzo' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((s, m) => s + 1 + (parseInt(m.ospiti, 10) || 0), 0)}</span></span>` : ''}
+          </div>
+          <span class="badge ${pranzoLocked ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${pranzoLocked ? 'Chiuso' : 'Aperto'}</span>
+        </div>
+        <div class="weekly-meal-dishes">
+          ${isTuesdayOrThursday ? `
+            <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 10px; margin-bottom: 4px;">
+              <div style="font-weight: 700; color: #9a3412; font-size: 12.5px;">🥪 Pranzo al sacco: Busta da Asporto</div>
+              <div style="font-size: 11.5px; color: #7c2d12; margin-top: 2px;">Comprende: <strong>pasto, frutta e snack/dolce, acqua e succo</strong>.</div>
+            </div>
+          ` : `
+            <div><strong>1°:</strong> ${escapeHtml(menuGiorno.pranzo?.primo || '-')} • <strong>2°:</strong> ${escapeHtml(menuGiorno.pranzo?.secondo || '-')} • <strong>Cont.:</strong> ${escapeHtml(menuGiorno.pranzo?.contorno || '-')}${menuGiorno.pranzo?.contorno2 ? ' • ' + escapeHtml(menuGiorno.pranzo.contorno2) : ''} • <strong>Dessert:</strong> ${escapeHtml(menuGiorno.pranzo?.dessert || '-')}</div>
+          `}
+          ${variazionePranzo ? `<div class="cuoca-inline-variation">👩‍🍳 <strong>Variazione Pranzo:</strong> ${escapeHtml(variazionePranzo)}</div>` : ''}
+          ${isMaster ? `<div style="margin-top: 4px;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">👩‍🍳 ${variazionePranzo ? 'Modifica' : '+ Variazione'} Pranzo</button></div>` : ''}
+        </div>
+        <div class="booking-inline-controls">
+          ${prenPranzo ? ((prenPranzo.stato_presenza === 'assente' || prenPranzo.stato_presenza === 'Assente') ? `
+            <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+            <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Rimuovi Assenza</button>
+          ` : `
+            <span class="presence-summary-badge">✅ Presenza ${prenPranzo.ospiti > 0 ? `(+${prenPranzo.ospiti})` : ''} ${isTuesdayOrThursday ? '(Busta)' : ''}</span>
+            <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Annulla Presenza</button>
+          `) : (isTuesdayOrThursday ? `
+            <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, false)">🥪 Richiedi Busta Pranzo</button>
+            <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, true)">⏰ Ritiro Posticipato</button>
+            <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
+          ` : `
+            <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, false)">🍽️ Presente</button>
+            <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, true)">⏰ In Ritardo</button>
+            <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
+          `)}
+        </div>
+      </div>
+
+      <div class="weekly-meal-row cena-row">
+        <div class="weekly-meal-header">
+          <div class="weekly-meal-title">
+            <span>🌙 Cena (19:30)</span>
+            ${prenCena ? ((prenCena.stato_presenza === 'assente' || prenCena.stato_presenza === 'Assente') ? `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>` : `<span class="meal-status-pill booked">✓ Presente ${prenCena.ospiti > 0 ? `(+${prenCena.ospiti})` : ''} ${prenCena.ritardo ? '(Ritardo)' : ''}</span>`) : `<span class="meal-status-pill not-booked">Non segnato</span>`}
+            ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')">👥 Pasti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'cena' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((s, m) => s + 1 + (parseInt(m.ospiti, 10) || 0), 0)}</span></span>` : ''}
+          </div>
+          <span class="badge ${cenaLocked ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${cenaLocked ? 'Chiuso' : 'Aperto'}</span>
+        </div>
+        <div class="weekly-meal-dishes">
+          <div><strong>1°:</strong> ${escapeHtml(menuGiorno.cena?.primo || '-')} • <strong>2°:</strong> ${escapeHtml(menuGiorno.cena?.secondo || '-')} • <strong>Cont.:</strong> ${escapeHtml(menuGiorno.cena?.contorno || '-')}${menuGiorno.cena?.contorno2 ? ' • ' + escapeHtml(menuGiorno.cena.contorno2) : ''} • <strong>Dessert:</strong> ${escapeHtml(menuGiorno.cena?.dessert || '-')}</div>
+          ${variazioneCena ? `<div class="cuoca-inline-variation">👩‍🍳 <strong>Variazione Cena:</strong> ${escapeHtml(variazioneCena)}</div>` : ''}
+          ${isMaster ? `<div style="margin-top: 4px;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'cena')">👩‍🍳 ${variazioneCena ? 'Modifica' : '+ Variazione'} Cena</button></div>` : ''}
+        </div>
+        <div class="booking-inline-controls">
+          ${prenCena ? ((prenCena.stato_presenza === 'assente' || prenCena.stato_presenza === 'Assente') ? `
+            <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+            <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">Rimuovi Assenza</button>
+          ` : `
+            <span class="presence-summary-badge">✅ Presenza ${prenCena.ospiti > 0 ? `(+${prenCena.ospiti})` : ''}</span>
+            <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">Annulla Presenza</button>
+          `) : `
+            <button type="button" class="btn-quick-book" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', false, false)">🍽️ Presente</button>
+            <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', false, true)">⏰ In Ritardo</button>
+            <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'cena')">❌ Assente</button>
+          `}
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderWeeklyScrollView(lunediDate) {
   let out = `<div class="weekly-scroll-container">`;
 
   for (let i = 0; i < 7; i++) {
@@ -1891,103 +2142,23 @@ function renderWeeklyScrollView(lunediDate) {
     const dStr = formatYMD(d);
     const isToday = dStr === formatYMD(new Date());
     const isSelected = dStr === formatYMD(appState.selectedDateMensa || new Date());
-    const giornoKey = giorniNomi[i];
-    const giornoLabel = giorniLabels[i];
-    const cicloSettimana = getSettimanaMenu(d);
-    const menuGiorno = MENU_14_GIORNI[cicloSettimana][giornoKey] || {};
-    const isTuesdayOrThursday = (giornoKey === "martedi" || giornoKey === "giovedi");
-    const variazionePranzo = getVariazioneCuocaPerData(dStr, "pranzo");
-    const variazioneCena = getVariazioneCuocaPerData(dStr, "cena");
-    const isMaster = haPermessiMaster() || (appState.user && appState.user.perm_mensa);
-    const pranzoLocked = isPranzoBloccato(d);
-    const cenaLocked = isCenaBloccata(d);
-    const emailUtente = appState.user ? appState.user.email.toLowerCase() : "";
-    const prenPranzo = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "pranzo" && m.email.toLowerCase() === emailUtente);
-    const prenCena = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "cena" && m.email.toLowerCase() === emailUtente);
-
-    out += `
-      <div class="weekly-day-card ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}" id="day-card-${dStr}">
-        <div class="weekly-day-header">
-          <div class="weekly-day-title">
-            <span>${giornoLabel}, ${formattaDataItaliana(d)}</span>
-            ${isToday ? '<span class="badge badge-accent" style="font-size: 10px;">Oggi</span>' : ''}
-          </div>
-          <button type="button" class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px;" onclick="apriDettaglioGiornoMensa('${dStr}')">Dettagli & Note</button>
-        </div>
-
-        <div class="weekly-meal-row">
-          <div class="weekly-meal-header">
-            <div class="weekly-meal-title">
-              <span>☀️ Pranzo (14:30)</span>
-              ${prenPranzo ? ((prenPranzo.stato_presenza === 'assente' || prenPranzo.stato_presenza === 'Assente') ? `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>` : `<span class="meal-status-pill booked">✓ Presente ${prenPranzo.ospiti > 0 ? `(+${prenPranzo.ospiti})` : ''} ${prenPranzo.busta ? '(Busta)' : ''} ${prenPranzo.ritardo ? '(Ritardo)' : ''}</span>`) : `<span class="meal-status-pill not-booked">Non segnato</span>`}
-              ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')">👥 Pasti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'pranzo' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((s, m) => s + 1 + (parseInt(m.ospiti, 10) || 0), 0)}</span></span>` : ''}
-            </div>
-            <span class="badge ${pranzoLocked ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${pranzoLocked ? 'Chiuso' : 'Aperto'}</span>
-          </div>
-          <div class="weekly-meal-dishes">
-            ${isTuesdayOrThursday ? `
-              <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 10px; margin-bottom: 4px;">
-                <div style="font-weight: 700; color: #9a3412; font-size: 12.5px;">🥪 Pranzo al sacco: Busta da Asporto</div>
-                <div style="font-size: 11.5px; color: #7c2d12; margin-top: 2px;">Comprende: <strong>pasto, frutta e snack/dolce, acqua e succo</strong>.</div>
-              </div>
-            ` : `
-              <div><strong>1°:</strong> ${escapeHtml(menuGiorno.pranzo?.primo || '-')} • <strong>2°:</strong> ${escapeHtml(menuGiorno.pranzo?.secondo || '-')} • <strong>Cont.:</strong> ${escapeHtml(menuGiorno.pranzo?.contorno || '-')}${menuGiorno.pranzo?.contorno2 ? ' • ' + escapeHtml(menuGiorno.pranzo.contorno2) : ''} • <strong>Dessert:</strong> ${escapeHtml(menuGiorno.pranzo?.dessert || '-')}</div>
-            `}
-            ${variazionePranzo ? `<div class="cuoca-inline-variation">👩‍🍳 <strong>Variazione Pranzo:</strong> ${escapeHtml(variazionePranzo)}</div>` : ''}
-            ${isMaster ? `<div style="margin-top: 4px;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">👩‍🍳 ${variazionePranzo ? 'Modifica' : '+ Variazione'} Pranzo</button></div>` : ''}
-          </div>
-          <div class="booking-inline-controls">
-            ${prenPranzo ? ((prenPranzo.stato_presenza === 'assente' || prenPranzo.stato_presenza === 'Assente') ? `
-              <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
-              <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Rimuovi Assenza</button>
-            ` : `
-              <span class="presence-summary-badge">✅ Presenza ${prenPranzo.ospiti > 0 ? `(+${prenPranzo.ospiti})` : ''} ${isTuesdayOrThursday ? '(Busta)' : ''}</span>
-              <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Annulla Presenza</button>
-            `) : (isTuesdayOrThursday ? `
-              <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, false)">🥪 Richiedi Busta Pranzo</button>
-              <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, true)">⏰ Ritiro Posticipato</button>
-              <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
-            ` : `
-              <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, false)">🍽️ Presente</button>
-              <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, true)">⏰ In Ritardo</button>
-              <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
-            `)}
-          </div>
-        </div>
-
-        <div class="weekly-meal-row cena-row">
-          <div class="weekly-meal-header">
-            <div class="weekly-meal-title">
-              <span>🌙 Cena (19:30)</span>
-              ${prenCena ? ((prenCena.stato_presenza === 'assente' || prenCena.stato_presenza === 'Assente') ? `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>` : `<span class="meal-status-pill booked">✓ Presente ${prenCena.ospiti > 0 ? `(+${prenCena.ospiti})` : ''} ${prenCena.ritardo ? '(Ritardo)' : ''}</span>`) : `<span class="meal-status-pill not-booked">Non segnato</span>`}
-              ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')">👥 Pasti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'cena' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((s, m) => s + 1 + (parseInt(m.ospiti, 10) || 0), 0)}</span></span>` : ''}
-            </div>
-            <span class="badge ${cenaLocked ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${cenaLocked ? 'Chiuso' : 'Aperto'}</span>
-          </div>
-          <div class="weekly-meal-dishes">
-            <div><strong>1°:</strong> ${escapeHtml(menuGiorno.cena?.primo || '-')} • <strong>2°:</strong> ${escapeHtml(menuGiorno.cena?.secondo || '-')} • <strong>Cont.:</strong> ${escapeHtml(menuGiorno.cena?.contorno || '-')}${menuGiorno.cena?.contorno2 ? ' • ' + escapeHtml(menuGiorno.cena.contorno2) : ''} • <strong>Dessert:</strong> ${escapeHtml(menuGiorno.cena?.dessert || '-')}</div>
-            ${variazioneCena ? `<div class="cuoca-inline-variation">👩‍🍳 <strong>Variazione Cena:</strong> ${escapeHtml(variazioneCena)}</div>` : ''}
-            ${isMaster ? `<div style="margin-top: 4px;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'cena')">👩‍🍳 ${variazioneCena ? 'Modifica' : '+ Variazione'} Cena</button></div>` : ''}
-          </div>
-          <div class="booking-inline-controls">
-            ${prenCena ? ((prenCena.stato_presenza === 'assente' || prenCena.stato_presenza === 'Assente') ? `
-              <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
-              <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">Rimuovi Assenza</button>
-            ` : `
-              <span class="presence-summary-badge">✅ Presenza ${prenCena.ospiti > 0 ? `(+${prenCena.ospiti})` : ''}</span>
-              <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">Annulla Presenza</button>
-            `) : `
-              <button type="button" class="btn-quick-book" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', false, false)">🍽️ Presente</button>
-              <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', false, true)">⏰ In Ritardo</button>
-              <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'cena')">❌ Assente</button>
-            `}
-          </div>
-        </div>
-      </div>
-    `;
+    out += renderSingleWeeklyDayCard(d, isToday, isSelected);
   }
   out += `</div>`;
   return out;
+}
+
+function aggiornaCardMensaGiorno(dataStr) {
+  const cardEl = document.getElementById(`day-card-${dataStr}`);
+  if (cardEl) {
+    const parts = dataStr.split("-");
+    const d = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2]));
+    const isToday = dataStr === formatYMD(new Date());
+    const isSelected = dataStr === formatYMD(appState.selectedDateMensa || new Date());
+    cardEl.outerHTML = renderSingleWeeklyDayCard(d, isToday, isSelected);
+  } else {
+    renderMensaView();
+  }
 }
 
 function renderDailyDetailedView(dataSel) {
@@ -2173,7 +2344,7 @@ window.quickSegnaPresenza = async function(dataStr, tipoPasto, busta, ritardo) {
       if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
       else appState.mensaBookings.push(entry);
       mostraToast(`Presenza a ${tipoPasto} segnata!`, "success");
-      renderMensaView();
+      aggiornaCardMensaGiorno(dataStr);
       if (haPermessiMaster()) caricaDatiMaster();
     } else mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
   } catch (err) { mostraToast("Errore di connessione", "error"); }
@@ -2190,7 +2361,7 @@ window.quickSegnaAssente = async function(dataStr, tipoPasto) {
       if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
       else appState.mensaBookings.push(entry);
       mostraToast(`Assenza a ${tipoPasto} comunicata`, "info");
-      renderMensaView();
+      aggiornaCardMensaGiorno(dataStr);
       if (haPermessiMaster()) caricaDatiMaster();
     } else mostraToast("Errore: " + (res.error || "Impossibile registrare"), "error");
   } catch (err) { mostraToast("Errore di connessione", "error"); }
@@ -2203,7 +2374,7 @@ window.quickCancelPresenza = async function(dataStr, tipoPasto) {
     if (res.success) {
       appState.mensaBookings = appState.mensaBookings.filter(m => !(String(m.data).split("T")[0] === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase()));
       mostraToast(`Presenza a ${tipoPasto} cancellata`, "info");
-      renderMensaView();
+      aggiornaCardMensaGiorno(dataStr);
       if (haPermessiMaster()) caricaDatiMaster();
     } else mostraToast("Errore durante la cancellazione", "error");
   } catch (err) { mostraToast("Errore di rete", "error"); }
@@ -2349,7 +2520,7 @@ function filtraSlotPerFascia(slot, fascia) {
   return true;
 }
 
-function renderSlotSpazi() {
+function renderSlotSpazi(force = false) {
   const grid = document.getElementById("slots-grid-container");
   const summaryEl = document.getElementById("spazi-availability-summary");
   if (!grid) return;
@@ -2357,6 +2528,21 @@ function renderSlotSpazi() {
   const selRisorsa = appState.selectedSpazioRisorsa || "Chiesa";
   const selData = appState.selectedSpazioData || formatYMD(new Date());
   const selFascia = appState.selectedSpazioFascia || "tutti";
+
+  const stateHash = computeFastHash(JSON.stringify({
+    selRisorsa,
+    selData,
+    selFascia,
+    prenotazioniSpazi: appState.prenotazioniSpazi,
+    isMaster: haPermessiMaster(),
+    userEmail: appState.user ? appState.user.email : ""
+  }));
+
+  if (!force && renderCacheHashes.spaziSlots === stateHash && grid.innerHTML.trim() !== "") {
+    return;
+  }
+  renderCacheHashes.spaziSlots = stateHash;
+
   const tuttiSlot = getTuttiSlotOrari30Min();
   const slotFiltrati = tuttiSlot.filter(s => filtraSlotPerFascia(s, selFascia));
 
@@ -2623,14 +2809,31 @@ function calcolaNottiSoggiorno(checkinStr, checkoutStr) {
   return Math.max(1, diffDays);
 }
 
-function renderAccoglienzaView() {
+function renderAccoglienzaView(force = false) {
   const container = document.getElementById("accoglienza-container");
   if (!container) return;
-  const camereNomi = getTutteCamereNomi();
-  const accList = appState.accoglienzaList || [];
-  const oggiYMD = formatYMD(new Date());
+
   const isMaster = haPermessiMaster();
   const userEmail = (appState.user?.email || "").toLowerCase();
+  const oggiYMD = formatYMD(new Date());
+
+  const stateHash = computeFastHash(JSON.stringify({
+    accList: appState.accoglienzaList,
+    isMaster,
+    userEmail,
+    oggiYMD,
+    cam1: getNomeCamera(1),
+    cam2: getNomeCamera(2),
+    cam3: getNomeCamera(3)
+  }));
+
+  if (!force && renderCacheHashes.accoglienza === stateHash && container.innerHTML.trim() !== "") {
+    return;
+  }
+  renderCacheHashes.accoglienza = stateHash;
+
+  const camereNomi = getTutteCamereNomi();
+  const accList = appState.accoglienzaList || [];
 
   const camereStato = camereNomi.map((nomeCam, idx) => {
     const prenotazioniCam = accList.filter(a => {
@@ -2964,22 +3167,77 @@ window.handleSalvaConfigurazioneCamere = handleSalvaConfigurazioneCamere;
 // MANUTENZIONE
 // ----------------------------------------------------------------------------
 
-function processImageResize(file) {
+async function processImageResize(file) {
+  if (!file || !file.type.startsWith("image/")) {
+    throw new Error("File non è un'immagine valida.");
+  }
+  const MAX_DIM = 800;
+
+  // Usa createImageBitmap + OffscreenCanvas + convertToBlob per elaborazione asincrona non bloccante
+  if (typeof createImageBitmap === "function" && typeof OffscreenCanvas === "function") {
+    try {
+      const bitmap = await createImageBitmap(file);
+      let width = bitmap.width;
+      let height = bitmap.height;
+      if (width > height) {
+        if (width > MAX_DIM) {
+          height = Math.round((height * MAX_DIM) / width);
+          width = MAX_DIM;
+        }
+      } else {
+        if (height > MAX_DIM) {
+          width = Math.round((width * MAX_DIM) / height);
+          height = MAX_DIM;
+        }
+      }
+
+      const offscreen = new OffscreenCanvas(width, height);
+      const ctx = offscreen.getContext("2d");
+      ctx.drawImage(bitmap, 0, 0, width, height);
+
+      const blob = await offscreen.convertToBlob({ type: "image/jpeg", quality: 0.75 });
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      return {
+        dataUrl,
+        width,
+        height,
+        originalSize: file.size,
+        compressedSize: blob.size
+      };
+    } catch (e) {
+      console.warn("createImageBitmap / OffscreenCanvas fallback:", e);
+    }
+  }
+
+  // Fallback con canvas standard se OffscreenCanvas non supportato
   return new Promise((resolve, reject) => {
-    if (!file || !file.type.startsWith("image/")) { reject(new Error("File non è un'immagine valida.")); return; }
     const reader = new FileReader();
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
-        const MAX_DIM = 800;
         let width = img.width, height = img.height;
-        if (width > height) { if (width > MAX_DIM) { height = Math.round((height * MAX_DIM) / width); width = MAX_DIM; } }
-        else { if (height > MAX_DIM) { width = Math.round((width * MAX_DIM) / height); height = MAX_DIM; } }
+        if (width > height) {
+          if (width > MAX_DIM) { height = Math.round((height * MAX_DIM) / width); width = MAX_DIM; }
+        } else {
+          if (height > MAX_DIM) { width = Math.round((width * MAX_DIM) / height); height = MAX_DIM; }
+        }
         const canvas = document.createElement("canvas");
         canvas.width = width; canvas.height = height;
         canvas.getContext("2d").drawImage(img, 0, 0, width, height);
         const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.75);
-        resolve({ dataUrl: compressedDataUrl, width, height, originalSize: file.size, compressedSize: Math.round((compressedDataUrl.length * 3) / 4) });
+        resolve({
+          dataUrl: compressedDataUrl,
+          width,
+          height,
+          originalSize: file.size,
+          compressedSize: Math.round((compressedDataUrl.length * 3) / 4)
+        });
       };
       img.onerror = () => reject(new Error("Errore caricamento immagine."));
       img.src = e.target.result;

@@ -9,8 +9,10 @@
   <meta property="og:description" content="App mobile-first per la Residenza Card. Newman con Bacheca, Calendario Romano ed eventi del giorno, Mensa, Prenotazione Chiesa e Sala TV, La Residenza (regolamento e orari) e Manutenzione.">
   <meta property="og:type" content="website">
   <meta name="theme-color" content="#14213d">
-  <link rel="icon" type="image/jpeg" href="052a904e-e80d-4afb-82d5-ca5c18ebabda.jpg">
-  <link rel="apple-touch-icon" href="052a904e-e80d-4afb-82d5-ca5c18ebabda.jpg">
+  <link rel="preconnect" href="https://script.google.com" crossorigin>
+  <link rel="dns-prefetch" href="https://script.google.com">
+  <link rel="icon" type="image/webp" href="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp">
+  <link rel="apple-touch-icon" href="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp">
   <link rel="manifest" href="/manifest.json">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-title" content="Residenza Newman">
@@ -223,6 +225,8 @@
       overflow-y: auto;
       overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      contain: layout paint;
     }
     
     .view-container { display: none; animation: fadeIn 0.25s ease-out forwards; }
@@ -236,6 +240,7 @@
       background-color: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius-lg); padding: 18px; margin-bottom: 16px;
       box-shadow: var(--shadow-sm); transition: var(--transition);
+      contain: content;
     }
     .card-inner {
       background-color: var(--surface-alt); border: 1px solid var(--border);
@@ -310,6 +315,7 @@
     .weekly-day-card {
       background: #ffffff; border-radius: var(--radius-md); border: 1px solid var(--border);
       overflow: hidden; box-shadow: var(--shadow-sm); transition: var(--transition);
+      contain: content;
     }
     .weekly-day-card.is-today { border: 2px solid var(--accent); box-shadow: 0 4px 12px rgba(217, 119, 6, 0.15); }
     .weekly-day-card.is-selected { border-color: var(--primary); }
@@ -407,7 +413,7 @@
     .liturgic-saint-name { font-size: 13.5px; font-weight: 700; color: #ffffff; line-height: 1.35; }
 
     .bacheca-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .bacheca-card { background: #ffffff; border-radius: var(--radius-md); border: 1px solid var(--border); border-left: 4px solid var(--primary); padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow-sm); transition: var(--transition); position: relative; }
+    .bacheca-card { background: #ffffff; border-radius: var(--radius-md); border: 1px solid var(--border); border-left: 4px solid var(--primary); padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow-sm); transition: var(--transition); position: relative; contain: content; }
     .bacheca-card:hover { box-shadow: var(--shadow-md); }
     .bacheca-card.tipo-compleanno { border-left-color: #d97706; background: linear-gradient(180deg, #fffbeb 0%, #ffffff 40%); }
     .bacheca-card.tipo-anniversario { border-left-color: #7c3aed; background: linear-gradient(180deg, #f5f3ff 0%, #ffffff 40%); }
@@ -449,7 +455,7 @@
     .time-filter-chip.active { background: var(--primary); color: #ffffff; border-color: var(--primary); }
 
     .slots-grid-v2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; max-height: 380px; overflow-y: auto; padding-right: 4px; }
-    .slot-card-v2 { border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; transition: var(--transition); position: relative; }
+    .slot-card-v2 { border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; transition: var(--transition); position: relative; contain: content; }
     .slot-card-v2.slot-available { background: #ffffff; cursor: pointer; }
     .slot-card-v2.slot-available:hover { border-color: #16a34a; background: #f0fdf4; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15); }
     .slot-card-v2.slot-mine { background: #eff6ff; border-color: #3b82f6; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15); }
@@ -589,6 +595,31 @@
     .stepper-auth-step.rejected { background: #fee2e2; color: #991b1b; border-color: #ef4444; font-weight: 700; }
     .mensa-guest-selector { display: inline-flex; align-items: center; gap: 4px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; font-size: 12px; }
     .mensa-guest-selector select { border: none; background: transparent; font-weight: 700; font-size: 12px; color: var(--primary); cursor: pointer; outline: none; }
+
+    @media (hover: hover) {
+      .accoglienza-room-card:hover { border-color: var(--accent); }
+      [data-theme="dark"] .btn-outline:hover { background: var(--surface-alt); }
+      .theme-choice-btn:hover { border-color: var(--accent); }
+      .user-pill:hover { background: rgba(255, 255, 255, 0.18); }
+      .btn-icon-head:hover { background: rgba(255, 255, 255, 0.15); color: #ffffff; }
+      .day-pill:hover { background: var(--surface-alt); }
+      .week-nav-btn:hover { background: var(--primary); color: #ffffff; border-color: var(--primary); }
+      .btn-quick-book:hover:not(:disabled) { background: var(--primary); color: #ffffff; }
+      .btn-quick-cancel:hover:not(:disabled) { background: #fee2e2; }
+      .master-attendees-badge:hover { background: #dbeafe; border-color: #93c5fd; }
+      .btn-link-cuoca:hover { color: #78350f; }
+      .roman-nav-btn:hover { background: rgba(217, 119, 6, 0.35); border-color: var(--accent); }
+      .bacheca-card:hover { box-shadow: var(--shadow-md); }
+      .bacheca-delete-btn:hover { background: #fee2e2; }
+      .spazi-resource-btn:hover { border-color: var(--accent); transform: translateY(-2px); }
+      .date-chip:hover { border-color: var(--accent); }
+      .slot-card-v2.slot-available:hover { border-color: #16a34a; background: #f0fdf4; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15); }
+      .slot-cancel-btn:hover { background: #dc2626; color: #ffffff; }
+      .residenza-contact-btn:hover { background: var(--primary); color: #ffffff; }
+      .photo-upload-zone:hover { border-color: var(--accent); background: #fffbeb; }
+      .btn-primary:hover:not(:disabled) { background-color: var(--primary-light); }
+      .btn-accent:hover:not(:disabled) { background-color: var(--accent-hover); }
+    }
   </style>
 </head>
 <body>
@@ -598,7 +629,7 @@
     <header class="app-header" id="main-header">
       <div class="header-brand">
         <div class="brand-icon" id="header-brand-icon">
-          <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.jpg" onerror="this.onerror=null;this.src='/icon-newman.png'" alt="Card. Newman" class="brand-avatar-img">
+          <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" onerror="this.onerror=null;this.src='/icon-newman.png'" alt="Card. Newman" class="brand-avatar-img" loading="lazy" decoding="async">
         </div>
         <div class="brand-titles">
           <span class="brand-title">Residenza Card. Newman</span>
@@ -691,7 +722,7 @@
                 <input type="file" id="manutenzione-foto-input" accept="image/*" style="display: none;">
               </div>
               <div id="manutenzione-foto-preview-box" class="photo-preview-wrap" style="display: none;">
-                <img id="manutenzione-foto-preview" class="photo-preview-img" alt="Anteprima">
+                <img id="manutenzione-foto-preview" class="photo-preview-img" alt="Anteprima" loading="lazy" decoding="async">
                 <span id="manutenzione-resize-info" class="resize-badge"></span>
               </div>
             </div>
@@ -953,7 +984,7 @@
       <div class="flex-between" style="margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border);">
         <div class="flex-align" style="gap: 10px;">
           <div class="brand-icon" style="width: 36px; height: 36px; border-radius: 50%; overflow: hidden; border: 1px solid var(--border);">
-            <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.jpg" onerror="this.onerror=null;this.src='/icon-newman.png'" alt="Card. Newman" class="brand-avatar-img">
+            <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" onerror="this.onerror=null;this.src='/icon-newman.png'" alt="Card. Newman" class="brand-avatar-img" loading="lazy" decoding="async">
           </div>
           <div>
             <h3 class="modal-title" style="margin: 0; font-size: 16px;">Impostazioni &amp; Profilo</h3>

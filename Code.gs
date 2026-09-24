@@ -425,6 +425,9 @@ function doPost(e) {
       case "aggiornaSegnalazione":
         return gestisciAggiornaSegnalazione(payload);
 
+      case "getBootstrap":
+        return gestisciGetBootstrap(payload);
+
       case "getMasterData":
         return getMasterData(payload.email);
 
@@ -1395,6 +1398,233 @@ function getInfoData() {
     bacheca: bacheca,
     accoglienza: accoglienza
   });
+}
+
+/**
+ * Endpoint unificato ad alte prestazioni: restituisce tutti i dati pubblici e,
+ * se l'utente possiede permessi master, include anche utentiInAttesa, tuttiUtenti e guasti.
+ */
+function gestisciGetBootstrap(payload) {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const emailRichiedente = String((payload && payload.email) || "").trim().toLowerCase();
+
+  // 1. Configurazione
+  const sConfig = ss.getSheetByName(SHEET_CONFIG);
+  const config = {};
+  if (sConfig) {
+    const rows = sConfig.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0]) config[rows[i][0]] = rows[i][1];
+    }
+  }
+
+  // 2. Prenotazioni Spazi
+  const sSpazi = ss.getSheetByName(SHEET_SPAZI);
+  const prenotazioniSpazi = [];
+  if (sSpazi) {
+    const rows = sSpazi.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] || rows[i][3]) {
+        prenotazioniSpazi.push({
+          id: String(rows[i][0] || ""),
+          risorsa: String(rows[i][1] || ""),
+          data: formattaDataGAS(rows[i][2]),
+          slot_orario: String(rows[i][3] || ""),
+          email: String(rows[i][4] || "").toLowerCase(),
+          stato: String(rows[i][6] || "Approvata"),
+          approvato_da: String(rows[i][7] || "")
+        });
+      }
+    }
+  }
+
+  // 3. Prenotazioni Mensa
+  const sMensa = ss.getSheetByName(SHEET_MENSA);
+  const prenotazioniMensa = [];
+  if (sMensa) {
+    const rows = sMensa.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] || rows[i][1]) {
+        prenotazioniMensa.push({
+          id: String(rows[i][0] || ""),
+          data: formattaDataGAS(rows[i][1]),
+          email: String(rows[i][2] || "").toLowerCase(),
+          tipo_pasto: String(rows[i][3] || ""),
+          busta: Boolean(rows[i][4]),
+          ritardo: Boolean(rows[i][5]),
+          note: String(rows[i][6] || ""),
+          ospiti: parseInt(rows[i][8] || 0, 10),
+          stato_presenza: String(rows[i][9] || "Presente")
+        });
+      }
+    }
+  }
+
+  // 4. Bacheca
+  const sBacheca = ss.getSheetByName(SHEET_BACHECA);
+  const bacheca = [];
+  if (sBacheca) {
+    const rows = sBacheca.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0] || rows[i][3]) {
+        bacheca.push({
+          id: String(rows[i][0] || ""),
+          data: formattaDataGAS(rows[i][1]),
+          tipo: String(rows[i][2] || "avviso"),
+          titolo: String(rows[i][3] || ""),
+          descrizione: String(rows[i][4] || ""),
+          autore: String(rows[i][5] || "Direzione"),
+          priorita: String(rows[i][6] || "normale"),
+          timestamp: String(rows[i][7] || "")
+        });
+      }
+    }
+  }
+
+  // 5. Accoglienza
+  const sAccoglienza = ss.getSheetByName(SHEET_ACCOGLIENZA);
+  const accoglienza = [];
+  if (sAccoglienza) {
+    const rows = sAccoglienza.getDataRange().getValues();
+    for (let i = 1; i < rows.length; i++) {
+      if (rows[i][0]) {
+        accoglienza.push({
+          id: String(rows[i][0]),
+          data_richiesta: rows[i][1] ? String(rows[i][1]) : "",
+          richiedente_email: String(rows[i][2] || "").toLowerCase(),
+          richiedente_nome: String(rows[i][3] || ""),
+          nome_ospite: String(rows[i][4] || ""),
+          numero_ospiti: parseInt(rows[i][5] || 1, 10),
+          data_checkin: formattaDataGAS(rows[i][6]),
+          data_checkout: formattaDataGAS(rows[i][7]),
+          camera_assegnata: String(rows[i][8] || ""),
+          motivo: String(rows[i][9] || ""),
+          note: String(rows[i][10] || ""),
+          stato: String(rows[i][11] || "In Attesa 1a Autorizzazione"),
+          auth1_email: String(rows[i][12] || ""),
+          auth1_data: rows[i][13] ? String(rows[i][13]) : "",
+          auth1_note: String(rows[i][14] || ""),
+          auth2_email: String(rows[i][15] || ""),
+          auth2_data: rows[i][16] ? String(rows[i][16]) : "",
+          auth2_note: String(rows[i][17] || "")
+        });
+      }
+    }
+  }
+
+  // 6. Menu Base
+  let menuBase = null;
+  const sMenu = ss.getSheetByName(SHEET_MENU);
+  if (sMenu) {
+    const rowsM = sMenu.getDataRange().getValues();
+    if (rowsM.length > 1) {
+      menuBase = { settimana1: {}, settimana2: {} };
+      for (let i = 1; i < rowsM.length; i++) {
+        const row = rowsM[i];
+        const rawSett = String(row[0] || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        const settKey = (rawSett.includes("1") || rawSett === "settimana1") ? "settimana1" : (rawSett.includes("2") || rawSett === "settimana2") ? "settimana2" : "";
+        const rawGiorno = String(row[1] || "").toLowerCase().trim();
+        let giornoKey = "";
+        if (rawGiorno.startsWith("lun")) giornoKey = "lunedi";
+        else if (rawGiorno.startsWith("mar")) giornoKey = "martedi";
+        else if (rawGiorno.startsWith("mer")) giornoKey = "mercoledi";
+        else if (rawGiorno.startsWith("gio")) giornoKey = "giovedi";
+        else if (rawGiorno.startsWith("ven")) giornoKey = "venerdi";
+        else if (rawGiorno.startsWith("sab")) giornoKey = "sabato";
+        else if (rawGiorno.startsWith("dom")) giornoKey = "domenica";
+
+        const pastoKey = String(row[2] || "").toLowerCase().includes("cena") ? "cena" : "pranzo";
+        if (settKey && giornoKey) {
+          if (!menuBase[settKey][giornoKey]) menuBase[settKey][giornoKey] = {};
+          menuBase[settKey][giornoKey][pastoKey] = {
+            primo: String(row[3] || "").trim(),
+            secondo: String(row[4] || "").trim(),
+            contorno: String(row[5] || "").trim(),
+            contorno2: String(row[6] || "").trim(),
+            dessert: String(row[7] || "").trim(),
+            busta: Boolean(row[8] === true || String(row[8]).toLowerCase() === "true")
+          };
+        }
+      }
+    }
+  }
+
+  // 7. Dati Master condizionali
+  const sUtenti = ss.getSheetByName(SHEET_UTENTI);
+  const tuttiUtenti = [];
+  const utentiInAttesa = [];
+  let isMaster = false;
+
+  if (sUtenti) {
+    const rowsU = sUtenti.getDataRange().getValues();
+    for (let i = 1; i < rowsU.length; i++) {
+      const uEmail = String(rowsU[i][0] || "").trim().toLowerCase();
+      const u = {
+        email: rowsU[i][0],
+        nome: rowsU[i][1],
+        stato: rowsU[i][2],
+        perm_mensa: Boolean(rowsU[i][3]),
+        perm_manutenzione: Boolean(rowsU[i][4]),
+        perm_spazi: Boolean(rowsU[i][5]),
+        perm_admin: Boolean(rowsU[i][6]),
+        password: rowsU[i][7] ? String(rowsU[i][7]) : "",
+        notif_manutenzione: Boolean(rowsU[i][8]),
+        notif_spazi: Boolean(rowsU[i][9]),
+        is_utente_mensa: (rowsU[i][10] !== undefined && rowsU[i][10] !== "") ? Boolean(rowsU[i][10]) : Boolean(rowsU[i][3])
+      };
+      tuttiUtenti.push(u);
+      if (u.stato === "In Attesa") utentiInAttesa.push(u);
+      if (emailRichiedente && uEmail === emailRichiedente) {
+        if (u.perm_admin || u.perm_mensa || u.perm_manutenzione || u.perm_spazi) {
+          isMaster = true;
+        }
+      }
+    }
+  }
+
+  const guasti = [];
+  const sManutenzione = ss.getSheetByName(SHEET_MANUTENZIONE);
+  if (sManutenzione) {
+    const rowsG = sManutenzione.getDataRange().getValues();
+    for (let i = 1; i < rowsG.length; i++) {
+      const gEmail = String(rowsG[i][2] || "").trim().toLowerCase();
+      if (isMaster || (emailRichiedente && gEmail === emailRichiedente)) {
+        guasti.push({
+          id: String(rowsG[i][0] || ""),
+          timestamp: rowsG[i][1] ? String(rowsG[i][1]) : "",
+          email: rowsG[i][2] ? String(rowsG[i][2]) : "",
+          descrizione: rowsG[i][3] ? String(rowsG[i][3]) : "",
+          link_foto: rowsG[i][4] ? String(rowsG[i][4]) : "",
+          stato: rowsG[i][5] || "Da fare",
+          categoria: rowsG[i][6] || "manutenzione",
+          luogo: rowsG[i][7] || "",
+          priorita: rowsG[i][8] || "Media",
+          note_intervento: rowsG[i][9] || "",
+          tecnico: rowsG[i][10] || "",
+          data_chiusura: rowsG[i][11] ? String(rowsG[i][11]) : ""
+        });
+      }
+    }
+  }
+
+  const result = {
+    success: true,
+    config: config,
+    prenotazioniSpazi: prenotazioniSpazi,
+    prenotazioniMensa: prenotazioniMensa,
+    bacheca: bacheca,
+    accoglienza: accoglienza,
+    menuBase: menuBase,
+    isMaster: isMaster
+  };
+
+  if (isMaster) {
+    result.utentiInAttesa = utentiInAttesa;
+    result.tuttiUtenti = tuttiUtenti;
+    result.guasti = guasti;
+  }
+
+  return rispostaJSON(result);
 }
 
 /**
