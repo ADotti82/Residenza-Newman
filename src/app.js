@@ -367,6 +367,14 @@ function checkAuthAndLoad() {
   if (savedUser) {
     try {
       appState.user = JSON.parse(savedUser);
+      // Ripristina e garantisci permessi Master/Admin se l'utente è l'amministratore principale
+      if (appState.user && appState.user.email && (appState.user.email.toLowerCase() === "donandreadotti@gmail.com" || appState.user.email.toLowerCase().includes("dotti"))) {
+        appState.user.perm_admin = true;
+        appState.user.perm_mensa = true;
+        appState.user.perm_manutenzione = true;
+        appState.user.perm_spazi = true;
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+      }
       aggiornaUIUtente();
       caricaDatiBackend();
       return;
@@ -3433,6 +3441,100 @@ function renderMasterSection() {
                   const st = a.stato || "";
                   const badgeStyle = st === "Confermata" ? "background:#dcfce7; color:#166534;" : "background:#fee2e2; color:#991b1b;";
                   return `<tr><td><strong>${escapeHtml(ospite)}</strong></td><td>${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)}</td><td>${escapeHtml(camAss)}</td><td><span class="badge" style="${badgeStyle} font-weight: 700; font-size: 10.5px;">${escapeHtml(st)}</span></td><td style="text-align: right;"><button type="button" class="btn btn-secondary btn-sm" onclick="handleEliminaAccoglienza('${a.id}')" style="color: #dc2626; border-color: #fca5a5; font-size: 10.5px; padding: 2px 6px;">🗑️</button></td></tr>`;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // SCHEDA SPAZI & AMBIENTI
+  if (perm_spazi && (isVistaTutto || activeTab === "spazi")) {
+    const approvateSpazi = prenotazioniSpazi.filter(p => p.stato !== "In Attesa");
+    html += `
+      <div class="master-block card" style="border-top: 4px solid #9d174d;">
+        <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 22px;">⛪</span>
+            <div>
+              <h3 class="card-title" style="margin: 0;">Richieste Spazi Comuni</h3>
+              <span class="text-xs text-muted">Approvazione slot Chiesa e Sala TV</span>
+            </div>
+          </div>
+          <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('spazi')">Vai alla Griglia Slot ➜</button>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <h4 style="font-size: 14px; font-weight: 700; color: #92400e; margin: 0 0 8px 0;">⏳ Richieste in Attesa di Valutazione (${inAttesaSpazi.length})</h4>
+          <div class="table-responsive">
+            <table class="master-table">
+              <thead>
+                <tr>
+                  <th>Ambiente</th>
+                  <th>Data</th>
+                  <th>Slot Orario</th>
+                  <th>Richiedente</th>
+                  <th style="text-align: right;">Azioni</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${inAttesaSpazi.length === 0 ? '<tr><td colspan="5" style="text-align: center; padding: 14px; color: #64748b;">Nessuna richiesta di spazio in attesa di approvazione.</td></tr>' : ''}
+                ${inAttesaSpazi.map(p => {
+                  const pData = formattaDataItaliana(p.data);
+                  const icon = p.risorsa === "Chiesa" ? "⛪" : "📺";
+                  return `
+                    <tr>
+                      <td><strong>${icon} ${escapeHtml(p.risorsa)}</strong></td>
+                      <td>${pData}</td>
+                      <td><span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700;">${escapeHtml(p.slot_orario)}</span></td>
+                      <td>${escapeHtml(p.email)}</td>
+                      <td style="text-align: right;">
+                        <div style="display: inline-flex; gap: 6px;">
+                          <button type="button" class="btn btn-success btn-sm" onclick="approvaRichiestaSpazio('${p.id}')" style="font-size: 11px; padding: 4px 8px; font-weight: 700;">✓ Approva</button>
+                          <button type="button" class="btn btn-secondary btn-sm" onclick="rifiutaRichiestaSpazio('${p.id}')" style="color: #dc2626; border-color: #fca5a5; font-size: 11px; padding: 4px 8px;">✕ Rifiuta</button>
+                        </div>
+                      </td>
+                    </tr>
+                  `;
+                }).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div style="margin-top: 20px;">
+          <h4 style="font-size: 14px; font-weight: 700; color: #166534; margin: 0 0 8px 0;">✓ Prenotazioni Approvate & Storico (${approvateSpazi.length})</h4>
+          <div class="table-responsive">
+            <table class="master-table">
+              <thead>
+                <tr>
+                  <th>Ambiente</th>
+                  <th>Data</th>
+                  <th>Slot Orario</th>
+                  <th>Residente</th>
+                  <th>Approvato da</th>
+                  <th style="text-align: right;">Libera</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${approvateSpazi.length === 0 ? '<tr><td colspan="6" style="text-align: center; padding: 14px; color: #64748b;">Nessuna prenotazione attiva.</td></tr>' : ''}
+                ${approvateSpazi.map(p => {
+                  const pData = formattaDataItaliana(p.data);
+                  const icon = p.risorsa === "Chiesa" ? "⛪" : "📺";
+                  return `
+                    <tr>
+                      <td>${icon} ${escapeHtml(p.risorsa)}</td>
+                      <td>${pData}</td>
+                      <td><span class="badge" style="background: #f1f5f9; font-weight: 700;">${escapeHtml(p.slot_orario)}</span></td>
+                      <td>${escapeHtml(p.email)}</td>
+                      <td><span class="text-xs text-muted">${escapeHtml(p.approvato_da || 'Master')}</span></td>
+                      <td style="text-align: right;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="cancellaSlotSpazio('${p.id || ''}', '${p.slot_orario}', true)" style="color: #dc2626; border-color: #fca5a5; font-size: 11px; padding: 3px 8px;">Libera</button>
+                      </td>
+                    </tr>
+                  `;
                 }).join("")}
               </tbody>
             </table>
