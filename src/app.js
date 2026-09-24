@@ -4074,6 +4074,7 @@ window.salvaRuoliUtente = async function(email) {
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
         aggiornaUIUtente();
       }
+      localStorage.removeItem("newman_cache_getMasterData");
       caricaDatiMaster();
     } else mostraToast("Errore: " + (res.error || "Impossibile"), "error");
   } catch (err) { mostraToast("Errore di rete", "error"); }
