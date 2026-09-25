@@ -40,6 +40,7 @@
                     <option value="Da fare">Da fare</option>
                     <option value="In corso">In corso</option>
                     <option value="Completato">Completato</option>
+                    <option value="Risolto">Risolto</option>
                 </select>
             </div>
             <div class="col-md-3 mb-2 d-flex justify-content-end">
@@ -94,11 +95,23 @@
                 
                 const data = await response.json();
                 
-                if (!Array.isArray(data)) {
-                    throw new Error(data.error || "Formato dati non valido ricevuto dal server.");
+                let arrayData = [];
+                if (Array.isArray(data)) {
+                    arrayData = data;
+                } else if (data && typeof data === 'object') {
+                    if (Array.isArray(data.guasti)) arrayData = data.guasti;
+                    else if (Array.isArray(data.manutenzione)) arrayData = data.manutenzione;
+                    else {
+                        const foundKey = Object.keys(data).find(k => Array.isArray(data[k]));
+                        if (foundKey) arrayData = data[foundKey];
+                    }
                 }
                 
-                manutenzioniData = data;
+                if (!Array.isArray(arrayData)) {
+                    throw new Error(data.error || "Impossibile estrarre l'elenco delle manutenzioni dalla risposta del server.");
+                }
+                
+                manutenzioniData = arrayData;
                 filteredData = [...manutenzioniData];
                 
                 document.getElementById('loading').classList.add('d-none');
@@ -122,9 +135,10 @@
                 return;
             }
             filteredData.forEach(item => {
-                let stato = item.Stato ? String(item.Stato).trim() : 'Da fare';
+                let stato = item.Stato || item.stato ? String(item.Stato || item.stato).trim() : 'Da fare';
                 let badgeClass = stato === 'Da fare' ? 'bg-danger' : (stato === 'In corso' ? 'bg-warning text-dark' : 'bg-success');
-                let fotoBtn = item.Link_Foto && String(item.Link_Foto).trim() !== '' ? `<a href="${item.Link_Foto}" target="_blank" class="btn btn-sm btn-outline-primary mb-2"><i class="fa-solid fa-image me-1"></i> Visualizza Foto</a>` : '';
+                let linkFoto = item.Link_Foto || item.link_foto || '';
+                let fotoBtn = linkFoto.trim() !== '' ? `<a href="${linkFoto}" target="_blank" class="btn btn-sm btn-outline-primary mb-2"><i class="fa-solid fa-image me-1"></i> Visualizza Foto</a>` : '';
                 
                 let col = document.createElement('div');
                 col.className = 'col-md-4 mb-3';
@@ -133,17 +147,17 @@
                         <div class="card-body d-flex flex-column">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <span class="badge ${badgeClass}">${stato}</span>
-                                <small class="text-muted">${item.Timestamp ? new Date(item.Timestamp).toLocaleString('it-IT') : ''}</small>
+                                <small class="text-muted">${item.Timestamp || item.timestamp ? new Date(item.Timestamp || item.timestamp).toLocaleString('it-IT') : ''}</small>
                             </div>
-                            <h5 class="card-title text-dark"><i class="fa-solid fa-location-dot me-1 text-danger"></i> ${item.Luogo || ''}</h5>
-                            <h6 class="card-subtitle mb-2 text-muted text-uppercase small">${item.Categoria || ''} | Priorità: ${item.Priorita || ''}</h6>
-                            <p class="card-text flex-grow-1 mt-2">${item.Descrizione || ''}</p>
+                            <h5 class="card-title text-dark"><i class="fa-solid fa-location-dot me-1 text-danger"></i> ${item.Luogo || item.luogo || ''}</h5>
+                            <h6 class="card-subtitle mb-2 text-muted text-uppercase small">${item.Categoria || item.categoria || ''} | Priorità: ${item.Priorita || item.priorita || ''}</h6>
+                            <p class="card-text flex-grow-1 mt-2">${item.Descrizione || item.descrizione || ''}</p>
                             ${fotoBtn}
                             <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top no-print">
-                                <small class="text-muted text-truncate" style="max-width: 150px;" title="${item.Email || ''}">${item.Email || ''}</small>
+                                <small class="text-muted text-truncate" style="max-width: 150px;" title="${item.Email || item.email || ''}">${item.Email || item.email || ''}</small>
                                 <div>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="stampaScheda('${item.ID}')" title="Stampa"><i class="fa-solid fa-print"></i></button>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID}')" title="Invia Email"><i class="fa-solid fa-envelope"></i></button>
+                                    <button class="btn btn-sm btn-outline-secondary" onclick="stampaScheda('${item.ID || item.id}')" title="Stampa"><i class="fa-solid fa-print"></i></button>
+                                    <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID || item.id}')" title="Invia Email"><i class="fa-solid fa-envelope"></i></button>
                                 </div>
                             </div>
                         </div>
@@ -161,20 +175,21 @@
                 return;
             }
             filteredData.forEach(item => {
-                let stato = item.Stato ? String(item.Stato).trim() : 'Da fare';
+                let stato = item.Stato || item.stato ? String(item.Stato || item.stato).trim() : 'Da fare';
                 let badgeClass = stato === 'Da fare' ? 'bg-danger' : (stato === 'In corso' ? 'bg-warning text-dark' : 'bg-success');
-                let fotoLink = item.Link_Foto && String(item.Link_Foto).trim() !== '' ? `<a href="${item.Link_Foto}" target="_blank" class="ms-1" title="Foto"><i class="fa-solid fa-image"></i></a>` : '';
+                let linkFoto = item.Link_Foto || item.link_foto || '';
+                let fotoLink = linkFoto.trim() !== '' ? `<a href="${linkFoto}" target="_blank" class="ms-1" title="Foto"><i class="fa-solid fa-image"></i></a>` : '';
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><small class="fw-bold">${item.ID || ''}</small><br><small class="text-muted">${item.Timestamp ? new Date(item.Timestamp).toLocaleString('it-IT') : ''}</small></td>
-                    <td>${item.Luogo || ''}</td>
-                    <td><span class="badge bg-secondary">${item.Categoria || ''}</span></td>
-                    <td>${item.Descrizione || ''} ${fotoLink}</td>
-                    <td>${item.Priorita || ''}</td>
+                    <td><small class="fw-bold">${item.ID || item.id || ''}</small><br><small class="text-muted">${item.Timestamp || item.timestamp ? new Date(item.Timestamp || item.timestamp).toLocaleString('it-IT') : ''}</small></td>
+                    <td>${item.Luogo || item.luogo || ''}</td>
+                    <td><span class="badge bg-secondary">${item.Categoria || item.categoria || ''}</span></td>
+                    <td>${item.Descrizione || item.descrizione || ''} ${fotoLink}</td>
+                    <td>${item.Priorita || item.priorita || ''}</td>
                     <td><span class="badge ${badgeClass}">${stato}</span></td>
                     <td class="no-print text-end">
-                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="stampaScheda('${item.ID}')"><i class="fa-solid fa-print"></i></button>
-                        <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID}')"><i class="fa-solid fa-envelope"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="stampaScheda('${item.ID || item.id}')"><i class="fa-solid fa-print"></i></button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID || item.id}')"><i class="fa-solid fa-envelope"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -195,10 +210,10 @@
             const query = document.getElementById('searchInput').value.toLowerCase();
             const stato = document.getElementById('filterStato').value;
             filteredData = manutenzioniData.filter(item => {
-                const luogo = item.Luogo ? String(item.Luogo).toLowerCase() : '';
-                const desc = item.Descrizione ? String(item.Descrizione).toLowerCase() : '';
-                const id = item.ID ? String(item.ID).toLowerCase() : '';
-                const itemStato = item.Stato ? String(item.Stato).trim() : '';
+                const luogo = item.Luogo || item.luogo ? String(item.Luogo || item.luogo).toLowerCase() : '';
+                const desc = item.Descrizione || item.descrizione ? String(item.Descrizione || item.descrizione).toLowerCase() : '';
+                const id = item.ID || item.id ? String(item.ID || item.id).toLowerCase() : '';
+                const itemStato = item.Stato || item.stato ? String(item.Stato || item.stato).trim() : '';
 
                 const matchQuery = luogo.includes(query) || desc.includes(query) || id.includes(query);
                 const matchStato = stato === "" || itemStato === stato;
@@ -208,27 +223,27 @@
         }
 
         function stampaScheda(id) {
-            const item = manutenzioniData.find(i => i.ID === id);
+            const item = manutenzioniData.find(i => String(i.ID || i.id) === String(id));
             if (!item) return;
             let w = window.open('', '_blank');
             w.document.write(`
                 <html>
                 <head>
-                    <title>Richiesta ${item.ID}</title>
+                    <title>Richiesta ${item.ID || item.id}</title>
                     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
                 </head>
                 <body class="p-5">
                     <h2>Residenza Newman - Scheda Manutenzione</h2>
                     <hr>
-                    <p><strong>ID:</strong> ${item.ID}</p>
-                    <p><strong>Data:</strong> ${item.Timestamp ? new Date(item.Timestamp).toLocaleString('it-IT') : ''}</p>
-                    <p><strong>Luogo:</strong> ${item.Luogo}</p>
-                    <p><strong>Categoria:</strong> ${item.Categoria}</p>
-                    <p><strong>Priorità:</strong> ${item.Priorita}</p>
-                    <p><strong>Stato:</strong> ${item.Stato}</p>
-                    <p><strong>Segnalato da:</strong> ${item.Email}</p>
-                    <p><strong>Descrizione:</strong> ${item.Descrizione}</p>
-                    ${item.Link_Foto ? `<p><strong>Foto:</strong> <a href="${item.Link_Foto}" target="_blank">Visualizza Allegato</a></p>` : ''}
+                    <p><strong>ID:</strong> ${item.ID || item.id}</p>
+                    <p><strong>Data:</strong> ${item.Timestamp || item.timestamp ? new Date(item.Timestamp || item.timestamp).toLocaleString('it-IT') : ''}</p>
+                    <p><strong>Luogo:</strong> ${item.Luogo || item.luogo}</p>
+                    <p><strong>Categoria:</strong> ${item.Categoria || item.categoria}</p>
+                    <p><strong>Priorità:</strong> ${item.Priorita || item.priorita}</p>
+                    <p><strong>Stato:</strong> ${item.Stato || item.stato}</p>
+                    <p><strong>Segnalato da:</strong> ${item.Email || item.email}</p>
+                    <p><strong>Descrizione:</strong> ${item.Descrizione || item.descrizione}</p>
+                    ${item.Link_Foto || item.link_foto ? `<p><strong>Foto:</strong> <a href="${item.Link_Foto || item.link_foto}" target="_blank">Visualizza Allegato</a></p>` : ''}
                     <script>window.print();<\/script>
                 </body>
                 </html>
@@ -237,17 +252,26 @@
         }
 
         function inviaSingolaEmail(id) {
-            const item = manutenzioniData.find(i => i.ID === id);
+            const item = manutenzioniData.find(i => String(i.ID || i.id) === String(id));
             if (!item) return;
-            const subject = encodeURIComponent(`Manutenzione Residenza Newman: ${item.ID} - ${item.Luogo}`);
-            const body = encodeURIComponent(`Dettagli richiesta di manutenzione:\n\nID: ${item.ID}\nData: ${item.Timestamp}\nLuogo: ${item.Luogo}\nCategoria: ${item.Categoria}\nPriorità: ${item.Priorita}\nStato: ${item.Stato}\nSegnalato da: ${item.Email}\nDescrizione: ${item.Descrizione}\nFoto: ${item.Link_Foto || 'Nessuna'}`);
+            const itemId = item.ID || item.id;
+            const itemLuogo = item.Luogo || item.luogo;
+            const itemEmail = item.Email || item.email;
+            const itemDesc = item.Descrizione || item.descrizione;
+            const itemFoto = item.Link_Foto || item.link_foto || 'Nessuna';
+            const subject = encodeURIComponent(`Manutenzione Residenza Newman: ${itemId} - ${itemLuogo}`);
+            const body = encodeURIComponent(`Dettagli richiesta di manutenzione:\n\nID: ${itemId}\nData: ${item.Timestamp || item.timestamp}\nLuogo: ${itemLuogo}\nCategoria: ${item.Categoria || item.categoria}\nPriorità: ${item.Priorita || item.priorita}\nStato: ${item.Stato || item.stato}\nSegnalato da: ${itemEmail}\nDescrizione: ${itemDesc}\nFoto: ${itemFoto}`);
             window.location.href = `mailto:?subject=${subject}&body=${body}`;
         }
 
         function inviaElencoEmail() {
             let bodyText = "Elenco Richieste di Manutenzione - Residenza Newman:\n\n";
             filteredData.forEach((item, index) => {
-                bodyText += `${index + 1}. [${item.Stato}] ${item.Luogo} - ${item.Descrizione} (${item.Categoria})\n`;
+                let st = item.Stato || item.stato || 'Da fare';
+                let lg = item.Luogo || item.luogo || '';
+                let ds = item.Descrizione || item.descrizione || '';
+                let cat = item.Categoria || item.categoria || '';
+                bodyText += `${index + 1}. [${st}] ${lg} - ${ds} (${cat})\n`;
             });
             const subject = encodeURIComponent("Riepilogo Manutenzioni Residenza Newman");
             const body = encodeURIComponent(bodyText);
