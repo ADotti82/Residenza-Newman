@@ -87,21 +87,18 @@
         let filteredData = [];
 
         async function caricaDatiLive() {
-            if (WEB_APP_URL.includes('INCOLLA_QUI')) {
-                document.getElementById('loading').innerHTML = `
-                    <div class="alert alert-warning">
-                        <h4>Configurazione richiesta</h4>
-                        <p>Inserisci l'URL della Web App di Apps Script nella costante <code>WEB_APP_URL</code>.</p>
-                    </div>`;
-                return;
-            }
-
             try {
                 document.getElementById('loading').classList.remove('d-none');
                 const response = await fetch(WEB_APP_URL);
                 if (!response.ok) throw new Error('Errore di rete.');
                 
-                manutenzioniData = await response.json();
+                const data = await response.json();
+                
+                if (!Array.isArray(data)) {
+                    throw new Error(data.error || "Formato dati non valido ricevuto dal server.");
+                }
+                
+                manutenzioniData = data;
                 filteredData = [...manutenzioniData];
                 
                 document.getElementById('loading').classList.add('d-none');
