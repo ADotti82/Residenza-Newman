@@ -3,75 +3,89 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Residenza Newman - Gestione Manutenzioni</title>
+    <title>Residenza Newman - Gestione Manutenzioni Avanzata</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f8f9fa; color: #333; }
-        .card-hover:hover { transform: translateY(-3px); transition: all 0.2s ease-in-out; box-shadow: 0 0.5rem 1rem rgba(0,0,0,0.1); }
+        body { background-color: #f4f6f9; font-family: 'Inter', sans-serif; color: #334155; }
+        .navbar-brand { font-weight: 700; letter-spacing: -0.5px; }
+        .card-custom { border: none; border-radius: 12px; transition: all 0.25s ease; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); background: #ffffff; }
+        .card-custom:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04); }
+        .badge-status { font-weight: 500; padding: 0.5em 0.8em; border-radius: 6px; }
+        .table-custom th { background-color: #1e293b; color: #ffffff; font-weight: 600; border: none; }
+        .table-custom td { vertical-align: middle; }
+        .stat-card { border-left: 4px solid #3b82f6; }
         @media print {
             .no-print { display: none !important; }
-            .card { border: 1px solid #ccc !important; break-inside: avoid; box-shadow: none !important; }
-            body { background: white !important; }
+            .card-custom { border: 1px solid #cbd5e1 !important; box-shadow: none !important; break-inside: avoid; }
+            body { background: #ffffff !important; }
         }
     </style>
 </head>
 <body>
-    <div class="container py-4">
-        <header class="pb-3 mb-4 border-bottom d-flex justify-content-between align-items-center flex-wrap no-print">
-            <div>
-                <h1 class="h3 mb-0 text-primary fw-bold"><i class="fa-solid fa-screwdriver-wrench me-2"></i>Residenza Newman</h1>
-                <p class="text-muted mb-0">Registro Amministrazione - Manutenzioni (Tempo Reale via API)</p>
-            </div>
-            <div class="mt-2 mt-md-0">
-                <button class="btn btn-outline-secondary me-2" onclick="caricaDatiLive()"><i class="fa-solid fa-sync me-1"></i> Aggiorna</button>
-                <button class="btn btn-outline-secondary me-2" onclick="window.print()"><i class="fa-solid fa-print me-1"></i> Stampa</button>
-                <button class="btn btn-primary" onclick="inviaElencoEmail()"><i class="fa-solid fa-envelope me-1"></i> Invia Elenco via Email</button>
-            </div>
-        </header>
 
-        <div class="row mb-4 no-print">
-            <div class="col-md-6 mb-2">
-                <input type="text" id="searchInput" class="form-control" placeholder="Cerca per luogo, descrizione o ID..." onkeyup="filtraDati()">
+    <nav class="navbar navbar-dark bg-dark shadow-sm no-print">
+        <div class="container py-2">
+            <a class="navbar-brand d-flex align-items-center" href="#">
+                <i class="fa-solid fa-screwdriver-wrench text-primary me-2 fs-4"></i>
+                <span>Residenza Newman <small class="text-muted fw-normal ms-2">Amministrazione</small></span>
+            </a>
+            <div class="d-flex gap-2">
+                <button class="btn btn-outline-light btn-sm" onclick="caricaDatiLive()"><i class="fa-solid fa-rotate me-1"></i> Aggiorna</button>
+                <button class="btn btn-outline-light btn-sm" onclick="window.print()"><i class="fa-solid fa-print me-1"></i> Stampa</button>
+                <button class="btn btn-primary btn-sm" onclick="inviaElencoEmail()"><i class="fa-solid fa-envelope me-1"></i> Email Riepilogo</button>
             </div>
-            <div class="col-md-3 mb-2">
-                <select id="filterStato" class="form-select" onchange="filtraDati()">
+        </div>
+    </nav>
+
+    <div class="container py-4">
+        
+        <div class="row g-3 mb-4 no-print align-items-center">
+            <div class="col-md-5">
+                <div class="input-group shadow-sm">
+                    <span class="input-group-text bg-white border-end-0"><i class="fa-solid fa-magnifying-glass text-muted"></i></span>
+                    <input type="text" id="searchInput" class="form-control border-start-0 ps-0" placeholder="Cerca per luogo, descrizione, tecnico o ID..." onkeyup="filtraDati()">
+                </div>
+            </div>
+            <div class="col-md-3">
+                <select id="filterStato" class="form-select shadow-sm" onchange="filtraDati()">
                     <option value="">Tutti gli stati</option>
                     <option value="Da fare">Da fare</option>
                     <option value="In corso">In corso</option>
-                    <option value="Completato">Completato</option>
                     <option value="Risolto">Risolto</option>
+                    <option value="Completato">Completato</option>
                 </select>
             </div>
-            <div class="col-md-3 mb-2 d-flex justify-content-end">
-                <div class="btn-group" role="group">
+            <div class="col-md-4 d-flex justify-content-md-end">
+                <div class="btn-group shadow-sm" role="group">
                     <input type="radio" class="btn-check" name="viewMode" id="viewCards" autocomplete="off" checked onclick="cambiaVista('cards')">
-                    <label class="btn btn-outline-primary" for="viewCards"><i class="fa-solid fa-grip me-1"></i> Schede</label>
+                    <label class="btn btn-outline-secondary bg-white text-dark" for="viewCards"><i class="fa-solid fa-grip me-1"></i> Schede</label>
                     
                     <input type="radio" class="btn-check" name="viewMode" id="viewTable" autocomplete="off" onclick="cambiaVista('table')">
-                    <label class="btn btn-outline-primary" for="viewTable"><i class="fa-solid fa-table me-1"></i> Tabella</label>
+                    <label class="btn btn-outline-secondary bg-white text-dark" for="viewTable"><i class="fa-solid fa-table me-1"></i> Tabella</label>
                 </div>
             </div>
         </div>
 
         <div id="loading" class="text-center py-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Caricamento in corso...</span>
+            <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                <span class="visually-hidden">Caricamento...</span>
             </div>
-            <p class="text-muted mt-2">Connessione al server in corso...</p>
+            <p class="text-muted mt-3 fw-medium">Connessione in tempo reale al Foglio Google...</p>
         </div>
 
-        <div id="cardsView" class="row d-none"></div>
+        <div id="cardsView" class="row g-4 d-none"></div>
 
-        <div id="tableView" class="table-responsive d-none">
-            <table class="table table-striped table-hover bg-white rounded shadow-sm">
-                <thead class="table-dark">
+        <div id="tableView" class="table-responsive d-none shadow-sm rounded-3">
+            <table class="table table-hover table-custom bg-white mb-0">
+                <thead>
                     <tr>
                         <th>ID / Data</th>
-                        <th>Luogo</th>
-                        <th>Categoria</th>
+                        <th>Luogo & Categoria</th>
                         <th>Descrizione</th>
                         <th>Priorità</th>
+                        <th>Tecnico & Note</th>
                         <th>Stato</th>
                         <th class="no-print text-end">Azioni</th>
                     </tr>
@@ -88,9 +102,17 @@
         let filteredData = [];
 
         async function caricaDatiLive() {
+            const loadingEl = document.getElementById('loading');
             try {
-                const loadingEl = document.getElementById('loading');
-                if (loadingEl) loadingEl.classList.remove('d-none');
+                if (loadingEl) {
+                    loadingEl.classList.remove('d-none');
+                    loadingEl.innerHTML = `
+                        <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
+                            <span class="visually-hidden">Caricamento...</span>
+                        </div>
+                        <p class="text-muted mt-3 fw-medium">Connessione in tempo reale al Foglio Google...</p>
+                    `;
+                }
                 
                 const response = await fetch(WEB_APP_URL, {
                     method: 'POST',
@@ -101,7 +123,7 @@
                     })
                 });
                 
-                if (!response.ok) throw new Error('Errore di rete.');
+                if (!response.ok) throw new Error('Errore di comunicazione con il server.');
                 
                 const data = await response.json();
                 
@@ -118,19 +140,18 @@
                 }
                 
                 if (!Array.isArray(arrayData)) {
-                    throw new Error(data.error || "Impossibile estrarre l'elenco delle manutenzioni dalla risposta del server.");
+                    throw new Error(data.error || "Impossibile estrarre i dati delle manutenzioni.");
                 }
                 
                 manutenzioniData = arrayData;
                 filteredData = [...manutenzioniData];
                 
                 if (loadingEl) loadingEl.classList.add('d-none');
-                cambiaVista(document.getElementById('viewCards').checked ? 'cards' : 'table');
+                cambiaVista(document.getElementById('viewCards') && document.getElementById('viewCards').checked ? 'cards' : 'table');
                 render();
             } catch (err) {
-                const loadingEl = document.getElementById('loading');
                 if (loadingEl) {
-                    loadingEl.innerHTML = `<div class="alert alert-danger">Impossibile caricare i dati: ${err.message}</div>`;
+                    loadingEl.innerHTML = `<div class="alert alert-danger shadow-sm p-4 inline-block"><h5><i class="fa-solid fa-triangle-exclamation me-2"></i>Impossibile caricare i dati</h5><p class="mb-0">${err.message}</p></div>`;
                 }
             }
         }
@@ -144,35 +165,53 @@
             const container = document.getElementById('cardsView');
             if (!container) return;
             container.innerHTML = '';
+            
             if (filteredData.length === 0) {
-                container.innerHTML = '<div class="col-12 text-center text-muted py-4">Nessuna richiesta trovata.</div>';
+                container.innerHTML = '<div class="col-12 text-center text-muted py-5"><h5>Nessuna richiesta di manutenzione trovata.</h5></div>';
                 return;
             }
+
             filteredData.forEach(item => {
-                let stato = item.Stato || item.stato ? String(item.Stato || item.stato).trim() : 'Da fare';
-                let badgeClass = stato === 'Da fare' ? 'bg-danger' : (stato === 'In corso' ? 'bg-warning text-dark' : 'bg-success');
+                let stato = item.Stato || item.stato || 'Da fare';
+                let badgeBg = 'bg-danger';
+                if (stato === 'In corso') badgeBg = 'bg-warning text-dark';
+                if (stato === 'Risolto' || stato === 'Completato') badgeBg = 'bg-success';
+
+                let priorita = item.Priorita || item.priorita || 'Media';
+                let prioBadge = priorita.toLowerCase() === 'alta' ? 'text-danger fw-bold' : 'text-muted';
+
                 let linkFoto = item.Link_Foto || item.link_foto || '';
-                let fotoBtn = linkFoto.trim() !== '' ? `<a href="${linkFoto}" target="_blank" class="btn btn-sm btn-outline-primary mb-2"><i class="fa-solid fa-image me-1"></i> Visualizza Foto</a>` : '';
-                
+                let fotoHtml = linkFoto.trim() !== '' ? `<a href="${linkFoto}" target="_blank" class="btn btn-sm btn-outline-primary mb-3"><i class="fa-solid fa-image me-1"></i> Visualizza Foto Allegata</a>` : '';
+
+                let tecnico = item.Tecnico || item.tecnico || '';
+                let noteInt = item.Note_Intervento || item.note_intervento || '';
+                let dataChiusura = item.Data_Chiusura || item.data_chiusura || '';
+
+                let infoTecnicoHtml = tecnico ? `<div class="small bg-light p-2 rounded mb-2 border"><i class="fa-solid fa-user-gear me-1 text-secondary"></i><strong>Tecnico:</strong> ${tecnico} ${noteInt ? '<br><em>' + noteInt + '</em>' : ''}</div>` : '';
+                let chiusuraHtml = dataChiusura ? `<div class="text-success small mb-2"><i class="fa-solid fa-check-circle me-1"></i> Chiuso il: ${new Date(dataChiusura).toLocaleString('it-IT')}</div>` : '';
+
                 let col = document.createElement('div');
-                col.className = 'col-md-4 mb-3';
+                col.className = 'col-md-4';
                 col.innerHTML = `
-                    <div class="card h-100 card-hover shadow-sm">
-                        <div class="card-body d-flex flex-column">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <span class="badge ${badgeClass}">${stato}</span>
-                                <small class="text-muted">${item.Timestamp || item.timestamp ? new Date(item.Timestamp || item.timestamp).toLocaleString('it-IT') : ''}</small>
-                            </div>
-                            <h5 class="card-title text-dark"><i class="fa-solid fa-location-dot me-1 text-danger"></i> ${item.Luogo || item.luogo || ''}</h5>
-                            <h6 class="card-subtitle mb-2 text-muted text-uppercase small">${item.Categoria || item.categoria || ''} | Priorità: ${item.Priorita || item.priorita || ''}</h6>
-                            <p class="card-text flex-grow-1 mt-2">${item.Descrizione || item.descrizione || ''}</p>
-                            ${fotoBtn}
-                            <div class="d-flex justify-content-between align-items-center mt-3 pt-2 border-top no-print">
-                                <small class="text-muted text-truncate" style="max-width: 150px;" title="${item.Email || item.email || ''}">${item.Email || item.email || ''}</small>
-                                <div>
-                                    <button class="btn btn-sm btn-outline-secondary" onclick="stampaScheda('${item.ID || item.id}')" title="Stampa"><i class="fa-solid fa-print"></i></button>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID || item.id}')" title="Invia Email"><i class="fa-solid fa-envelope"></i></button>
-                                </div>
+                    <div class="card card-custom h-100 p-3 d-flex flex-column">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <span class="badge badge-status ${badgeBg}">${stato}</span>
+                            <small class="text-muted fw-semibold">${item.ID || item.id || ''}</small>
+                        </div>
+                        <h5 class="fw-bold text-dark mb-1"><i class="fa-solid fa-location-dot text-danger me-1"></i> ${item.Luogo || item.luogo || 'Ambiente non specificato'}</h5>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <span class="badge bg-light text-dark border">${item.Categoria || item.categoria || 'Generale'}</span>
+                            <small class="${prioBadge}"><i class="fa-solid fa-flag me-1"></i>Priorità: ${priorita}</small>
+                        </div>
+                        <p class="text-secondary flex-grow-1 small bg-white p-2 rounded border">${item.Descrizione || item.descrizione || ''}</p>
+                        ${fotoHtml}
+                        ${infoTecnicoHtml}
+                        ${chiusuraHtml}
+                        <div class="d-flex justify-content-between align-items-center pt-2 border-top mt-auto no-print">
+                            <small class="text-muted text-truncate" style="max-width: 160px;" title="${item.Email || item.email || ''}"><i class="fa-regular fa-envelope me-1"></i>${item.Email || item.email || ''}</small>
+                            <div>
+                                <button class="btn btn-sm btn-light border text-secondary me-1" onclick="stampaScheda('${item.ID || item.id}')" title="Stampa Scheda"><i class="fa-solid fa-print"></i></button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID || item.id}')" title="Invia Email"><i class="fa-solid fa-envelope"></i></button>
                             </div>
                         </div>
                     </div>
@@ -185,26 +224,49 @@
             const tbody = document.getElementById('tableBody');
             if (!tbody) return;
             tbody.innerHTML = '';
+
             if (filteredData.length === 0) {
                 tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Nessuna richiesta trovata.</td></tr>';
                 return;
             }
+
             filteredData.forEach(item => {
-                let stato = item.Stato || item.stato ? String(item.Stato || item.stato).trim() : 'Da fare';
-                let badgeClass = stato === 'Da fare' ? 'bg-danger' : (stato === 'In corso' ? 'bg-warning text-dark' : 'bg-success');
+                let stato = item.Stato || item.stato || 'Da fare';
+                let badgeBg = 'bg-danger';
+                if (stato === 'In corso') badgeBg = 'bg-warning text-dark';
+                if (stato === 'Risolto' || stato === 'Completato') badgeBg = 'bg-success';
+
                 let linkFoto = item.Link_Foto || item.link_foto || '';
-                let fotoLink = linkFoto.trim() !== '' ? `<a href="${linkFoto}" target="_blank" class="ms-1" title="Foto"><i class="fa-solid fa-image"></i></a>` : '';
+                let fotoIcon = linkFoto.trim() !== '' ? `<a href="${linkFoto}" target="_blank" class="ms-1 text-primary" title="Vedi Foto"><i class="fa-solid fa-image"></i></a>` : '';
+
+                let tecnico = item.Tecnico || item.tecnico || '-';
+                let noteInt = item.Note_Intervento || item.note_intervento || '';
+                let dataChiusura = item.Data_Chiusura || item.data_chiusura || '';
+
                 let tr = document.createElement('tr');
                 tr.innerHTML = `
-                    <td><small class="fw-bold">${item.ID || item.id || ''}</small><br><small class="text-muted">${item.Timestamp || item.timestamp ? new Date(item.Timestamp || item.timestamp).toLocaleString('it-IT') : ''}</small></td>
-                    <td>${item.Luogo || item.luogo || ''}</td>
-                    <td><span class="badge bg-secondary">${item.Categoria || item.categoria || ''}</span></td>
-                    <td>${item.Descrizione || item.descrizione || ''} ${fotoLink}</td>
-                    <td>${item.Priorita || item.priorita || ''}</td>
-                    <td><span class="badge ${badgeClass}">${stato}</span></td>
+                    <td>
+                        <span class="fw-bold text-dark">${item.ID || item.id || ''}</span><br>
+                        <small class="text-muted">${item.Timestamp || item.timestamp ? new Date(item.Timestamp || item.timestamp).toLocaleString('it-IT') : ''}</small>
+                    </td>
+                    <td>
+                        <div class="fw-semibold text-dark">${item.Luogo || item.luogo || ''}</div>
+                        <span class="badge bg-light text-secondary border mt-1">${item.Categoria || item.categoria || ''}</span>
+                    </td>
+                    <td>
+                        <div class="small">${item.Descrizione || item.descrizione || ''} ${fotoIcon}</div>
+                        <small class="text-muted"><i class="fa-regular fa-envelope me-1"></i>${item.Email || item.email || ''}</small>
+                    </td>
+                    <td><span class="fw-medium">${item.Priorita || item.priorita || ''}</span></td>
+                    <td>
+                        <div class="small fw-semibold text-dark">${tecnico}</div>
+                        <div class="text-muted small">${noteInt}</div>
+                        ${dataChiusura ? '<small class="text-success">Chiuso: ' + dataChiusura.split('T')[0] + '</small>' : ''}
+                    </td>
+                    <td><span class="badge badge-status ${badgeBg}">${stato}</span></td>
                     <td class="no-print text-end">
-                        <button class="btn btn-sm btn-outline-secondary me-1" onclick="stampaScheda('${item.ID || item.id}')"><i class="fa-solid fa-print"></i></button>
-                        <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID || item.id}')"><i class="fa-solid fa-envelope"></i></button>
+                        <button class="btn btn-sm btn-light border text-secondary me-1" onclick="stampaScheda('${item.ID || item.id}')" title="Stampa"><i class="fa-solid fa-print"></i></button>
+                        <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID || item.id}')" title="Email"><i class="fa-solid fa-envelope"></i></button>
                     </td>
                 `;
                 tbody.appendChild(tr);
@@ -230,13 +292,15 @@
             if (!searchInput || !filterStato) return;
             const query = searchInput.value.toLowerCase();
             const stato = filterStato.value;
+            
             filteredData = manutenzioniData.filter(item => {
                 const luogo = item.Luogo || item.luogo ? String(item.Luogo || item.luogo).toLowerCase() : '';
                 const desc = item.Descrizione || item.descrizione ? String(item.Descrizione || item.descrizione).toLowerCase() : '';
                 const id = item.ID || item.id ? String(item.ID || item.id).toLowerCase() : '';
+                const tecnico = item.Tecnico || item.tecnico ? String(item.Tecnico || item.tecnico).toLowerCase() : '';
                 const itemStato = item.Stato || item.stato ? String(item.Stato || item.stato).trim() : '';
 
-                const matchQuery = luogo.includes(query) || desc.includes(query) || id.includes(query);
+                const matchQuery = luogo.includes(query) || desc.includes(query) || id.includes(query) || tecnico.includes(query);
                 const matchStato = stato === "" || itemStato === stato;
                 return matchQuery && matchStato;
             });
@@ -250,21 +314,25 @@
             w.document.write(`
                 <html>
                 <head>
-                    <title>Richiesta ${item.ID || item.id}</title>
+                    <title>Scheda Manutenzione - ${item.ID || item.id}</title>
                     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
                 </head>
                 <body class="p-5">
-                    <h2>Residenza Newman - Scheda Manutenzione</h2>
-                    <hr>
-                    <p><strong>ID:</strong> ${item.ID || item.id}</p>
-                    <p><strong>Data:</strong> ${item.Timestamp || item.timestamp ? new Date(item.Timestamp || item.timestamp).toLocaleString('it-IT') : ''}</p>
-                    <p><strong>Luogo:</strong> ${item.Luogo || item.luogo}</p>
+                    <h3 class="text-primary fw-bold">Residenza Newman</h3>
+                    <h5>Scheda Dettaglio Intervento / Manutenzione</h5>
+                    <hr class="my-4">
+                    <p><strong>ID Segnalazione:</strong> ${item.ID || item.id}</p>
+                    <p><strong>Data Segnalazione:</strong> ${item.Timestamp || item.timestamp ? new Date(item.Timestamp || item.timestamp).toLocaleString('it-IT') : ''}</p>
+                    <p><strong>Segnalato da:</strong> ${item.Email || item.email}</p>
+                    <p><strong>Luogo / Ambiente:</strong> ${item.Luogo || item.luogo}</p>
                     <p><strong>Categoria:</strong> ${item.Categoria || item.categoria}</p>
                     <p><strong>Priorità:</strong> ${item.Priorita || item.priorita}</p>
-                    <p><strong>Stato:</strong> ${item.Stato || item.stato}</p>
-                    <p><strong>Segnalato da:</strong> ${item.Email || item.email}</p>
-                    <p><strong>Descrizione:</strong> ${item.Descrizione || item.descrizione}</p>
-                    ${item.Link_Foto || item.link_foto ? `<p><strong>Foto:</strong> <a href="${item.Link_Foto || item.link_foto}" target="_blank">Visualizza Allegato</a></p>` : ''}
+                    <p><strong>Stato Attuale:</strong> ${item.Stato || item.stato}</p>
+                    <p><strong>Descrizione Guasto:</strong><br>${item.Descrizione || item.descrizione}</p>
+                    <p><strong>Tecnico Assegnato:</strong> ${item.Tecnico || item.tecnico || 'Non assegnato'}</p>
+                    <p><strong>Note Intervento:</strong> ${item.Note_Intervento || item.note_intervento || 'Nessuna nota'}</p>
+                    <p><strong>Data Chiusura:</strong> ${item.Data_Chiusura || item.data_chiusura || 'Non chiuso'}</p>
+                    ${item.Link_Foto || item.link_foto ? `<p><strong>Foto Allegata:</strong> <a href="${item.Link_Foto || item.link_foto}" target="_blank">Apri Immagine</a></p>` : ''}
                     <script>window.print();<\/script>
                 </body>
                 </html>
@@ -279,9 +347,12 @@
             const itemLuogo = item.Luogo || item.luogo;
             const itemEmail = item.Email || item.email;
             const itemDesc = item.Descrizione || item.descrizione;
+            const itemTecnico = item.Tecnico || item.tecnico || 'Non assegnato';
+            const itemNote = item.Note_Intervento || item.note_intervento || 'Nessuna';
             const itemFoto = item.Link_Foto || item.link_foto || 'Nessuna';
+            
             const subject = encodeURIComponent(`Manutenzione Residenza Newman: ${itemId} - ${itemLuogo}`);
-            const body = encodeURIComponent(`Dettagli richiesta di manutenzione:\n\nID: ${itemId}\nData: ${item.Timestamp || item.timestamp}\nLuogo: ${itemLuogo}\nCategoria: ${item.Categoria || item.categoria}\nPriorità: ${item.Priorita || item.priorita}\nStato: ${item.Stato || item.stato}\nSegnalato da: ${itemEmail}\nDescrizione: ${itemDesc}\nFoto: ${itemFoto}`);
+            const body = encodeURIComponent(`Dettagli richiesta di manutenzione:\n\nID: ${itemId}\nData: ${item.Timestamp || item.timestamp}\nLuogo: ${itemLuogo}\nCategoria: ${item.Categoria || item.categoria}\nPriorità: ${item.Priorita || item.priorita}\nStato: ${item.Stato || item.stato}\nSegnalato da: ${itemEmail}\nDescrizione: ${itemDesc}\nTecnico: ${itemTecnico}\nNote Intervento: ${itemNote}\nFoto: ${itemFoto}`);
             window.location.href = `mailto:?subject=${subject}&body=${body}`;
         }
 
@@ -291,15 +362,17 @@
                 let st = item.Stato || item.stato || 'Da fare';
                 let lg = item.Luogo || item.luogo || '';
                 let ds = item.Descrizione || item.descrizione || '';
-                let cat = item.Categoria || item.categoria || '';
-                bodyText += `${index + 1}. [${st}] ${lg} - ${ds} (${cat})\n`;
+                let tec = item.Tecnico || item.tecnico ? ' [Tecnico: ' + (item.Tecnico || item.tecnico) + ']' : '';
+                bodyText += `${index + 1}. [${st}] ${lg} - ${ds}${tec}\n`;
             });
             const subject = encodeURIComponent("Riepilogo Manutenzioni Residenza Newman");
             const body = encodeURIComponent(bodyText);
             window.location.href = `mailto:?subject=${subject}&body=${body}`;
         }
 
-        caricaDatiLive();
+        document.addEventListener('DOMContentLoaded', function() {
+            caricaDatiLive();
+        });
     </script>
 </body>
 </html>
