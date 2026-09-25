@@ -3,24 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Residenza Newman - Gestione Manutenzioni Avanzata</title>
+    <title>Residenza Newman - Registro Manutenzioni e Interventi Tecnici</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { background-color: #f4f6f9; font-family: 'Inter', sans-serif; color: #334155; }
+        body { background-color: #f8fafc; font-family: 'Inter', sans-serif; color: #1e293b; }
         .navbar-brand { font-weight: 700; letter-spacing: -0.5px; }
-        .card-custom { border: none; border-radius: 12px; transition: all 0.25s ease; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03); background: #ffffff; }
-        .card-custom:hover { transform: translateY(-4px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -2px rgba(0, 0, 0, 0.04); }
-        .badge-status { font-weight: 500; padding: 0.5em 0.8em; border-radius: 6px; }
-        .table-custom th { background-color: #1e293b; color: #ffffff; font-weight: 600; border: none; }
+        .card-custom { border: none; border-radius: 12px; transition: all 0.2s ease-in-out; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); background: #ffffff; }
+        .card-custom:hover { transform: translateY(-3px); box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08); }
+        .badge-status { font-weight: 500; padding: 0.5em 0.8em; border-radius: 6px; font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; }
+        .table-custom th { background-color: #0f172a; color: #ffffff; font-weight: 600; border: none; }
         .table-custom td { vertical-align: middle; }
-        .stat-card { border-left: 4px solid #3b82f6; }
+        .stat-box { background: #ffffff; border-radius: 10px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); border: 1px solid #e2e8f0; }
+        .thumb-img { width: 45px; height: 45px; object-fit: cover; border-radius: 6px; cursor: pointer; transition: opacity 0.2s; }
+        .thumb-img:hover { opacity: 0.8; }
         @media print {
             .no-print { display: none !important; }
-            .card-custom { border: 1px solid #cbd5e1 !important; box-shadow: none !important; break-inside: avoid; }
-            body { background: #ffffff !important; }
+            .card-custom { border: 1px solid #94a3b8 !important; box-shadow: none !important; break-inside: avoid; margin-bottom: 20px; }
+            body { background: #ffffff !important; color: #000000 !important; }
+            .print-header { display: block !important; border-bottom: 2px solid #000; padding-bottom: 10px; margin-bottom: 20px; }
         }
+        .print-header { display: none; }
     </style>
 </head>
 <body>
@@ -28,19 +32,64 @@
     <nav class="navbar navbar-dark bg-dark shadow-sm no-print">
         <div class="container py-2">
             <a class="navbar-brand d-flex align-items-center" href="#">
-                <i class="fa-solid fa-screwdriver-wrench text-primary me-2 fs-4"></i>
-                <span>Residenza Newman <small class="text-muted fw-normal ms-2">Amministrazione</small></span>
+                <i class="fa-solid fa-wrench text-primary me-2 fs-4"></i>
+                <span>Residenza Newman <small class="text-muted fw-normal ms-2">Gestione Manutenzioni</small></span>
             </a>
             <div class="d-flex gap-2">
                 <button class="btn btn-outline-light btn-sm" onclick="caricaDatiLive()"><i class="fa-solid fa-rotate me-1"></i> Aggiorna</button>
-                <button class="btn btn-outline-light btn-sm" onclick="window.print()"><i class="fa-solid fa-print me-1"></i> Stampa</button>
-                <button class="btn btn-primary btn-sm" onclick="inviaElencoEmail()"><i class="fa-solid fa-envelope me-1"></i> Email Riepilogo</button>
+                <button class="btn btn-outline-light btn-sm" onclick="window.print()"><i class="fa-solid fa-print me-1"></i> Stampa Registro</button>
+                <button class="btn btn-primary btn-sm" onclick="inviaElencoEmail()"><i class="fa-solid fa-envelope me-1"></i> Invia Riepilogo</button>
             </div>
         </div>
     </nav>
 
     <div class="container py-4">
-        
+
+        <div class="print-header">
+            <h2 class="fw-bold">Residenza Card. Newman</h2>
+            <h4>Registro Ufficiale Interventi di Manutenzione</h4>
+            <p class="text-muted">Stampato il: <span id="printDate"></span></p>
+        </div>
+
+        <div class="row g-3 mb-4 no-print" id="statsContainer">
+            <div class="col-md-3">
+                <div class="stat-box d-flex align-items-center">
+                    <div class="fs-2 text-primary me-3"><i class="fa-solid fa-clipboard-list"></i></div>
+                    <div>
+                        <small class="text-muted text-uppercase fw-semibold">Totale Interventi</small>
+                        <h4 id="statTotale" class="mb-0 fw-bold">0</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-box d-flex align-items-center">
+                    <div class="fs-2 text-danger me-3"><i class="fa-solid fa-circle-exclamation"></i></div>
+                    <div>
+                        <small class="text-muted text-uppercase fw-semibold">Da Fare</small>
+                        <h4 id="statDaFare" class="mb-0 fw-bold">0</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-box d-flex align-items-center">
+                    <div class="fs-2 text-warning me-3"><i class="fa-solid fa-clock-rotate-left"></i></div>
+                    <div>
+                        <small class="text-muted text-uppercase fw-semibold">In Corso</small>
+                        <h4 id="statInCorso" class="mb-0 fw-bold">0</h4>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-box d-flex align-items-center">
+                    <div class="fs-2 text-success me-3"><i class="fa-solid fa-circle-check"></i></div>
+                    <div>
+                        <small class="text-muted text-uppercase fw-semibold">Risolti</small>
+                        <h4 id="statRisolti" class="mb-0 fw-bold">0</h4>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <div class="row g-3 mb-4 no-print align-items-center">
             <div class="col-md-5">
                 <div class="input-group shadow-sm">
@@ -60,19 +109,19 @@
             <div class="col-md-4 d-flex justify-content-md-end">
                 <div class="btn-group shadow-sm" role="group">
                     <input type="radio" class="btn-check" name="viewMode" id="viewCards" autocomplete="off" checked onclick="cambiaVista('cards')">
-                    <label class="btn btn-outline-secondary bg-white text-dark" for="viewCards"><i class="fa-solid fa-grip me-1"></i> Schede</label>
+                    <label class="btn btn-outline-secondary bg-white text-dark" for="viewCards"><i class="fa-solid fa-grip me-1"></i> Griglia Schede</label>
                     
                     <input type="radio" class="btn-check" name="viewMode" id="viewTable" autocomplete="off" onclick="cambiaVista('table')">
-                    <label class="btn btn-outline-secondary bg-white text-dark" for="viewTable"><i class="fa-solid fa-table me-1"></i> Tabella</label>
+                    <label class="btn btn-outline-secondary bg-white text-dark" for="viewTable"><i class="fa-solid fa-table me-1"></i> Vista Tabellare</label>
                 </div>
             </div>
         </div>
 
         <div id="loading" class="text-center py-5">
             <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
-                <span class="visually-hidden">Caricamento...</span>
+                <span class="visually-hidden">Caricamento in corso...</span>
             </div>
-            <p class="text-muted mt-3 fw-medium">Connessione in tempo reale al Foglio Google...</p>
+            <p class="text-muted mt-3 fw-medium">Sincronizzazione archivio manutenzioni in corso...</p>
         </div>
 
         <div id="cardsView" class="row g-4 d-none"></div>
@@ -81,12 +130,12 @@
             <table class="table table-hover table-custom bg-white mb-0">
                 <thead>
                     <tr>
-                        <th>ID / Data</th>
+                        <th>Riferimento ID</th>
                         <th>Luogo & Categoria</th>
-                        <th>Descrizione</th>
+                        <th>Descrizione Intervento</th>
                         <th>Priorità</th>
-                        <th>Tecnico & Note</th>
-                        <th>Stato</th>
+                        <th>Stato Lavori</th>
+                        <th>Assegnazione & Note</th>
                         <th class="no-print text-end">Azioni</th>
                     </tr>
                 </thead>
@@ -95,11 +144,28 @@
         </div>
     </div>
 
+    <div class="modal fade" id="imageModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-lg">
+            <div class="modal-content border-0 shadow-lg">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-bold">Foto Allegata Intervento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+                </div>
+                <div class="modal-body text-center p-4">
+                    <img id="modalImageSrc" src="" class="img-fluid rounded shadow" alt="Dettaglio allegato">
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         const WEB_APP_URL = 'https://script.google.com/macros/s/AKfycbys9aPfUH6PXGCmHPDWset6pgvwG1kmxUlDFv3Yaiq8uAfp_2uiswm7DNd8_tQqDHHxVg/exec';
 
         let manutenzioniData = [];
         let filteredData = [];
+
+        document.getElementById('printDate').innerText = new Date().toLocaleString('it-IT');
 
         async function caricaDatiLive() {
             const loadingEl = document.getElementById('loading');
@@ -110,7 +176,7 @@
                         <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;" role="status">
                             <span class="visually-hidden">Caricamento...</span>
                         </div>
-                        <p class="text-muted mt-3 fw-medium">Connessione in tempo reale al Foglio Google...</p>
+                        <p class="text-muted mt-3 fw-medium">Sincronizzazione archivio manutenzioni in corso...</p>
                     `;
                 }
                 
@@ -146,14 +212,30 @@
                 manutenzioniData = arrayData;
                 filteredData = [...manutenzioniData];
                 
+                aggiornaStatistiche();
                 if (loadingEl) loadingEl.classList.add('d-none');
                 cambiaVista(document.getElementById('viewCards') && document.getElementById('viewCards').checked ? 'cards' : 'table');
                 render();
             } catch (err) {
                 if (loadingEl) {
-                    loadingEl.innerHTML = `<div class="alert alert-danger shadow-sm p-4 inline-block"><h5><i class="fa-solid fa-triangle-exclamation me-2"></i>Impossibile caricare i dati</h5><p class="mb-0">${err.message}</p></div>`;
+                    loadingEl.innerHTML = `<div class="alert alert-danger shadow-sm p-4 d-inline-block"><h5><i class="fa-solid fa-triangle-exclamation me-2"></i>Errore di connessione</h5><p class="mb-0">${err.message}</p></div>`;
                 }
             }
+        }
+
+        function aggiornaStatistiche() {
+            const totale = manutenzioniData.length;
+            const daFare = manutenzioniData.filter(i => (i.Stato || i.stato || '').toLowerCase() === 'da fare').length;
+            const inCorso = manutenzioniData.filter(i => (i.Stato || i.stato || '').toLowerCase() === 'in corso').length;
+            const risolti = manutenzioniData.filter(i => {
+                const s = (i.Stato || i.stato || '').toLowerCase();
+                return s === 'risolto' || s === 'completato';
+            }).length;
+
+            document.getElementById('statTotale').innerText = totale;
+            document.getElementById('statDaFare').innerText = daFare;
+            document.getElementById('statInCorso').innerText = inCorso;
+            document.getElementById('statRisolti').innerText = risolti;
         }
 
         function render() {
@@ -167,28 +249,41 @@
             container.innerHTML = '';
             
             if (filteredData.length === 0) {
-                container.innerHTML = '<div class="col-12 text-center text-muted py-5"><h5>Nessuna richiesta di manutenzione trovata.</h5></div>';
+                container.innerHTML = '<div class="col-12 text-center text-muted py-5"><h5>Nessun intervento registrato con i filtri selezionati.</h5></div>';
                 return;
             }
 
             filteredData.forEach(item => {
                 let stato = item.Stato || item.stato || 'Da fare';
                 let badgeBg = 'bg-danger';
-                if (stato === 'In corso') badgeBg = 'bg-warning text-dark';
-                if (stato === 'Risolto' || stato === 'Completato') badgeBg = 'bg-success';
+                let statoLower = stato.toLowerCase();
+                if (statoLower.includes('corso')) badgeBg = 'bg-warning text-dark';
+                if (statoLower.includes('risolto') || statoLower.includes('completato')) badgeBg = 'bg-success';
 
                 let priorita = item.Priorita || item.priorita || 'Media';
                 let prioBadge = priorita.toLowerCase() === 'alta' ? 'text-danger fw-bold' : 'text-muted';
 
                 let linkFoto = item.Link_Foto || item.link_foto || '';
-                let fotoHtml = linkFoto.trim() !== '' ? `<a href="${linkFoto}" target="_blank" class="btn btn-sm btn-outline-primary mb-3"><i class="fa-solid fa-image me-1"></i> Visualizza Foto Allegata</a>` : '';
+                let fotoHtml = linkFoto.trim() !== '' ? `
+                    <div class="mb-3">
+                        <img src="${linkFoto}" class="thumb-img border shadow-sm" onclick="apriModalFoto('${linkFoto}')" title="Clicca per ingrandire l'immagine" alt="Foto guasto">
+                        <span class="small text-muted ms-2 fst-italic">Clicca per ingrandire</span>
+                    </div>` : '';
 
                 let tecnico = item.Tecnico || item.tecnico || '';
                 let noteInt = item.Note_Intervento || item.note_intervento || '';
                 let dataChiusura = item.Data_Chiusura || item.data_chiusura || '';
 
-                let infoTecnicoHtml = tecnico ? `<div class="small bg-light p-2 rounded mb-2 border"><i class="fa-solid fa-user-gear me-1 text-secondary"></i><strong>Tecnico:</strong> ${tecnico} ${noteInt ? '<br><em>' + noteInt + '</em>' : ''}</div>` : '';
-                let chiusuraHtml = dataChiusura ? `<div class="text-success small mb-2"><i class="fa-solid fa-check-circle me-1"></i> Chiuso il: ${new Date(dataChiusura).toLocaleString('it-IT')}</div>` : '';
+                let infoTecnicoHtml = tecnico ? `
+                    <div class="small bg-light p-2 rounded mb-2 border">
+                        <i class="fa-solid fa-user-gear me-1 text-secondary"></i><strong>Tecnico:</strong> ${tecnico} 
+                        ${noteInt ? '<br><span class="text-muted">Note: ' + noteInt + '</span>' : ''}
+                    </div>` : '';
+
+                let chiusuraHtml = dataChiusura ? `
+                    <div class="text-success small mb-2 fw-medium">
+                        <i class="fa-solid fa-circle-check me-1"></i> Chiuso il: ${new Date(dataChiusura).toLocaleString('it-IT')}
+                    </div>` : '';
 
                 let col = document.createElement('div');
                 col.className = 'col-md-4';
@@ -201,17 +296,19 @@
                         <h5 class="fw-bold text-dark mb-1"><i class="fa-solid fa-location-dot text-danger me-1"></i> ${item.Luogo || item.luogo || 'Ambiente non specificato'}</h5>
                         <div class="d-flex justify-content-between align-items-center mb-3">
                             <span class="badge bg-light text-dark border">${item.Categoria || item.categoria || 'Generale'}</span>
-                            <small class="${prioBadge}"><i class="fa-solid fa-flag me-1"></i>Priorità: ${priorita}</small>
+                            <small class="${prioBadge}"><i class="fa-solid fa-flag me-1"></i>${priorita}</small>
                         </div>
-                        <p class="text-secondary flex-grow-1 small bg-white p-2 rounded border">${item.Descrizione || item.descrizione || ''}</p>
+                        <p class="text-secondary flex-grow-1 small bg-white p-2 rounded border mb-2">${item.Descrizione || item.descrizione || ''}</p>
                         ${fotoHtml}
                         ${infoTecnicoHtml}
                         ${chiusuraHtml}
                         <div class="d-flex justify-content-between align-items-center pt-2 border-top mt-auto no-print">
-                            <small class="text-muted text-truncate" style="max-width: 160px;" title="${item.Email || item.email || ''}"><i class="fa-regular fa-envelope me-1"></i>${item.Email || item.email || ''}</small>
+                            <small class="text-muted text-truncate" style="max-width: 160px;" title="${item.Email || item.email || ''}">
+                                <i class="fa-regular fa-user me-1"></i>${(item.Email || item.email || '').split('@')[0]}
+                            </small>
                             <div>
                                 <button class="btn btn-sm btn-light border text-secondary me-1" onclick="stampaScheda('${item.ID || item.id}')" title="Stampa Scheda"><i class="fa-solid fa-print"></i></button>
-                                <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID || item.id}')" title="Invia Email"><i class="fa-solid fa-envelope"></i></button>
+                                <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID || item.id}')" title="Invia Notifica Email"><i class="fa-solid fa-envelope"></i></button>
                             </div>
                         </div>
                     </div>
@@ -226,20 +323,24 @@
             tbody.innerHTML = '';
 
             if (filteredData.length === 0) {
-                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Nessuna richiesta trovata.</td></tr>';
+                tbody.innerHTML = '<tr><td colspan="7" class="text-center text-muted py-4">Nessun intervento trovato.</td></tr>';
                 return;
             }
 
             filteredData.forEach(item => {
                 let stato = item.Stato || item.stato || 'Da fare';
                 let badgeBg = 'bg-danger';
-                if (stato === 'In corso') badgeBg = 'bg-warning text-dark';
-                if (stato === 'Risolto' || stato === 'Completato') badgeBg = 'bg-success';
+                let statoLower = stato.toLowerCase();
+                if (statoLower.includes('corso')) badgeBg = 'bg-warning text-dark';
+                if (statoLower.includes('risolto') || statoLower.includes('completato')) badgeBg = 'bg-success';
 
                 let linkFoto = item.Link_Foto || item.link_foto || '';
-                let fotoIcon = linkFoto.trim() !== '' ? `<a href="${linkFoto}" target="_blank" class="ms-1 text-primary" title="Vedi Foto"><i class="fa-solid fa-image"></i></a>` : '';
+                let fotoThumb = linkFoto.trim() !== '' ? `
+                    <div class="mt-1">
+                        <img src="${linkFoto}" class="thumb-img border shadow-sm" style="width: 32px; height: 32px;" onclick="apriModalFoto('${linkFoto}')" title="Vedi foto" alt="Foto">
+                    </div>` : '';
 
-                let tecnico = item.Tecnico || item.tecnico || '-';
+                let tecnico = item.Tecnico || item.tecnico || 'Non assegnato';
                 let noteInt = item.Note_Intervento || item.note_intervento || '';
                 let dataChiusura = item.Data_Chiusura || item.data_chiusura || '';
 
@@ -254,16 +355,16 @@
                         <span class="badge bg-light text-secondary border mt-1">${item.Categoria || item.categoria || ''}</span>
                     </td>
                     <td>
-                        <div class="small">${item.Descrizione || item.descrizione || ''} ${fotoIcon}</div>
-                        <small class="text-muted"><i class="fa-regular fa-envelope me-1"></i>${item.Email || item.email || ''}</small>
+                        <div class="small">${item.Descrizione || item.descrizione || ''}</div>
+                        ${fotoThumb}
                     </td>
                     <td><span class="fw-medium">${item.Priorita || item.priorita || ''}</span></td>
-                    <td>
-                        <div class="small fw-semibold text-dark">${tecnico}</div>
-                        <div class="text-muted small">${noteInt}</div>
-                        ${dataChiusura ? '<small class="text-success">Chiuso: ' + dataChiusura.split('T')[0] + '</small>' : ''}
-                    </td>
                     <td><span class="badge badge-status ${badgeBg}">${stato}</span></td>
+                    <td>
+                        <div class="small fw-semibold text-dark"><i class="fa-solid fa-user-gear me-1 text-secondary"></i>${tecnico}</div>
+                        <div class="text-muted small">${noteInt}</div>
+                        ${dataChiusura ? '<small class="text-success fw-medium">Chiuso: ' + dataChiusura.split('T')[0] + '</small>' : ''}
+                    </td>
                     <td class="no-print text-end">
                         <button class="btn btn-sm btn-light border text-secondary me-1" onclick="stampaScheda('${item.ID || item.id}')" title="Stampa"><i class="fa-solid fa-print"></i></button>
                         <button class="btn btn-sm btn-outline-primary" onclick="inviaSingolaEmail('${item.ID || item.id}')" title="Email"><i class="fa-solid fa-envelope"></i></button>
@@ -271,6 +372,12 @@
                 `;
                 tbody.appendChild(tr);
             });
+        }
+
+        function apriModalFoto(url) {
+            document.getElementById('modalImageSrc').src = url;
+            const myModal = new bootstrap.Modal(document.getElementById('imageModal'));
+            myModal.show();
         }
 
         function cambiaVista(modo) {
@@ -314,25 +421,59 @@
             w.document.write(`
                 <html>
                 <head>
-                    <title>Scheda Manutenzione - ${item.ID || item.id}</title>
+                    <title>Ordine Intervento - ${item.ID || item.id}</title>
                     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
                 </head>
                 <body class="p-5">
-                    <h3 class="text-primary fw-bold">Residenza Newman</h3>
-                    <h5>Scheda Dettaglio Intervento / Manutenzione</h5>
-                    <hr class="my-4">
-                    <p><strong>ID Segnalazione:</strong> ${item.ID || item.id}</p>
-                    <p><strong>Data Segnalazione:</strong> ${item.Timestamp || item.timestamp ? new Date(item.Timestamp || item.timestamp).toLocaleString('it-IT') : ''}</p>
-                    <p><strong>Segnalato da:</strong> ${item.Email || item.email}</p>
-                    <p><strong>Luogo / Ambiente:</strong> ${item.Luogo || item.luogo}</p>
-                    <p><strong>Categoria:</strong> ${item.Categoria || item.categoria}</p>
-                    <p><strong>Priorità:</strong> ${item.Priorita || item.priorita}</p>
-                    <p><strong>Stato Attuale:</strong> ${item.Stato || item.stato}</p>
-                    <p><strong>Descrizione Guasto:</strong><br>${item.Descrizione || item.descrizione}</p>
-                    <p><strong>Tecnico Assegnato:</strong> ${item.Tecnico || item.tecnico || 'Non assegnato'}</p>
-                    <p><strong>Note Intervento:</strong> ${item.Note_Intervento || item.note_intervento || 'Nessuna nota'}</p>
-                    <p><strong>Data Chiusura:</strong> ${item.Data_Chiusura || item.data_chiusura || 'Non chiuso'}</p>
-                    ${item.Link_Foto || item.link_foto ? `<p><strong>Foto Allegata:</strong> <a href="${item.Link_Foto || item.link_foto}" target="_blank">Apri Immagine</a></p>` : ''}
+                    <div class="d-flex justify-content-between align-items-center border-bottom pb-3 mb-4">
+                        <div>
+                            <h3 class="text-primary fw-bold mb-0">Residenza Card. Newman</h3>
+                            <p class="text-muted mb-0">Ufficio Amministrazione e Gestione Tecnica</p>
+                        </div>
+                        <div class="text-end">
+                            <h5 class="fw-bold mb-0">SCHEDA INTERVENTO</h5>
+                            <span class="badge bg-dark">${item.ID || item.id}</span>
+                        </div>
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col-6">
+                            <p><strong>Data Segnalazione:</strong> ${item.Timestamp || item.timestamp ? new Date(item.Timestamp || item.timestamp).toLocaleString('it-IT') : ''}</p>
+                            <p><strong>Segnalato da:</strong> ${item.Email || item.email}</p>
+                            <p><strong>Luogo / Ambiente:</strong> ${item.Luogo || item.luogo}</p>
+                        </div>
+                        <div class="col-6">
+                            <p><strong>Categoria:</strong> ${item.Categoria || item.categoria}</p>
+                            <p><strong>Priorità:</strong> ${item.Priorita || item.priorita}</p>
+                            <p><strong>Stato Attuale:</strong> ${item.Stato || item.stato}</p>
+                        </div>
+                    </div>
+                    <div class="card p-3 bg-light border-0 mb-4">
+                        <h6 class="fw-bold text-secondary">Descrizione del problema:</h6>
+                        <p class="mb-0">${item.Descrizione || item.descrizione}</p>
+                    </div>
+                    <div class="row mb-4">
+                        <div class="col-6">
+                            <p><strong>Tecnico Assegnato:</strong> ${item.Tecnico || item.tecnico || 'Non ancora assegnato'}</p>
+                        </div>
+                        <div class="col-6">
+                            <p><strong>Data Chiusura:</strong> ${item.Data_Chiusura || item.data_chiusura || 'In corso'}</p>
+                        </div>
+                    </div>
+                    <div class="card p-3 border mb-4">
+                        <h6 class="fw-bold text-secondary">Note Intervento / Risoluzione:</h6>
+                        <p class="mb-0">${item.Note_Intervento || item.note_intervento || 'Nessuna nota registrata.'}</p>
+                    </div>
+                    ${item.Link_Foto || item.link_foto ? `<p><strong>Foto Allegata:</strong><br><img src="${item.Link_Foto || item.link_foto}" style="max-height: 300px;" class="mt-2 rounded border"></p>` : ''}
+                    <div class="row mt-5 pt-4 border-top">
+                        <div class="col-6 text-center">
+                            <p class="mb-5">Firma del Tecnico</p>
+                            <div class="border-bottom w-75 mx-auto"></div>
+                        </div>
+                        <div class="col-6 text-center">
+                            <p class="mb-5">Firma Amministrazione</p>
+                            <div class="border-bottom w-75 mx-auto"></div>
+                        </div>
+                    </div>
                     <script>window.print();<\/script>
                 </body>
                 </html>
@@ -351,13 +492,13 @@
             const itemNote = item.Note_Intervento || item.note_intervento || 'Nessuna';
             const itemFoto = item.Link_Foto || item.link_foto || 'Nessuna';
             
-            const subject = encodeURIComponent(`Manutenzione Residenza Newman: ${itemId} - ${itemLuogo}`);
-            const body = encodeURIComponent(`Dettagli richiesta di manutenzione:\n\nID: ${itemId}\nData: ${item.Timestamp || item.timestamp}\nLuogo: ${itemLuogo}\nCategoria: ${item.Categoria || item.categoria}\nPriorità: ${item.Priorita || item.priorita}\nStato: ${item.Stato || item.stato}\nSegnalato da: ${itemEmail}\nDescrizione: ${itemDesc}\nTecnico: ${itemTecnico}\nNote Intervento: ${itemNote}\nFoto: ${itemFoto}`);
+            const subject = encodeURIComponent(`Intervento Manutenzione Residenza Newman: ${itemId} - ${itemLuogo}`);
+            const body = encodeURIComponent(`Dettagli intervento di manutenzione:\n\nID: ${itemId}\nData: ${item.Timestamp || item.timestamp}\nLuogo: ${itemLuogo}\nCategoria: ${item.Categoria || item.categoria}\nPriorità: ${item.Priorita || item.priorita}\nStato: ${item.Stato || item.stato}\nSegnalato da: ${itemEmail}\nDescrizione: ${itemDesc}\nTecnico Incaricato: ${itemTecnico}\nNote Intervento: ${itemNote}\nFoto: ${itemFoto}`);
             window.location.href = `mailto:?subject=${subject}&body=${body}`;
         }
 
         function inviaElencoEmail() {
-            let bodyText = "Elenco Richieste di Manutenzione - Residenza Newman:\n\n";
+            let bodyText = "Registro Interventi di Manutenzione - Residenza Newman:\n\n";
             filteredData.forEach((item, index) => {
                 let st = item.Stato || item.stato || 'Da fare';
                 let lg = item.Luogo || item.luogo || '';
@@ -365,7 +506,7 @@
                 let tec = item.Tecnico || item.tecnico ? ' [Tecnico: ' + (item.Tecnico || item.tecnico) + ']' : '';
                 bodyText += `${index + 1}. [${st}] ${lg} - ${ds}${tec}\n`;
             });
-            const subject = encodeURIComponent("Riepilogo Manutenzioni Residenza Newman");
+            const subject = encodeURIComponent("Riepilogo Registro Manutenzioni Residenza Newman");
             const body = encodeURIComponent(bodyText);
             window.location.href = `mailto:?subject=${subject}&body=${body}`;
         }
