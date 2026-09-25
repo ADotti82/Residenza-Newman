@@ -167,6 +167,28 @@
 
         document.getElementById('printDate').innerText = new Date().toLocaleString('it-IT');
 
+        // Funzione per convertire i link di Google Drive in URL diretti visualizzabili nei tag img
+        function getDirectDriveUrl(url) {
+            if (!url) return '';
+            let trimmed = String(url).trim();
+            let fileId = '';
+            if (trimmed.includes('/file/d/')) {
+                const parts = trimmed.split('/file/d/');
+                if (parts[1]) {
+                    fileId = parts[1].split('/')[0];
+                }
+            } else if (trimmed.includes('id=')) {
+                try {
+                    const urlParams = new URLSearchParams(trimmed.split('?')[1]);
+                    fileId = urlParams.get('id');
+                } catch(e) {}
+            }
+            if (fileId) {
+                return `https://drive.google.com/uc?export=view&id=${fileId}`;
+            }
+            return trimmed;
+        }
+
         async function caricaDatiLive() {
             const loadingEl = document.getElementById('loading');
             try {
@@ -264,10 +286,11 @@
                 let priorita = item.priorita || item.Priorita || 'Media';
                 let prioBadge = priorita.toLowerCase() === 'alta' ? 'text-danger fw-bold' : 'text-muted';
 
-                let linkFoto = item.link_foto || item.Link_Foto || '';
-                let fotoHtml = linkFoto.trim() !== '' ? `
+                let rawFoto = item.link_foto || item.Link_Foto || '';
+                let directFoto = getDirectDriveUrl(rawFoto);
+                let fotoHtml = directFoto.trim() !== '' ? `
                     <div class="mb-3">
-                        <img src="${linkFoto}" class="thumb-img border shadow-sm" onclick="apriModalFoto('${linkFoto}')" title="Clicca per ingrandire l'immagine" alt="Foto guasto">
+                        <img src="${directFoto}" class="thumb-img border shadow-sm" onclick="apriModalFoto('${directFoto}')" title="Clicca per ingrandire l'immagine" alt="Foto guasto">
                         <span class="small text-muted ms-2 fst-italic">Clicca per ingrandire</span>
                     </div>` : '';
 
@@ -335,10 +358,11 @@
                 if (statoLower.includes('corso')) badgeBg = 'bg-warning text-dark';
                 if (statoLower.includes('risolto') || statoLower.includes('completato')) badgeBg = 'bg-success';
 
-                let linkFoto = item.link_foto || item.Link_Foto || '';
-                let fotoThumb = linkFoto.trim() !== '' ? `
+                let rawFoto = item.link_foto || item.Link_Foto || '';
+                let directFoto = getDirectDriveUrl(rawFoto);
+                let fotoThumb = directFoto.trim() !== '' ? `
                     <div class="mt-1">
-                        <img src="${linkFoto}" class="thumb-img border shadow-sm" style="width: 32px; height: 32px;" onclick="apriModalFoto('${linkFoto}')" title="Vedi foto" alt="Foto">
+                        <img src="${directFoto}" class="thumb-img border shadow-sm" style="width: 32px; height: 32px;" onclick="apriModalFoto('${directFoto}')" title="Vedi foto" alt="Foto">
                     </div>` : '';
 
                 let tecnico = item.tecnico || item.Tecnico || 'Non assegnato';
@@ -418,6 +442,9 @@
         function stampaScheda(id) {
             const item = manutenzioniData.find(i => String(i.id || i.ID) === String(id));
             if (!item) return;
+            let rawFoto = item.link_foto || item.Link_Foto || '';
+            let directFoto = getDirectDriveUrl(rawFoto);
+
             let w = window.open('', '_blank');
             w.document.write(`
                 <html>
@@ -464,7 +491,7 @@
                         <h6 class="fw-bold text-secondary">Note Intervento / Risoluzione:</h6>
                         <p class="mb-0">${item.note_intervento || item.Note_Intervento || 'Nessuna nota registrata.'}</p>
                     </div>
-                    ${item.link_foto || item.Link_Foto ? `<p><strong>Foto Allegata:</strong><br><img src="${item.link_foto || item.Link_Foto}" style="max-height: 300px;" class="mt-2 rounded border"></p>` : ''}
+                    ${directFoto ? `<p><strong>Foto Allegata:</strong><br><img src="${directFoto}" style="max-height: 300px;" class="mt-2 rounded border"></p>` : ''}
                     <div class="row mt-5 pt-4 border-top">
                         <div class="col-6 text-center">
                             <p class="mb-5">Firma del Tecnico</p>
