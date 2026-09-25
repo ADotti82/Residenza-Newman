@@ -148,6 +148,8 @@ function setupDatabase() {
     sConfig.appendRow(["Orario_Limite_Cena", "14:30"]);
     sConfig.appendRow(["Orario_Limite_Busta", "14:00"]);
     sConfig.appendRow(["Email_Notifiche_Master", "donandreadotti@gmail.com"]);
+    sConfig.appendRow(["Email_Mittente_Segnalazioni", "donandreadotti@gmail.com"]);
+    sConfig.appendRow(["Email_Amministrazione_Manutenzione", "amministrazione@residenzanewman.org"]);
     sConfig.appendRow(["Data_Variazione_Menu", ""]);
     sConfig.appendRow(["Testo_Variazione", ""]);
     sConfig.appendRow(["Pasto_Variazione", "entrambi"]);
@@ -425,6 +427,15 @@ function doPost(e) {
       case "aggiornaSegnalazione":
         return gestisciAggiornaSegnalazione(payload);
 
+      case "inviaEmailAmministrazione":
+        return gestisciInviaEmailAmministrazione(payload);
+
+      case "salvaPreferenzaPush":
+        return gestisciSalvaPreferenzaPush(payload);
+
+      case "notificheMattinaOre7":
+        return eseguiNotificheMattinaOre7();
+
       case "getBootstrap":
         return gestisciGetBootstrap(payload);
 
@@ -691,11 +702,28 @@ function gestisciAggiornaRuoliUtente(payload) {
       if (payload.notif_manutenzione !== undefined) sheet.getRange(i + 1, 9).setValue(Boolean(payload.notif_manutenzione));
       if (payload.notif_spazi !== undefined) sheet.getRange(i + 1, 10).setValue(Boolean(payload.notif_spazi));
       if (payload.is_utente_mensa !== undefined) sheet.getRange(i + 1, 11).setValue(Boolean(payload.is_utente_mensa));
+      if (payload.notif_push !== undefined) sheet.getRange(i + 1, 12).setValue(Boolean(payload.notif_push));
 
       return rispostaJSON({ success: true, message: "Ruoli e autorizzazioni aggiornati per " + emailTarget });
     }
   }
 
+  return rispostaJSON({ success: false, error: "Utente non trovato" });
+}
+
+function gestisciSalvaPreferenzaPush(payload) {
+  const email = String(payload.email || "").trim().toLowerCase();
+  const notifPush = Boolean(payload.notif_push);
+  if (!email) return rispostaJSON({ success: false, error: "Email mancante" });
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
+  if (!sheet) return rispostaJSON({ success: false, error: "Foglio Utenti non trovato" });
+  const data = sheet.getDataRange().getValues();
+  for (let i = 1; i < data.length; i++) {
+    if (String(data[i][0]).trim().toLowerCase() === email) {
+      sheet.getRange(i + 1, 12).setValue(notifPush);
+      return rispostaJSON({ success: true, notif_push: notifPush, message: "Preferenza notifiche push aggiornata" });
+    }
+  }
   return rispostaJSON({ success: false, error: "Utente non trovato" });
 }
 
@@ -1203,7 +1231,7 @@ function gestisciRisolviGuasto(id) {
 }
 
 function gestisciAggiornaSegnalazione(payload) {
-  const { id, stato, priorita, note_intervento, tecnico, categoria, luogo } = payload;
+  const { id, stato, priorita, note_intervento, tecnico, categoria, luogo, descrizione } = payload;
   if (!id) return rispostaJSON({ success: false, error: "ID segnalazione mancante" });
   const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_MANUTENZIONE);
   if (!sheet) return rispostaJSON({ success: false, error: "Foglio Manutenzione non trovato" });
@@ -1211,15 +1239,16 @@ function gestisciAggiornaSegnalazione(payload) {
 
   for (let i = 1; i < rows.length; i++) {
     if (String(rows[i][0]) === String(id)) {
+      if (descrizione !== undefined && String(descrizione).trim() !== "") sheet.getRange(i + 1, 4).setValue(descrizione);
       if (stato !== undefined) sheet.getRange(i + 1, 6).setValue(stato);
       if (categoria !== undefined) sheet.getRange(i + 1, 7).setValue(categoria);
       if (luogo !== undefined) sheet.getRange(i + 1, 8).setValue(luogo);
       if (priorita !== undefined) sheet.getRange(i + 1, 9).setValue(priorita);
       if (note_intervento !== undefined) sheet.getRange(i + 1, 10).setValue(note_intervento);
       if (tecnico !== undefined) sheet.getRange(i + 1, 11).setValue(tecnico);
-      if (stato === "Risolto") {
+      if (stato === "Risolto" || stato === "Archiviata" || stato === "Terminata") {
         sheet.getRange(i + 1, 12).setValue(new Date().toISOString());
-      } else if (stato !== undefined && stato !== "Risolto") {
+      } else if (stato !== undefined && stato !== "Risolto" && stato !== "Archiviata" && stato !== "Terminata") {
         sheet.getRange(i + 1, 12).setValue("");
       }
       return rispostaJSON({ success: true, message: "Segnalazione aggiornata con successo" });
@@ -2237,13 +2266,31 @@ function inviaNotificaEmailMaster(tipo, oggetto, corpoTesto) {
       destinatari.push("donandreadotti@gmail.com");
     }
 
+    // 5. Cerca mittente configurato per le segnalazioni (Superadmin)
+    let emailMittente = "";
+    const sConfigSheet = ss.getSheetByName(SHEET_CONFIG);
+    if (sConfigSheet) {
+      const cRows = sConfigSheet.getDataRange().getValues();
+      for (let c = 1; c < cRows.length; c++) {
+        if (String(cRows[c][0]) === "Email_Mittente_Segnalazioni" && cRows[c][1]) {
+          emailMittente = String(cRows[c][1]).trim();
+          break;
+        }
+      }
+    }
+
     // Invia email a ciascun destinatario selezionato
     for (let i = 0; i < destinatari.length; i++) {
-      MailApp.sendEmail({
+      const emailOptions = {
         to: destinatari[i],
         subject: oggetto,
         body: corpoTesto
-      });
+      };
+      if (emailMittente && emailMittente.includes("@")) {
+        emailOptions.replyTo = emailMittente;
+        emailOptions.name = "Residenza Newman - Segnalazioni";
+      }
+      MailApp.sendEmail(emailOptions);
     }
   } catch (errEmail) {
     Logger.log("Errore durante l'invio della notifica email Master: " + errEmail.toString());
@@ -2380,7 +2427,39 @@ function gestisciAutorizza2Accoglienza(payload) {
       sheet.getRange(i + 1, 17).setValue(new Date().toISOString());
       sheet.getRange(i + 1, 18).setValue(note || "");
 
-      return rispostaJSON({ success: true, message: "2a autorizzazione completata con successo! Prenotazione camera confermata." });
+      const richiedenteEmail = String(rows[i][2] || "").trim().toLowerCase();
+      const nomeRichiedente = rows[i][3] || "";
+      const nomeOspite = rows[i][4] || "l'ospite";
+      const cameraAssegnata = rows[i][8] || "Assegnata";
+      const checkin = rows[i][5] || "";
+      const checkout = rows[i][6] || "";
+
+      // Invia email di conferma definitiva al richiedente
+      try {
+        if (richiedenteEmail && richiedenteEmail.includes("@")) {
+          const soggPeriodo = (checkin && checkout) ? (" per il periodo " + formattaDataGAS(checkin) + " - " + formattaDataGAS(checkout)) : "";
+          MailApp.sendEmail({
+            to: richiedenteEmail,
+            subject: "[Residenza Newman] 🎉 Richiesta Accoglienza DEFINITIVAMENTE APPROVATA!",
+            body: "Gentile " + (nomeRichiedente || "Residente") + ",\n\nTi comunichiamo che la tua richiesta di accoglienza per " + nomeOspite + soggPeriodo + " è stata DEFINITIVAMENTE APPROVATA con assegnazione della Camera: " + cameraAssegnata + ".\n\nNote: " + (note || "Nessuna nota aggiuntiva.") + "\n\nPuoi visualizzare tutti i dettagli aprendo l'App Residenza Newman nella sezione Accoglienza.\n\nCordiali saluti,\nLa Direzione - Residenza Newman"
+          });
+        }
+      } catch (eMail) {
+        console.warn("Invio email conferma accoglienza: " + eMail);
+      }
+
+      inviaNotificaEmailMaster(
+        "generale",
+        "[Residenza Newman] Accoglienza Definitivamente Approvata: " + nomeOspite,
+        "La richiesta di accoglienza per l'ospite " + nomeOspite + " (Camera " + cameraAssegnata + ") è stata DEFINITIVAMENTE APPROVATA da " + approvatoreEmail + "."
+      );
+
+      return rispostaJSON({
+        success: true,
+        message: "2a autorizzazione completata con successo! Richiesta definitivamente approvata.",
+        camera_assegnata: cameraAssegnata,
+        nome_ospite: nomeOspite
+      });
     }
   }
 
@@ -2672,5 +2751,112 @@ function gestisciAggiornaOspitiRapido(payload) {
   payload.stato_presenza = payload.stato_presenza || "Presente";
   return gestisciPrenotazioneMensa(payload);
 }
+
+/**
+ * Invia una comunicazione o richiesta di manutenzione all'indirizzo dell'amministrazione
+ */
+function gestisciInviaEmailAmministrazione(payload) {
+  try {
+    const to = (payload.to || "").trim();
+    const subject = (payload.subject || "[Residenza Newman] Richiesta Intervento Manutenzione").trim();
+    const body = (payload.body || "").trim();
+
+    if (!to || !to.includes("@")) {
+      return rispostaJSON({ success: false, error: "Destinatario email non valido" });
+    }
+    if (!body) {
+      return rispostaJSON({ success: false, error: "Testo dell'email vuoto" });
+    }
+
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let emailMittente = (payload.mittente || "").trim();
+    if (!emailMittente) {
+      const sConfig = ss.getSheetByName(SHEET_CONFIG);
+      if (sConfig) {
+        const cRows = sConfig.getDataRange().getValues();
+        for (let c = 1; c < cRows.length; c++) {
+          if (String(cRows[c][0]) === "Email_Mittente_Segnalazioni" && cRows[c][1]) {
+            emailMittente = String(cRows[c][1]).trim();
+            break;
+          }
+        }
+      }
+    }
+
+    const emailOptions = {
+      to: to,
+      subject: subject,
+      body: body
+    };
+
+    if (emailMittente && emailMittente.includes("@")) {
+      emailOptions.replyTo = emailMittente;
+      emailOptions.name = "Residenza Newman - Manutenzione";
+    }
+
+    MailApp.sendEmail(emailOptions);
+
+    return rispostaJSON({
+      success: true,
+      message: "Email inviata con successo all'amministrazione!"
+    });
+  } catch (err) {
+    Logger.log("Errore invio email amministrazione: " + err.toString());
+    return rispostaJSON({
+      success: false,
+      error: "Errore durante l'invio dell'email: " + err.toString()
+    });
+  }
+}
+
+/**
+ * Funzione triggerabile ogni mattina alle 07:00
+ * Verifica se ci sono eventi/avvisi/compleanni per la giornata odierna e invia notifica riepilogativa.
+ */
+function eseguiNotificheMattinaOre7() {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const oggi = Utilities.formatDate(new Date(), "GMT+1", "yyyy-MM-dd");
+    const sBacheca = ss.getSheetByName(SHEET_BACHECA);
+    const eventiOggi = [];
+
+    if (sBacheca) {
+      const dataB = sBacheca.getDataRange().getValues();
+      for (let i = 1; i < dataB.length; i++) {
+        let dataEvt = "";
+        try {
+          dataEvt = Utilities.formatDate(new Date(dataB[i][2]), "GMT+1", "yyyy-MM-dd");
+        } catch (e) {
+          dataEvt = String(dataB[i][2] || "").slice(0, 10);
+        }
+        if (dataEvt === oggi) {
+          eventiOggi.push({
+            id: dataB[i][0],
+            tipo: dataB[i][1],
+            data: dataEvt,
+            titolo: dataB[i][3],
+            descrizione: dataB[i][4],
+            autore: dataB[i][5],
+            priorita: dataB[i][6]
+          });
+        }
+      }
+    }
+
+    if (eventiOggi.length > 0) {
+      const elenco = eventiOggi.map(e => "• [" + String(e.tipo || 'Avviso').toUpperCase() + "] " + e.titolo).join("\n");
+      const oggetto = "🌅 [Residenza Newman] Eventi di oggi in Residenza (" + eventiOggi.length + ")";
+      const corpo = "Buongiorno!\n\nOggi sono in programma i seguenti eventi e ricorrenze in Residenza Newman:\n\n" + elenco + "\n\nBuona giornata a tutti!";
+      inviaNotificaEmailMaster("generale", oggetto, corpo);
+    }
+
+    return rispostaJSON({ success: true, count: eventiOggi.length, events: eventiOggi, data: oggi });
+  } catch (err) {
+    Logger.log("Errore eseguiNotificheMattinaOre7: " + err.toString());
+    return rispostaJSON({ success: false, error: err.toString() });
+  }
+}
+
+
 
 

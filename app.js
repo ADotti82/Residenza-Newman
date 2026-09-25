@@ -178,10 +178,10 @@ function applicaMenuBaseDaGoogleSheets(menuBase) {
 // Database Mock Locale iniziale
 const INITIAL_MOCK_DB = {
   utenti: [
-    { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true, notif_manutenzione: true, notif_spazi: true, password: "newman2026" },
-    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: true, password: "newman2026" },
-    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: false, password: "newman2026" },
-    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false, notif_manutenzione: true, notif_spazi: false, password: "newman2026" }
+    { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true, notif_manutenzione: true, notif_spazi: true, notif_push: true, password: "newman2026" },
+    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: true, notif_push: false, password: "newman2026" },
+    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: false, notif_push: false, password: "newman2026" },
+    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false, notif_manutenzione: true, notif_spazi: false, notif_push: true, password: "newman2026" }
   ],
   mensa: [
     { id: "M_001", data: "2026-09-16", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Piatto standard", timestamp: "2026-09-16T09:00:00Z" },
@@ -226,6 +226,8 @@ const INITIAL_MOCK_DB = {
     Orario_Limite_Cena: "14:30",
     Orario_Limite_Busta: "14:00",
     Email_Notifiche_Master: "donandreadotti@gmail.com",
+    Email_Mittente_Segnalazioni: "donandreadotti@gmail.com",
+    Email_Amministrazione_Manutenzione: "amministrazione@residenzanewman.org",
     Info_Regolamento: `REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN
 1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità sacerdotale e accademica è alla base della nostra convivenza.
 2. ORARI DI SILENZIO: Dalle ore 23:00 alle ore 07:30 del mattino è richiesto il silenzio nei corridoi e negli spazi comuni per favorire il riposo e la preghiera.
@@ -615,14 +617,15 @@ function mockBackendExecution(action, params) {
     case "aggiornaSegnalazione": {
       const g = db.manutenzione.find(item => String(item.id) === String(params.id));
       if (g) {
+        if (params.descrizione !== undefined && String(params.descrizione).trim() !== "") g.descrizione = params.descrizione;
         if (params.stato !== undefined) g.stato = params.stato;
         if (params.priorita !== undefined) g.priorita = params.priorita;
         if (params.note_intervento !== undefined) g.note_intervento = params.note_intervento;
         if (params.tecnico !== undefined) g.tecnico = params.tecnico;
         if (params.categoria !== undefined) g.categoria = params.categoria;
         if (params.luogo !== undefined) g.luogo = params.luogo;
-        if (g.stato === "Risolto" && !g.data_chiusura) g.data_chiusura = new Date().toISOString();
-        else if (g.stato !== "Risolto") g.data_chiusura = "";
+        if ((g.stato === "Risolto" || g.stato === "Archiviata" || g.stato === "Terminata") && !g.data_chiusura) g.data_chiusura = new Date().toISOString();
+        else if (g.stato !== "Risolto" && g.stato !== "Archiviata" && g.stato !== "Terminata") g.data_chiusura = "";
         localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
         return { success: true, message: "Segnalazione aggiornata con successo!" };
       }
@@ -640,10 +643,26 @@ function mockBackendExecution(action, params) {
         if (params.perm_admin !== undefined) utente.perm_admin = Boolean(params.perm_admin);
         if (params.notif_manutenzione !== undefined) utente.notif_manutenzione = Boolean(params.notif_manutenzione);
         if (params.notif_spazi !== undefined) utente.notif_spazi = Boolean(params.notif_spazi);
+        if (params.notif_push !== undefined) utente.notif_push = Boolean(params.notif_push);
         localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
         return { success: true, message: "Ruoli aggiornati per " + emailTarget };
       }
       return { success: false, error: "Utente non trovato" };
+    }
+
+    case "salvaPreferenzaPush": {
+      const emailTarget = String(params.email || appState.user?.email || "").trim().toLowerCase();
+      const utente = db.utenti.find(u => u.email.toLowerCase() === emailTarget);
+      if (utente) {
+        utente.notif_push = Boolean(params.notif_push);
+        localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        return { success: true, notif_push: utente.notif_push, message: "Preferenza salvata" };
+      }
+      return { success: false, error: "Utente non trovato" };
+    }
+
+    case "notificheMattinaOre7": {
+      return { success: true, message: "Controllo ore 07:00 eseguito" };
     }
 
     case "eliminaUtente": {
@@ -870,6 +889,13 @@ function mockBackendExecution(action, params) {
       return { success: true, message: "Configurazione salvata!" };
     }
 
+    case "inviaEmailAmministrazione": {
+      return {
+        success: true,
+        message: "Email inviata con successo all'amministrazione!"
+      };
+    }
+
     case "ping":
       return {
         success: true, status: "ok", timestamp: new Date().toISOString(),
@@ -906,7 +932,12 @@ async function caricaDatiBackend() {
       if (data.bacheca) appState.bacheca = data.bacheca;
       if (data.prenotazioniMensa) appState.mensaBookings = data.prenotazioniMensa;
       if (data.menuBase) applicaMenuBaseDaGoogleSheets(data.menuBase);
-      if (data.accoglienza) appState.accoglienzaList = data.accoglienza;
+      if (data.accoglienza) {
+        appState.accoglienzaList = data.accoglienza;
+        if (typeof window.verificaENotificaAccoglienzaConfermata === "function") {
+          window.verificaENotificaAccoglienzaConfermata(appState.accoglienzaList);
+        }
+      }
 
       renderBachecaView();
       renderResidenzaView();
@@ -914,6 +945,10 @@ async function caricaDatiBackend() {
       renderSlotSpazi();
       renderMensaView();
       if (typeof renderAccoglienzaView === "function") renderAccoglienzaView();
+
+      if (typeof window.pianificaCheckNotificheOre7 === "function") {
+        window.pianificaCheckNotificheOre7();
+      }
     }
 
     if (haPermessiMaster()) {
@@ -2087,7 +2122,7 @@ function renderMensaView() {
       <div class="mensa-view-mode-tabs" style="display: flex; flex-wrap: wrap; gap: 6px;">
         <button type="button" class="mode-tab-btn ${mode === 'settimana' ? 'active' : ''}" onclick="setMensaViewMode('settimana')">📅 Settimana Completa</button>
         <button type="button" class="mode-tab-btn ${mode === 'giorno' ? 'active' : ''}" onclick="setMensaViewMode('giorno')">☀️ Vista Giorno</button>
-        <button type="button" class="mode-tab-btn" style="background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; font-weight: 700;" onclick="switchTab('cucina')">👩‍🍳 Vista Cuoca</button>
+        ${haPermessiMasterMensa() ? `<button type="button" class="mode-tab-btn" style="background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; font-weight: 700;" onclick="switchTab('cucina')">👩‍🍳 Vista Cuoca</button>` : ''}
       </div>
       <div class="mensa-day-pills">${renderDayPills(dataSel)}</div>
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; margin-top: 8px; font-size: 11.5px; color: #475569; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
@@ -2610,7 +2645,7 @@ function renderSpaziView() {
           <span class="spazi-res-sub">Slot 30 min</span>
         </button>
       </div>
-      ${haPermessiMaster() ? `
+      ${haPermessiMasterSpazi() ? `
         <div class="card-inner" style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
           <div><strong style="color: #9d174d; font-size: 13px;">👑 Azioni Master ${risorsaAttiva}</strong><div class="text-xs text-muted">Puoi riservare celebrazioni, bloccare orari e liberare slot.</div></div>
           <button type="button" class="btn btn-sm btn-primary" onclick="apriModalMasterAppuntamento('${risorsaAttiva}', '${dataAttiva}')" style="background: #9d174d; border-color: #9d174d; font-weight: 600;">➕ Inserisci Appuntamento</button>
@@ -2692,7 +2727,7 @@ function renderSlotSpazi() {
   const occupatiMap = {};
   occupati.forEach(p => { occupatiMap[p.slot_orario] = p; });
 
-  const isMaster = haPermessiMaster();
+  const isMasterSpazi = haPermessiMasterSpazi();
   const currentUserEmail = appState.user ? appState.user.email.toLowerCase() : "";
   let totaliFascia = slotFiltrati.length;
   let disponibiliFascia = 0;
@@ -2714,18 +2749,15 @@ function renderSlotSpazi() {
       } else {
         html += `<div class="slot-card-v2 slot-mine"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">⭐ La tua prenotazione</span><button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', false)">Annulla</button></div>`;
       }
-    } else if (isMaster) {
+    } else if (isMasterSpazi) {
       if (isPending) {
         html += `<div class="slot-card-v2" style="border-left: 4px solid #f59e0b; background: #fffbeb;"><div class="slot-time-text">${slot}</div><span class="slot-status-pill" style="background: #fde68a; color: #78350f; font-weight: 700;">⏳ Da: ${escapeHtml(pren.email.split('@')[0])}</span><div style="display: flex; gap: 4px; margin-top: 6px; width: 100%;"><button type="button" class="btn btn-sm" style="flex: 1; padding: 4px; font-size: 11px; font-weight: 700; background: #16a34a; color: #fff; border: none; border-radius: 4px;" onclick="approvaRichiestaSpazio('${pren.id}')">✓ Approva</button><button type="button" class="btn btn-sm" style="flex: 1; padding: 4px; font-size: 11px; font-weight: 700; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px;" onclick="rifiutaRichiestaSpazio('${pren.id}')">✕ Rifiuta</button></div></div>`;
       } else {
         html += `<div class="slot-card-v2 slot-master"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">👑 ${escapeHtml(pren.email.split('@')[0])}</span><button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', true)">Libera Slot</button></div>`;
       }
     } else {
-      if (isPending) {
-        html += `<div class="slot-card-v2 slot-occupied" style="opacity: 0.85;"><div class="slot-time-text">${slot}</div><span class="slot-status-pill" style="background: #f1f5f9; color: #475569;">⏳ In Valutazione</span></div>`;
-      } else {
-        html += `<div class="slot-card-v2 slot-occupied"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">🔒 Occupato</span></div>`;
-      }
+      // Chi non ha autorizzazione ambienti/spazi vede SOLO "Occupato" senza dettagli su chi ha prenotato
+      html += `<div class="slot-card-v2 slot-occupied"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">🔒 Occupato</span></div>`;
     }
   });
 
@@ -2954,7 +2986,8 @@ function renderAccoglienzaView() {
   const camereNomi = getTutteCamereNomi();
   const accList = appState.accoglienzaList || [];
   const oggiYMD = formatYMD(new Date());
-  const isMaster = haPermessiMaster();
+  const isMaster = haPermessiMasterSpazi() || haPermessiMaster();
+  const isMasterSpazi = haPermessiMasterSpazi();
   const userEmail = (appState.user?.email || "").toLowerCase();
 
   const camereStato = camereNomi.map((nomeCam, idx) => {
@@ -2979,7 +3012,7 @@ function renderAccoglienzaView() {
     return { num: idx + 1, nome: nomeCam, occupataOggi: Boolean(occupazioneOggi), dettagliOggi: occupazioneOggi, prossimi: prossimiSoggiorni };
   });
 
-  const richiesteUtente = isMaster ? accList : accList.filter(a => {
+  const richiesteUtente = isMasterSpazi ? accList : accList.filter(a => {
     const em = (a.richiedente_email || a.email_richiedente || a.email || "").toLowerCase();
     return em === userEmail;
   });
@@ -2993,7 +3026,7 @@ function renderAccoglienzaView() {
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="btn btn-primary" onclick="apriModalNuovaAccoglienza()" style="background: #166534; border-color: #166534; font-weight: 700;">➕ Richiedi Alloggio Ospite</button>
-          ${isMaster ? `<button type="button" class="btn btn-outline" onclick="switchTab('master'); setTimeout(() => window.cambiaSchedaMaster && window.cambiaSchedaMaster('accoglienza'), 200);" style="color: #166534; border-color: #86efac;">👑 Gestione Master</button>` : ''}
+          ${isMasterSpazi ? `<button type="button" class="btn btn-outline" onclick="switchTab('master'); setTimeout(() => window.cambiaSchedaMaster && window.cambiaSchedaMaster('accoglienza'), 200);" style="color: #166534; border-color: #86efac;">👑 Gestione Master</button>` : ''}
         </div>
       </div>
     </div>
@@ -3001,26 +3034,39 @@ function renderAccoglienzaView() {
     <div style="margin-bottom: 18px;">
       <h3 style="font-size: 14px; font-weight: 800; color: #1e293b; margin: 0 0 10px 4px; display: flex; align-items: center; gap: 6px;"><span>🚪</span> Disponibilità Camere Soggiorno</h3>
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
-        ${camereStato.map(c => `
-          <div class="card" style="margin: 0; padding: 14px; border: 1px solid ${c.occupataOggi ? '#fed7aa' : '#bbf7d0'}; background: ${c.occupataOggi ? '#fff7ed' : '#ffffff'};">
-            <div class="flex-between" style="align-items: flex-start; margin-bottom: 8px;">
-              <div>
-                <span style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Camera ${c.num}</span>
-                <h4 style="margin: 2px 0 0 0; font-size: 15px; font-weight: 700; color: #0f172a;">${escapeHtml(c.nome)}</h4>
+        ${camereStato.map(c => {
+          const isMiaPrenotazione = c.dettagliOggi && ((c.dettagliOggi.richiedente_email || c.dettagliOggi.email || '').toLowerCase() === userEmail);
+          const puoVedereDettagliOspite = isMasterSpazi || isMiaPrenotazione;
+          return `
+            <div class="card" style="margin: 0; padding: 14px; border: 1px solid ${c.occupataOggi ? '#fed7aa' : '#bbf7d0'}; background: ${c.occupataOggi ? '#fff7ed' : '#ffffff'};">
+              <div class="flex-between" style="align-items: flex-start; margin-bottom: 8px;">
+                <div>
+                  <span style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase;">Camera ${c.num}</span>
+                  <h4 style="margin: 2px 0 0 0; font-size: 15px; font-weight: 700; color: #0f172a;">${escapeHtml(c.nome)}</h4>
+                </div>
+                <span class="badge" style="${c.occupataOggi ? 'background:#ffedd5; color:#c2410c;' : 'background:#dcfce7; color:#166534;'} font-weight: 700; font-size: 11px;">${c.occupataOggi ? '🔴 Occupata' : '🟢 Libera'}</span>
               </div>
-              <span class="badge" style="${c.occupataOggi ? 'background:#ffedd5; color:#c2410c;' : 'background:#dcfce7; color:#166534;'} font-weight: 700; font-size: 11px;">${c.occupataOggi ? '🔴 Occupata' : '🟢 Libera'}</span>
+              ${c.occupataOggi ? `
+                <div style="background: rgba(255,255,255,0.7); border: 1px solid #fed7aa; border-radius: 6px; padding: 8px 10px; font-size: 12px; margin-bottom: 8px;">
+                  ${puoVedereDettagliOspite ? `
+                    <strong>Ospite:</strong> ${escapeHtml(c.dettagliOggi.nome_ospite || 'Ospite')}<br>
+                  ` : `
+                    <span style="font-weight: 700; color: #9a3412;">🔒 Riservato</span><br>
+                  `}
+                  <span class="text-xs text-muted">Fino al ${formattaDataItaliana(c.dettagliOggi.data_checkout)}</span>
+                </div>
+              ` : ''}
             </div>
-            ${c.occupataOggi ? `<div style="background: rgba(255,255,255,0.7); border: 1px solid #fed7aa; border-radius: 6px; padding: 8px 10px; font-size: 12px; margin-bottom: 8px;"><strong>Ospite:</strong> ${escapeHtml(c.dettagliOggi.nome_ospite || 'Ospite')}<br><span class="text-xs text-muted">Fino al ${formattaDataItaliana(c.dettagliOggi.data_checkout)}</span></div>` : ''}
-          </div>
-        `).join("")}
+          `;
+        }).join("")}
       </div>
     </div>
 
     <div class="card" style="margin-bottom: 16px;">
       <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
         <div>
-          <h3 class="card-title" style="margin: 0; font-size: 16px;">${isMaster ? '📋 Tutte le Richieste' : '📋 Le Mie Richieste'}</h3>
-          <span class="text-xs text-muted">${isMaster ? 'Panoramica completa' : 'Stato delle tue richieste'}</span>
+          <h3 class="card-title" style="margin: 0; font-size: 16px;">${isMasterSpazi ? '📋 Tutte le Richieste' : '📋 Le Mie Richieste'}</h3>
+          <span class="text-xs text-muted">${isMasterSpazi ? 'Panoramica completa' : 'Stato delle tue richieste'}</span>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="caricaDatiBackend()" style="font-size: 11.5px;">🔄 Aggiorna</button>
       </div>
@@ -3213,7 +3259,20 @@ async function handleConfermaAutorizza2(id) {
     const res = await callApi("autorizza2Accoglienza", { id, approvatoreEmail: masterEmail });
     if (res.success) {
       mostraToast("✅ 2ª Autorizzazione completata!", "success");
-      if (acc) { acc.stato = "Confermata"; acc.auth2_email = masterEmail; acc.auth2_data = new Date().toISOString(); }
+      if (acc) {
+        acc.stato = "Confermata";
+        acc.auth2_email = masterEmail;
+        acc.auth2_data = new Date().toISOString();
+        if (typeof window.inviaNotificaPush === "function") {
+          window.inviaNotificaPush(
+            "🛏️ Richiesta Accoglienza DEFINITIVAMENTE APPROVATA!",
+            `La richiesta per ${nomeOspite} (${acc.camera_assegnata || 'Camera Assegnata'}) è stata definitivamente approvata!`,
+            "/#accoglienza",
+            "acc-ok-" + id
+          );
+          localStorage.setItem(`newman_notif_acc_ok_${id}`, "true");
+        }
+      }
       renderAccoglienzaView();
       if (document.getElementById("master-dynamic-content")) renderMasterSection();
     } else mostraToast("Errore: " + (res.error || "Impossibile"), "error");
@@ -3349,14 +3408,16 @@ function setupManutenzioneHandlers() {
       const luogo = document.getElementById("manutenzione-luogo")?.value.trim() || "";
       const descrizione = document.getElementById("manutenzione-descrizione")?.value.trim() || "";
       if (!descrizione) { mostraToast("Inserisci una descrizione", "warning"); return; }
-      const testoCompleto = luogo ? `[${luogo}] ${descrizione}` : descrizione;
+      const tipoLabel = categoria === "servizi" ? "[Segnalazione Servizi]" : "[Manutenzione Tecnica]";
+      const testoCompleto = luogo ? `${tipoLabel} [${luogo}] ${descrizione}` : `${tipoLabel} ${descrizione}`;
       const submitBtn = document.getElementById("btn-submit-guasto");
       if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = "Invio..."; }
       try {
         const res = await callApi("caricaGuasto", { email: appState.user.email, categoria, luogo, descrizione: testoCompleto, fotoBase64: appState.compressedImageBase64 || "", mimeType: "image/jpeg" });
         if (res.success) {
-          mostraToast("✅ Segnalazione inviata!", "success");
+          mostraToast(categoria === "servizi" ? "✅ Segnalazione inviata!" : "✅ Richiesta di manutenzione inviata!", "success");
           form.reset();
+          selezionaTipoManutenzione("manutenzione");
           appState.compressedImageBase64 = null;
           if (previewBox) previewBox.style.display = "none";
           if (haPermessiMaster()) caricaDatiMaster();
@@ -3366,36 +3427,170 @@ function setupManutenzioneHandlers() {
       finally { if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = "Invia Segnalazione"; } }
     });
   }
+
+  inizializzaSezioneEmailAmministrazione();
 }
+
+window.selezionaTipoManutenzione = function(tipo) {
+  const hiddenInput = document.getElementById("manutenzione-categoria");
+  if (hiddenInput) hiddenInput.value = tipo;
+  const btnManut = document.getElementById("btn-tipo-manutenzione");
+  const btnServizi = document.getElementById("btn-tipo-segnalazione");
+  const descArea = document.getElementById("manutenzione-descrizione");
+  const luogoInput = document.getElementById("manutenzione-luogo");
+
+  if (tipo === "manutenzione") {
+    if (btnManut) {
+      btnManut.classList.add("active");
+      btnManut.style.border = "2px solid #d97706";
+      btnManut.style.background = "#fffbeb";
+      btnManut.style.color = "#92400e";
+    }
+    if (btnServizi) {
+      btnServizi.classList.remove("active");
+      btnServizi.style.border = "2px solid #e2e8f0";
+      btnServizi.style.background = "#f8fafc";
+      btnServizi.style.color = "#475569";
+    }
+    if (descArea) descArea.placeholder = "Descrivi il guasto tecnico (es. rubinetto che perde, condizionatore bloccato, lampadina bruciata, porta che non chiude)...";
+    if (luogoInput) luogoInput.placeholder = "Es. Camera 204, Bagno Piano 2, Lavanderia...";
+  } else {
+    if (btnServizi) {
+      btnServizi.classList.add("active");
+      btnServizi.style.border = "2px solid #0284c7";
+      btnServizi.style.background = "#f0f9ff";
+      btnServizi.style.color = "#0369a1";
+    }
+    if (btnManut) {
+      btnManut.classList.remove("active");
+      btnManut.style.border = "2px solid #e2e8f0";
+      btnManut.style.background = "#f8fafc";
+      btnManut.style.color = "#475569";
+    }
+    if (descArea) descArea.placeholder = "Descrivi la problematica sui servizi (es. pulizie da effettuare, cestini pieni, Wi-Fi assente o instabile, portineria)...";
+    if (luogoInput) luogoInput.placeholder = "Es. Corridoio Piano 1, Sala TV, Cucina comune...";
+  }
+};
+
+window.filtraFeedSegnalazioni = function(filtro) {
+  appState.filtroFeedManutenzione = filtro;
+  ["tutti", "manutenzione", "servizi"].forEach(f => {
+    const btn = document.getElementById(`btn-filter-feed-${f}`);
+    if (btn) {
+      if (f === filtro) {
+        btn.classList.add("btn-primary");
+        btn.classList.remove("btn-outline");
+      } else {
+        btn.classList.remove("btn-primary");
+        btn.classList.add("btn-outline");
+      }
+    }
+  });
+  caricaGuastiRecenti();
+};
+
+window.toggleMostraArchiviateFeed = function() {
+  appState.mostraArchiviateFeed = !appState.mostraArchiviateFeed;
+  caricaGuastiRecenti();
+};
 
 async function caricaGuastiRecenti() {
   const feed = document.getElementById("manutenzione-recenti-list");
+  const archiviateWrap = document.getElementById("manutenzione-archiviate-wrap");
+  const titoloEl = document.getElementById("titolo-mie-segnalazioni");
   if (!feed) return;
+
+  const canManage = haPermessiMasterManutenzione();
+  if (titoloEl) {
+    titoloEl.innerHTML = canManage
+      ? `🛠️ Gestione Segnalazioni &amp; Interventi <span class="badge" style="background:#e0f2fe; color:#0369a1; font-size:11px; margin-left: 6px; font-weight: 700;">Incaricato Manutenzione</span>`
+      : `Le Tue Segnalazioni`;
+  }
+
   const data = await callApi("getMasterData", { email: appState.user ? appState.user.email : "" });
-  if (data && data.guasti) { appState.guasti = data.guasti; appState.manutenzioneList = data.guasti; }
+  if (data && data.guasti) {
+    appState.guasti = data.guasti;
+    appState.manutenzioneList = data.guasti;
+  }
+
   let listToShow = appState.guasti || [];
-  if (!haPermessiMaster()) listToShow = listToShow.filter(g => g.email && appState.user && g.email.toLowerCase() === appState.user.email.toLowerCase());
-  renderFeedGuasti(feed, listToShow.slice(0, 10));
+  if (!canManage) {
+    listToShow = listToShow.filter(g => g.email && appState.user && g.email.toLowerCase() === appState.user.email.toLowerCase());
+  }
+
+  const filtro = appState.filtroFeedManutenzione || "tutti";
+  if (filtro === "manutenzione") {
+    listToShow = listToShow.filter(g => (g.categoria || "manutenzione") === "manutenzione");
+  } else if (filtro === "servizi") {
+    listToShow = listToShow.filter(g => g.categoria === "servizi");
+  }
+
+  // Separa richieste aperte da quelle archiviate / terminate (nascoste di default)
+  const isArchiviata = g => g.stato === "Risolto" || g.stato === "Archiviata" || g.stato === "Terminata";
+  const aperteList = listToShow.filter(g => !isArchiviata(g));
+  const archiviateList = listToShow.filter(g => isArchiviata(g));
+
+  // Renderizza le segnalazioni aperte
+  renderFeedGuasti(feed, aperteList, false, canManage);
+
+  // Gestione pulsante dedicato per aprire/nascondere le archiviate o terminate
+  if (archiviateWrap) {
+    if (archiviateList.length === 0) {
+      archiviateWrap.innerHTML = ``;
+    } else {
+      const isAperto = Boolean(appState.mostraArchiviateFeed);
+      archiviateWrap.innerHTML = `
+        <div style="margin-top: 6px;">
+          <button type="button" class="btn btn-outline btn-block" onclick="toggleMostraArchiviateFeed()" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 12.5px; padding: 10px 14px; border-color: ${isAperto ? '#94a3b8' : '#cbd5e1'}; background: ${isAperto ? '#f1f5f9' : '#f8fafc'}; color: ${isAperto ? '#0f172a' : '#475569'}; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+            <span>${isAperto ? '🔼' : '📦'}</span>
+            <span>${isAperto ? 'Nascondi Segnalazioni Archiviate / Terminate' : 'Mostra Segnalazioni Archiviate / Terminate'} (${archiviateList.length})</span>
+          </button>
+          ${isAperto ? `
+            <div id="feed-archiviate-inner" style="margin-top: 14px; opacity: 0.95;">
+              <div style="font-size: 12.5px; font-weight: 800; color: #166534; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                <span>✅</span> <strong>Segnalazioni Risolte &amp; Terminate (${archiviateList.length}):</strong>
+              </div>
+              <div id="archiviate-list-cards"></div>
+            </div>
+          ` : ''}
+        </div>
+      `;
+      if (isAperto) {
+        const archContainer = document.getElementById("archiviate-list-cards");
+        if (archContainer) renderFeedGuasti(archContainer, archiviateList, true, canManage);
+      }
+    }
+  }
 }
 
-function renderFeedGuasti(container, guastiList) {
+function renderFeedGuasti(container, guastiList, isArchiviataView = false, canManage = false) {
   if (!guastiList || guastiList.length === 0) {
-    const isMaster = haPermessiMaster();
-    container.innerHTML = `<div class="empty-state-card card-inner" style="text-align: center; padding: 24px; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;"><div style="font-size: 28px; margin-bottom: 6px;">📋</div><p style="margin: 0; font-weight: 600;">${isMaster ? 'Nessuna segnalazione.' : 'Non hai inviato ancora nessuna segnalazione.'}</p></div>`;
+    container.innerHTML = `
+      <div class="empty-state-card card-inner" style="text-align: center; padding: 22px; color: #64748b; background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px;">
+        <div style="font-size: 26px; margin-bottom: 6px;">📋</div>
+        <p style="margin: 0; font-weight: 600;">${isArchiviataView ? 'Nessuna segnalazione archiviata.' : (canManage ? 'Nessuna segnalazione aperta da gestire.' : 'Non ci sono segnalazioni attive.')}</p>
+      </div>
+    `;
     return;
   }
+
   container.innerHTML = guastiList.map(g => {
-    const isRisolto = g.stato === "Risolto";
+    const isRisolto = g.stato === "Risolto" || g.stato === "Archiviata" || g.stato === "Terminata";
     const isServizi = g.categoria === "servizi";
     const priorita = g.priorita || "Media";
+    const idSeg = g.id || ("SEG_" + Math.random().toString().slice(2, 6));
+
     let prioritaBadge = `<span class="badge" style="background:#e0e7ff; color:#3730a3; font-size:11px;">Priorità: ${priorita}</span>`;
-    if (priorita === "Alta" || priorita === "Urgente") prioritaBadge = `<span class="badge" style="background:#fee2e2; color:#991b1b; font-weight:700; font-size:11px;">⚠️ ${priorita}</span>`;
+    if (priorita === "Alta" || priorita === "Urgente") {
+      prioritaBadge = `<span class="badge" style="background:#fee2e2; color:#991b1b; font-weight:700; font-size:11px;">⚠️ ${priorita}</span>`;
+    }
+
     return `
-      <div class="guasto-card card-inner" style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+      <div class="guasto-card card-inner" style="background: ${isRisolto ? '#f8fafc' : '#ffffff'}; border: 1px solid ${isRisolto ? '#e2e8f0' : '#cbd5e1'}; border-radius: 8px; padding: 14px; margin-bottom: 12px; ${isRisolto ? 'opacity: 0.9;' : ''}">
         <div class="flex-between" style="flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-            <span class="badge" style="font-weight: 700; background: ${isServizi ? '#e0f2fe' : '#fef3c7'}; color: ${isServizi ? '#0369a1' : '#92400e'};">${isServizi ? '🧹 Servizi' : '🛠️ Manutenzione'}</span>
-            ${g.id ? `<span class="badge" style="background: #f1f5f9; color: #475569; font-size: 11px;">ID: ${escapeHtml(g.id)}</span>` : ''}
+            <span class="badge" style="font-weight: 700; background: ${isServizi ? '#e0f2fe' : '#fef3c7'}; color: ${isServizi ? '#0369a1' : '#92400e'};">${isServizi ? '📢 Segnalazione' : '🛠️ Manutenzione'}</span>
+            <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 11px;">ID: ${escapeHtml(idSeg)}</span>
             ${prioritaBadge}
           </div>
           <div style="display: flex; gap: 6px; align-items: center;">
@@ -3403,11 +3598,90 @@ function renderFeedGuasti(container, guastiList) {
             <span class="text-xs text-muted">${g.timestamp ? new Date(g.timestamp).toLocaleDateString("it-IT") : ''}</span>
           </div>
         </div>
-        ${g.luogo ? `<div style="font-size: 12px; color: #0284c7; font-weight: 700; margin-bottom: 4px;">📍 ${escapeHtml(g.luogo)}</div>` : ''}
+
+        ${g.luogo ? `<div style="font-size: 12.5px; color: #0284c7; font-weight: 700; margin-bottom: 4px;">📍 ${escapeHtml(g.luogo)}</div>` : ''}
         <p class="guasto-desc" style="font-size: 13.5px; line-height: 1.5; color: #1e293b; margin: 4px 0 8px 0;">${escapeHtml(g.descrizione)}</p>
-        ${g.note_intervento ? `<div style="background: #f0fdf4; border-left: 3px solid #16a34a; padding: 6px 10px; border-radius: 4px; font-size: 12px; color: #166534; margin: 8px 0;"><strong>Nota:</strong> ${escapeHtml(g.note_intervento)}</div>` : ''}
+        ${g.note_intervento ? `<div style="background: #f0fdf4; border-left: 3px solid #16a34a; padding: 6px 10px; border-radius: 4px; font-size: 12px; color: #166534; margin: 8px 0;"><strong>Nota intervento:</strong> ${escapeHtml(g.note_intervento)}</div>` : ''}
+        ${g.tecnico ? `<div style="font-size: 12px; color: #475569; margin: 4px 0;">🔧 Tecnico: <strong>${escapeHtml(g.tecnico)}</strong></div>` : ''}
         ${g.link_foto ? `<div class="guasto-thumb-wrap" style="margin: 8px 0;"><img src="${g.link_foto}" alt="Foto" class="guasto-thumb" style="max-height: 100px; border-radius: 6px; cursor: pointer;" onclick="apriFotoInNuovaScheda('${g.link_foto}')"></div>` : ''}
         <div class="text-xs text-muted" style="margin-top: 8px; border-top: 1px dashed #f1f5f9; padding-top: 6px;">Segnalato da: <strong>${escapeHtml(g.email)}</strong></div>
+
+        ${canManage ? `
+          <!-- MODIFICA RICHIESTE & ASSEGNAZIONE LIVELLI (PER UTENTE CON MANUTENZIONE ATTIVATA) -->
+          <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-top: 10px;">
+            <div style="font-size: 12px; font-weight: 800; color: #1e40af; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+              <span style="display: flex; align-items: center; gap: 6px;"><span>⚙️</span> <strong>Modifica Richiesta &amp; Assegna Livelli</strong></span>
+              <span class="badge" style="background: #dbeafe; color: #1e40af; font-size: 10.5px;">Incaricato Manutenzione</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 8px;">
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Categoria:</label>
+                <select id="user-seg-categoria-${escapeHtml(idSeg)}" class="input-select" style="font-size: 12px; padding: 5px 8px; height: 34px;">
+                  <option value="manutenzione" ${(!g.categoria || g.categoria === 'manutenzione') ? 'selected' : ''}>🛠️ Manutenzione</option>
+                  <option value="servizi" ${g.categoria === 'servizi' ? 'selected' : ''}>🧹 Servizi</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Ubicazione / Locale:</label>
+                <input type="text" id="user-seg-luogo-${escapeHtml(idSeg)}" class="input-text" style="font-size: 12px; padding: 5px 8px; height: 34px;" placeholder="Es. Bagno P2, Cucina..." value="${escapeHtml(g.luogo || '')}">
+              </div>
+
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Priorità / Livello:</label>
+                <select id="user-seg-priorita-${escapeHtml(idSeg)}" class="input-select" style="font-size: 12px; padding: 5px 8px; height: 34px;">
+                  <option value="Bassa" ${g.priorita === 'Bassa' ? 'selected' : ''}>Bassa</option>
+                  <option value="Media" ${(!g.priorita || g.priorita === 'Media') ? 'selected' : ''}>Media</option>
+                  <option value="Alta" ${g.priorita === 'Alta' ? 'selected' : ''}>Alta</option>
+                  <option value="Urgente" ${g.priorita === 'Urgente' ? 'selected' : ''}>⚠️ Urgente</option>
+                </select>
+              </div>
+
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Stato Richiesta:</label>
+                <select id="user-seg-stato-${escapeHtml(idSeg)}" class="input-select" style="font-size: 12px; padding: 5px 8px; height: 34px;">
+                  <option value="Da fare" ${(!g.stato || g.stato === 'Da fare') ? 'selected' : ''}>Da fare</option>
+                  <option value="In Lavorazione" ${g.stato === 'In Lavorazione' ? 'selected' : ''}>In Lavorazione</option>
+                  <option value="Risolto" ${isRisolto ? 'selected' : ''}>✅ Risolto / Terminato</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 8px;">
+              <label style="font-size: 11px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Descrizione Segnalazione:</label>
+              <textarea id="user-seg-descrizione-${escapeHtml(idSeg)}" class="input-textarea" rows="2" style="font-size: 12px; padding: 5px 8px; width: 100%; border-radius: 6px;" placeholder="Dettagli problematica...">${escapeHtml(g.descrizione || '')}</textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px; margin-bottom: 8px;">
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Tecnico / Ditta incaricata:</label>
+                <input type="text" id="user-seg-tecnico-${escapeHtml(idSeg)}" class="input-text" style="font-size: 12px; padding: 5px 8px;" placeholder="Es. Mario Idraulico, Ditta..." value="${escapeHtml(g.tecnico || '')}">
+              </div>
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Note Intervento / Soluzione:</label>
+                <input type="text" id="user-seg-note-${escapeHtml(idSeg)}" class="input-text" style="font-size: 12px; padding: 5px 8px;" placeholder="Es. Pezzo ordinato..." value="${escapeHtml(g.note_intervento || '')}">
+              </div>
+            </div>
+
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="salvaModificheSegnalazione('${escapeHtml(idSeg)}')" style="flex: 1; min-width: 120px; font-size: 11.5px; font-weight: 700;">
+                💾 Salva Modifiche
+              </button>
+              ${!isRisolto ? `
+                <button type="button" class="btn btn-success btn-sm" onclick="risolviSegnalazioneMaster('${escapeHtml(idSeg)}')" style="font-size: 11.5px; font-weight: 700;">
+                  ✅ Risolvi &amp; Archivia
+                </button>
+              ` : `
+                <button type="button" class="btn btn-outline btn-sm" onclick="riapriSegnalazione('${escapeHtml(idSeg)}')" style="font-size: 11.5px; font-weight: 700; color: #d97706; border-color: #fcd34d;">
+                  ↩️ Riapri Richiesta
+                </button>
+              `}
+              <button type="button" class="btn btn-outline btn-sm" onclick="apriModalEmailAmministrazionePerGuasto('${escapeHtml(idSeg)}')" style="font-size: 11px; font-weight: 700; border-color: #0284c7; color: #0284c7; background: #f0f9ff; display: inline-flex; align-items: center; gap: 4px;">
+                <span>🏛️</span> Mail Amministrazione
+              </button>
+          </div>
+        ` : ''}
       </div>
     `;
   }).join("");
@@ -3419,13 +3693,362 @@ window.apriFotoInNuovaScheda = function(url) {
 };
 
 // ----------------------------------------------------------------------------
-// SEZIONE MASTER
+// GESTIONE EMAIL AMMINISTRAZIONE & NOTIFICHE SEGNALAZIONI
+// ----------------------------------------------------------------------------
+
+function generaTemplateStandardEmailAmministrazione(guasto) {
+  const richiedente = (appState.user && appState.user.nome) ? appState.user.nome : (appState.user?.email || "Staff Residenza");
+  if (guasto) {
+    const id = guasto.id || "SEG";
+    const dataOra = guasto.timestamp ? new Date(guasto.timestamp).toLocaleString("it-IT") : new Date().toLocaleString("it-IT");
+    const tipo = guasto.categoria === "servizi" ? "Segnalazione Servizi" : "Manutenzione Tecnica";
+    return `Spettabile Amministrazione / Ufficio Tecnico,\n\nSi richiede intervento di manutenzione per la Residenza Newman in riferimento alla seguente segnalazione:\n\n• ID Segnalazione: ${id}\n• Data: ${dataOra}\n• Ubicazione / Ambiente: ${guasto.luogo || 'Non specificato'}\n• Categoria: ${tipo}\n• Priorità: ${guasto.priorita || 'Media'}\n• Segnalato da: ${guasto.email || richiedente}\n• Descrizione problematica:\n${guasto.descrizione || ''}\n${guasto.note_intervento ? `\n• Note tecniche interne: ${guasto.note_intervento}` : ''}\n${guasto.tecnico ? `\n• Tecnico di riferimento: ${guasto.tecnico}` : ''}\n${guasto.link_foto ? `\n• Fotografia allegata: ${guasto.link_foto}` : ''}\n\nSi richiede cortesemente di coordinare l'intervento con la ditta o l'operaio incaricato.\n\nCordiali saluti,\n${richiedente}\nResidenza Newman`;
+  }
+  return `Spettabile Amministrazione / Ufficio Tecnico,\n\nSi richiede intervento di manutenzione per la Residenza Newman con le seguenti specifiche:\n\n• Oggetto / Richiesta: [Descrizione breve dell'intervento]\n• Ubicazione / Locale: [Specificare stanza o area comune]\n• Descrizione problematica: [Descrivere dettagliatamente il problema riscontrato]\n• Priorità richiesta: [Normale / Urgente]\n• Note di accesso o orari: [Es. Accesso preferibile al mattino]\n\nRestiamo a disposizione per qualsiasi chiarimento o per coordinare il sopralluogo del tecnico incaricato.\n\nCordiali saluti,\n${richiedente}\nResidenza Newman`;
+}
+
+function inizializzaSezioneEmailAmministrazione() {
+  const emailAmm = (appState.cachedConfig && appState.cachedConfig.Email_Amministrazione_Manutenzione) || "amministrazione@residenzanewman.org";
+  const emailMittente = (appState.cachedConfig && appState.cachedConfig.Email_Mittente_Segnalazioni) || "donandreadotti@gmail.com";
+
+  const inputDest = document.getElementById("manutenzione-email-destinatario-amm");
+  if (inputDest) {
+    if (!inputDest.value || inputDest.value === "amministrazione@residenzanewman.org") {
+      inputDest.value = emailAmm;
+    }
+  }
+
+  const lblMittente = document.getElementById("lbl-mittente-segnalazioni-card");
+  if (lblMittente) {
+    lblMittente.innerText = emailMittente;
+  }
+
+  const textarea = document.getElementById("manutenzione-testo-email-amm");
+  if (textarea && !textarea.value.trim()) {
+    textarea.value = generaTemplateStandardEmailAmministrazione();
+  }
+}
+
+window.generaTemplateStandardEmailAmministrazione = generaTemplateStandardEmailAmministrazione;
+window.inizializzaSezioneEmailAmministrazione = inizializzaSezioneEmailAmministrazione;
+
+window.salvaIndirizzoAmministrazioneDaManutenzione = async function() {
+  const input = document.getElementById("manutenzione-email-destinatario-amm");
+  if (!input) return;
+  const email = input.value.trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    mostraToast("Inserisci un indirizzo email valido", "warning");
+    return;
+  }
+  try {
+    const res = await callApi("aggiornaConfig", { Email_Amministrazione_Manutenzione: email });
+    if (res && res.success) {
+      if (!appState.cachedConfig) appState.cachedConfig = {};
+      appState.cachedConfig.Email_Amministrazione_Manutenzione = email;
+      mostraToast("✅ Indirizzo amministrazione salvato!", "success");
+      if (haPermessiMaster()) renderMasterSection();
+    } else {
+      mostraToast("Errore durante il salvataggio", "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete", "error");
+  }
+};
+
+window.ripristinaTemplateEmailAmministrazione = function() {
+  const textarea = document.getElementById("manutenzione-testo-email-amm");
+  if (textarea) {
+    textarea.value = generaTemplateStandardEmailAmministrazione();
+    mostraToast("Modello email ripristinato", "info");
+  }
+};
+
+window.inviaMailAmministrazioneMailto = function() {
+  const dest = document.getElementById("manutenzione-email-destinatario-amm")?.value?.trim() || appState.cachedConfig?.Email_Amministrazione_Manutenzione || "amministrazione@residenzanewman.org";
+  const body = document.getElementById("manutenzione-testo-email-amm")?.value?.trim() || "";
+  if (!dest) {
+    mostraToast("Specificare un indirizzo destinatario", "warning");
+    return;
+  }
+  if (!body) {
+    mostraToast("Inserisci il testo dell'email", "warning");
+    return;
+  }
+  const subject = "[Residenza Newman] Richiesta Intervento Manutenzione";
+  const mailtoUrl = `mailto:${encodeURIComponent(dest)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.open(mailtoUrl, "_blank");
+  mostraToast("Apertura client email in corso...", "success");
+};
+
+window.copiaTestoEmailAmministrazione = async function() {
+  const textarea = document.getElementById("manutenzione-testo-email-amm");
+  if (!textarea || !textarea.value.trim()) {
+    mostraToast("Nessun testo da copiare", "warning");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(textarea.value);
+    mostraToast("📋 Testo email copiato negli appunti!", "success");
+  } catch (err) {
+    textarea.select();
+    document.execCommand("copy");
+    mostraToast("📋 Testo copiato negli appunti!", "success");
+  }
+};
+
+window.inviaMailAmministrazioneDiretta = async function() {
+  const dest = document.getElementById("manutenzione-email-destinatario-amm")?.value?.trim() || appState.cachedConfig?.Email_Amministrazione_Manutenzione || "amministrazione@residenzanewman.org";
+  const body = document.getElementById("manutenzione-testo-email-amm")?.value?.trim() || "";
+  if (!dest || !dest.includes("@")) {
+    mostraToast("Inserisci un indirizzo email valido", "warning");
+    return;
+  }
+  if (!body) {
+    mostraToast("Inserisci il testo dell'email", "warning");
+    return;
+  }
+  const subject = "[Residenza Newman] Richiesta Intervento Manutenzione";
+  const btn = document.getElementById("btn-invia-diretto-manutenzione");
+  if (btn) { btn.disabled = true; btn.textContent = "Invio in corso..."; }
+  try {
+    const res = await callApi("inviaEmailAmministrazione", {
+      to: dest,
+      subject: subject,
+      body: body,
+      mittente: appState.cachedConfig?.Email_Mittente_Segnalazioni || "donandreadotti@gmail.com"
+    });
+    if (res && res.success) {
+      mostraToast("✅ Email inviata all'amministrazione!", "success");
+    } else {
+      mostraToast("Errore invio: " + (res.error || "Impossibile inviare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante l'invio", "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = "<span>🚀</span> Invia Subito dall'App"; }
+  }
+};
+
+// Modal Email Amministrazione per singolo guasto o richiesta generale
+let _correnteGuastoModalEmail = null;
+
+window.apriModalEmailAmministrazionePerGuasto = function(idSeg) {
+  const modal = document.getElementById("modal-email-amministrazione");
+  if (!modal) return;
+
+  let guastoObj = null;
+  if (idSeg) {
+    const lista = appState.guasti || appState.manutenzioneList || [];
+    guastoObj = lista.find(g => String(g.id) === String(idSeg)) || null;
+  }
+  _correnteGuastoModalEmail = guastoObj;
+
+  const emailAmm = (appState.cachedConfig && appState.cachedConfig.Email_Amministrazione_Manutenzione) || "amministrazione@residenzanewman.org";
+  const emailMittente = (appState.cachedConfig && appState.cachedConfig.Email_Mittente_Segnalazioni) || "donandreadotti@gmail.com";
+
+  const destInput = document.getElementById("modal-email-amm-destinatario");
+  if (destInput) destInput.value = emailAmm;
+
+  const subjInput = document.getElementById("modal-email-amm-oggetto");
+  if (subjInput) {
+    if (guastoObj) {
+      const luogoStr = guastoObj.luogo ? ` - ${guastoObj.luogo}` : '';
+      const prioritaStr = guastoObj.priorita ? ` (${guastoObj.priorita})` : '';
+      subjInput.value = `[Manutenzione Residenza Newman] Segnalazione #${guastoObj.id}${luogoStr}${prioritaStr}`;
+    } else {
+      subjInput.value = `[Manutenzione Residenza Newman] Richiesta Intervento`;
+    }
+  }
+
+  const corpoArea = document.getElementById("modal-email-amm-corpo");
+  if (corpoArea) {
+    corpoArea.value = generaTemplateStandardEmailAmministrazione(guastoObj);
+  }
+
+  const lblMitt = document.getElementById("modal-email-amm-mittente-label");
+  if (lblMitt) lblMitt.innerText = emailMittente;
+
+  const subtitolo = document.getElementById("modal-email-amm-sottotitolo");
+  if (subtitolo) {
+    subtitolo.innerText = guastoObj ? `Inoltro segnalazione #${guastoObj.id} all'amministrazione` : `Comunicazione formale per interventi di manutenzione`;
+  }
+
+  modal.style.display = "flex";
+};
+
+window.chiudiModalEmailAmministrazione = function() {
+  const modal = document.getElementById("modal-email-amministrazione");
+  if (modal) modal.style.display = "none";
+  _correnteGuastoModalEmail = null;
+};
+
+window.ripristinaTestoModalEmailAmministrazione = function() {
+  const corpoArea = document.getElementById("modal-email-amm-corpo");
+  if (corpoArea) {
+    corpoArea.value = generaTemplateStandardEmailAmministrazione(_correnteGuastoModalEmail);
+    mostraToast("Testo ripristinato", "info");
+  }
+};
+
+window.salvaIndirizzoAmministrazioneDaModal = async function() {
+  const input = document.getElementById("modal-email-amm-destinatario");
+  if (!input) return;
+  const email = input.value.trim().toLowerCase();
+  if (!email || !email.includes("@")) {
+    mostraToast("Inserisci un indirizzo email valido", "warning");
+    return;
+  }
+  try {
+    const res = await callApi("aggiornaConfig", { Email_Amministrazione_Manutenzione: email });
+    if (res && res.success) {
+      if (!appState.cachedConfig) appState.cachedConfig = {};
+      appState.cachedConfig.Email_Amministrazione_Manutenzione = email;
+      mostraToast("✅ Indirizzo amministrazione salvato!", "success");
+      const pageInput = document.getElementById("manutenzione-email-destinatario-amm");
+      if (pageInput) pageInput.value = email;
+      if (haPermessiMaster()) renderMasterSection();
+    } else {
+      mostraToast("Errore durante il salvataggio", "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete", "error");
+  }
+};
+
+window.inviaMailModalAmministrazioneMailto = function() {
+  const dest = document.getElementById("modal-email-amm-destinatario")?.value?.trim() || "amministrazione@residenzanewman.org";
+  const subj = document.getElementById("modal-email-amm-oggetto")?.value?.trim() || "[Residenza Newman] Manutenzione";
+  const body = document.getElementById("modal-email-amm-corpo")?.value?.trim() || "";
+  if (!dest) {
+    mostraToast("Specificare il destinatario", "warning");
+    return;
+  }
+  if (!body) {
+    mostraToast("Inserisci il testo dell'email", "warning");
+    return;
+  }
+  const mailtoUrl = `mailto:${encodeURIComponent(dest)}?subject=${encodeURIComponent(subj)}&body=${encodeURIComponent(body)}`;
+  window.open(mailtoUrl, "_blank");
+  mostraToast("Apertura client email in corso...", "success");
+};
+
+window.copiaTestoModalEmailAmministrazione = async function() {
+  const textarea = document.getElementById("modal-email-amm-corpo");
+  if (!textarea || !textarea.value.trim()) {
+    mostraToast("Nessun testo da copiare", "warning");
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(textarea.value);
+    mostraToast("📋 Testo email copiato negli appunti!", "success");
+  } catch (err) {
+    textarea.select();
+    document.execCommand("copy");
+    mostraToast("📋 Testo copiato!", "success");
+  }
+};
+
+window.inviaMailModalAmministrazioneDiretta = async function() {
+  const dest = document.getElementById("modal-email-amm-destinatario")?.value?.trim() || "amministrazione@residenzanewman.org";
+  const subj = document.getElementById("modal-email-amm-oggetto")?.value?.trim() || "[Residenza Newman] Manutenzione";
+  const body = document.getElementById("modal-email-amm-corpo")?.value?.trim() || "";
+  if (!dest || !dest.includes("@")) {
+    mostraToast("Inserisci un indirizzo email valido", "warning");
+    return;
+  }
+  if (!body) {
+    mostraToast("Inserisci il testo dell'email", "warning");
+    return;
+  }
+  const btn = document.getElementById("btn-invia-diretto-modal-amm");
+  if (btn) { btn.disabled = true; btn.textContent = "Invio in corso..."; }
+  try {
+    const res = await callApi("inviaEmailAmministrazione", {
+      to: dest,
+      subject: subj,
+      body: body,
+      mittente: appState.cachedConfig?.Email_Mittente_Segnalazioni || "donandreadotti@gmail.com"
+    });
+    if (res && res.success) {
+      mostraToast("✅ Email inviata con successo all'amministrazione!", "success");
+      chiudiModalEmailAmministrazione();
+    } else {
+      mostraToast("Errore invio: " + (res.error || "Impossibile inviare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante l'invio", "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = "<span>🚀</span> Invia dall'App"; }
+  }
+};
+
+window.handleSalvaConfigEmailSuperadmin = async function(e) {
+  if (e) e.preventDefault();
+  const emailMittente = document.getElementById("cfg-superadmin-email-mittente")?.value?.trim()?.toLowerCase();
+  const emailAmm = document.getElementById("cfg-superadmin-email-amm")?.value?.trim()?.toLowerCase();
+
+  if (!emailMittente || !emailMittente.includes("@")) {
+    mostraToast("Inserisci un indirizzo email mittente valido", "warning");
+    return;
+  }
+  if (!emailAmm || !emailAmm.includes("@")) {
+    mostraToast("Inserisci un indirizzo email amministrazione valido", "warning");
+    return;
+  }
+
+  const btn = document.getElementById("btn-salva-cfg-email-superadmin");
+  if (btn) { btn.disabled = true; btn.textContent = "Salvataggio..."; }
+
+  try {
+    const res = await callApi("aggiornaConfig", {
+      Email_Mittente_Segnalazioni: emailMittente,
+      Email_Amministrazione_Manutenzione: emailAmm
+    });
+    if (res && res.success) {
+      if (!appState.cachedConfig) appState.cachedConfig = {};
+      appState.cachedConfig.Email_Mittente_Segnalazioni = emailMittente;
+      appState.cachedConfig.Email_Amministrazione_Manutenzione = emailAmm;
+      mostraToast("✅ Impostazioni email Superadmin salvate!", "success");
+      inizializzaSezioneEmailAmministrazione();
+      renderMasterSection();
+    } else {
+      mostraToast("Errore: " + (res?.error || "Impossibile salvare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante il salvataggio", "error");
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = "💾 Salva Impostazioni Email Superadmin"; }
+  }
+};
+
+// ----------------------------------------------------------------------------
+// SEZIONE MASTER & CONTROLLO RUOLI
 // ----------------------------------------------------------------------------
 
 function haPermessiMaster() {
   if (!appState.user) return false;
   return Boolean(appState.user.perm_admin || appState.user.perm_mensa || appState.user.perm_manutenzione || appState.user.perm_spazi);
 }
+
+function haPermessiMasterMensa() {
+  if (!appState.user) return false;
+  return Boolean(appState.user.perm_mensa || appState.user.perm_admin);
+}
+
+function haPermessiMasterSpazi() {
+  if (!appState.user) return false;
+  return Boolean(appState.user.perm_spazi || appState.user.perm_admin);
+}
+
+function haPermessiMasterManutenzione() {
+  if (!appState.user) return false;
+  return Boolean(appState.user.perm_manutenzione || appState.user.perm_admin);
+}
+
+window.haPermessiMaster = haPermessiMaster;
+window.haPermessiMasterMensa = haPermessiMasterMensa;
+window.haPermessiMasterSpazi = haPermessiMasterSpazi;
+window.haPermessiMasterManutenzione = haPermessiMasterManutenzione;
 
 window.getDestinatariNotifiche = function(tipo) {
   const destinatari = [];
@@ -3480,6 +4103,11 @@ let masterSegnalazioniFiltroStato = "tutte";
 window.filtraMasterSegnalazioni = function(categoria, stato) {
   if (categoria !== undefined) masterSegnalazioniFiltroCategoria = categoria;
   if (stato !== undefined) masterSegnalazioniFiltroStato = stato;
+  renderMasterSection();
+};
+
+window.toggleMostraArchiviateMaster = function() {
+  appState.mostraArchiviateMaster = !appState.mostraArchiviateMaster;
   renderMasterSection();
 };
 
@@ -3686,6 +4314,11 @@ function renderMasterSection() {
                       <input type="checkbox" id="edit-notif-spazi-${uEmail}" ${u.notif_spazi ? 'checked' : ''}>
                       <span>🔔 Notif. Spazi</span>
                     </label>
+
+                    <label class="user-spec-chip" title="Ricevi notifiche push opzionali (avvisi ore 07:00 e accoglienza)">
+                      <input type="checkbox" id="edit-notif-push-${uEmail}" ${u.notif_push ? 'checked' : ''}>
+                      <span>📱 Push Notifiche</span>
+                    </label>
                   </div>
 
                   <div class="user-spec-footer">
@@ -3726,6 +4359,45 @@ function renderMasterSection() {
             <div class="form-group"><label style="font-size: 12px; font-weight: 600;">Info_Regolamento</label><textarea id="admin-regolamento" class="input-textarea" rows="4" style="font-size: 12.5px;">${escapeHtml(appState.cachedConfig.Info_Regolamento || '')}</textarea></div>
             <div class="form-group"><label style="font-size: 12px; font-weight: 600;">Info_Contatti</label><textarea id="admin-contatti" class="input-textarea" rows="3" style="font-size: 12.5px;">${escapeHtml(appState.cachedConfig.Info_Contatti || '')}</textarea></div>
             <button type="submit" class="btn btn-primary btn-block">Salva Testi</button>
+          </form>
+        </div>
+
+        <div class="sub-section" style="margin-top: 24px; background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 16px;">
+          <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+            <div class="flex-align" style="gap: 8px;">
+              <span style="font-size: 24px;">⚙️</span>
+              <div>
+                <h4 style="margin: 0; font-size: 14.5px; font-weight: 800; color: #166534;">Configurazione Email &amp; Notifiche (Superadmin)</h4>
+                <span class="text-xs text-muted">Gestione centralizzata dell'indirizzo mittente delle segnalazioni e dell'amministrazione per la manutenzione</span>
+              </div>
+            </div>
+            <span class="badge" style="background: #dcfce7; color: #166534; font-weight: 700;">👑 Superadmin</span>
+          </div>
+
+          <form onsubmit="handleSalvaConfigEmailSuperadmin(event)">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 14px;">
+              <div class="form-group" style="margin: 0;">
+                <label for="cfg-superadmin-email-mittente" style="font-size: 12px; font-weight: 700; color: #14532d; display: block; margin-bottom: 4px;">
+                  ✉️ Indirizzo da cui partono le segnalazioni:
+                </label>
+                <input type="email" id="cfg-superadmin-email-mittente" class="input-text" style="font-size: 13px;" value="${escapeHtml(appState.cachedConfig.Email_Mittente_Segnalazioni || 'donandreadotti@gmail.com')}" required>
+                <span class="text-xs text-muted" style="margin-top: 4px; display: block;">L'indirizzo email mittente impostato come Reply-To per tutte le notifiche di sistema e segnalazioni.</span>
+              </div>
+
+              <div class="form-group" style="margin: 0;">
+                <label for="cfg-superadmin-email-amm" style="font-size: 12px; font-weight: 700; color: #14532d; display: block; margin-bottom: 4px;">
+                  🏛️ Indirizzo Amministrazione a cui mandare la manutenzione:
+                </label>
+                <input type="email" id="cfg-superadmin-email-amm" class="input-text" style="font-size: 13px;" value="${escapeHtml(appState.cachedConfig.Email_Amministrazione_Manutenzione || 'amministrazione@residenzanewman.org')}" required>
+                <span class="text-xs text-muted" style="margin-top: 4px; display: block;">L'indirizzo email dell'economato/amministrazione a cui inoltrare le richieste formali di manutenzione.</span>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+              <button type="submit" id="btn-salva-cfg-email-superadmin" class="btn btn-primary btn-sm" style="background: #16a34a; border-color: #15803d; font-weight: 700; padding: 7px 16px;">
+                💾 Salva Impostazioni Email Superadmin
+              </button>
+            </div>
           </form>
         </div>
       </div>
@@ -4001,20 +4673,127 @@ function renderMasterSection() {
   if (perm_manutenzione && (isVistaTutto || activeTab === "manutenzione")) {
     let filteredSegnalazioni = tutteSegnalazioni.slice();
     if (masterSegnalazioniFiltroCategoria !== "tutte") filteredSegnalazioni = filteredSegnalazioni.filter(g => (g.categoria || "manutenzione") === masterSegnalazioniFiltroCategoria);
-    if (masterSegnalazioniFiltroStato === "aperte") filteredSegnalazioni = filteredSegnalazioni.filter(g => g.stato !== "Risolto");
-    else if (masterSegnalazioniFiltroStato === "risolte") filteredSegnalazioni = filteredSegnalazioni.filter(g => g.stato === "Risolto");
-    else if (masterSegnalazioniFiltroStato === "lavorazione") filteredSegnalazioni = filteredSegnalazioni.filter(g => g.stato === "In Lavorazione");
 
-    const aperteCount = tutteSegnalazioni.filter(g => g.stato !== "Risolto").length;
-    const risolteCount = tutteSegnalazioni.filter(g => g.stato === "Risolto").length;
+    const isArchiviataFn = g => g.stato === "Risolto" || g.stato === "Archiviata" || g.stato === "Terminata";
+    const aperteCount = tutteSegnalazioni.filter(g => !isArchiviataFn(g)).length;
+    const archiviateCount = tutteSegnalazioni.filter(g => isArchiviataFn(g)).length;
     const manutenzioneCount = tutteSegnalazioni.filter(g => (g.categoria || "manutenzione") === "manutenzione").length;
     const serviziCount = tutteSegnalazioni.filter(g => g.categoria === "servizi").length;
+
+    let aperteMaster = filteredSegnalazioni.filter(g => !isArchiviataFn(g));
+    let archiviateMaster = filteredSegnalazioni.filter(g => isArchiviataFn(g));
+
+    if (masterSegnalazioniFiltroStato === "aperte") {
+      archiviateMaster = [];
+    } else if (masterSegnalazioniFiltroStato === "risolte") {
+      aperteMaster = [];
+    } else if (masterSegnalazioniFiltroStato === "lavorazione") {
+      aperteMaster = aperteMaster.filter(g => g.stato === "In Lavorazione");
+      archiviateMaster = [];
+    }
+
+    const isMasterArchAperto = Boolean(appState.mostraArchiviateMaster);
+
+    function renderMasterGuastoCardHtml(g) {
+      const isRisolto = isArchiviataFn(g);
+      const isServizi = g.categoria === "servizi";
+      const idSeg = g.id || ("SEG_" + Math.random().toString().slice(2, 6));
+      const priorita = g.priorita || "Media";
+      let prioritaBadge = `<span class="badge" style="background:#e0e7ff; color:#3730a3; font-size:11px;">Priorità: ${priorita}</span>`;
+      if (priorita === "Alta" || priorita === "Urgente") {
+        prioritaBadge = `<span class="badge" style="background:#fee2e2; color:#991b1b; font-weight:700; font-size:11px;">⚠️ ${priorita}</span>`;
+      }
+
+      return `
+        <div class="guasto-master-card card-inner" style="background: #fff; border: 1.5px solid ${isRisolto ? '#e2e8f0' : '#cbd5e1'}; border-radius: 8px; padding: 14px;">
+          <div class="flex-between" style="margin-bottom: 8px;">
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+              <span class="badge" style="background: ${isServizi ? '#e0f2fe' : '#fef3c7'}; color: ${isServizi ? '#0369a1' : '#92400e'}; font-weight: 700;">${isServizi ? '🧹 Servizi' : '🛠️ Manutenzione'}</span>
+              <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 11px;">ID: ${escapeHtml(idSeg)}</span>
+              ${prioritaBadge}
+            </div>
+            <span class="badge ${isRisolto ? 'badge-success' : 'badge-danger'}" style="font-weight: 700;">${g.stato || 'Da fare'}</span>
+          </div>
+
+          <div class="text-xs text-muted" style="margin-bottom: 8px;">Da: <strong>${escapeHtml(g.email)}</strong> • ${g.timestamp ? new Date(g.timestamp).toLocaleString("it-IT") : ''}</div>
+          ${g.link_foto ? `<div class="guasto-photo-box" style="margin-bottom: 10px;"><img src="${g.link_foto}" class="guasto-photo-img" style="max-height: 120px; border-radius: 6px; cursor: pointer;" onclick="apriFotoInNuovaScheda('${g.link_foto}')"></div>` : ''}
+
+          <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; padding: 12px; border-radius: 8px; margin-bottom: 10px;">
+            <div style="font-size: 11.5px; font-weight: 800; color: #1e40af; margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between;">
+              <span>⚙️ Modifica Segnalazione &amp; Assegna Livello</span>
+              <span class="badge" style="background: #dbeafe; color: #1e40af; font-size: 10.5px;">Master Manutenzione</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 8px;">
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155;">Categoria:</label>
+                <select id="seg-categoria-${escapeHtml(idSeg)}" class="input-select" style="font-size: 12px; padding: 4px 6px; height: 32px;">
+                  <option value="manutenzione" ${(!g.categoria || g.categoria === 'manutenzione') ? 'selected' : ''}>🛠️ Manutenzione</option>
+                  <option value="servizi" ${g.categoria === 'servizi' ? 'selected' : ''}>🧹 Servizi</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155;">Locale / Stanza:</label>
+                <input type="text" id="seg-luogo-${escapeHtml(idSeg)}" class="input-text" style="font-size: 12px; padding: 4px 8px; height: 32px;" value="${escapeHtml(g.luogo || '')}">
+              </div>
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155;">Priorità / Livello:</label>
+                <select id="seg-priorita-${escapeHtml(idSeg)}" class="input-select" style="font-size: 12px; padding: 4px 6px; height: 32px;">
+                  <option value="Bassa" ${g.priorita === 'Bassa' ? 'selected' : ''}>Bassa</option>
+                  <option value="Media" ${(!g.priorita || g.priorita === 'Media') ? 'selected' : ''}>Media</option>
+                  <option value="Alta" ${g.priorita === 'Alta' ? 'selected' : ''}>Alta</option>
+                  <option value="Urgente" ${g.priorita === 'Urgente' ? 'selected' : ''}>⚠️ Urgente</option>
+                </select>
+              </div>
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155;">Stato:</label>
+                <select id="seg-stato-${escapeHtml(idSeg)}" class="input-select" style="font-size: 12px; padding: 4px 6px; height: 32px;">
+                  <option value="Da fare" ${(!g.stato || g.stato === 'Da fare') ? 'selected' : ''}>Da fare</option>
+                  <option value="In Lavorazione" ${g.stato === 'In Lavorazione' ? 'selected' : ''}>In Lavorazione</option>
+                  <option value="Risolto" ${isRisolto ? 'selected' : ''}>✅ Risolto / Terminato</option>
+                </select>
+              </div>
+            </div>
+
+            <div style="margin-bottom: 8px;">
+              <label style="font-size: 11px; font-weight: 700; color: #334155;">Descrizione Segnalazione:</label>
+              <textarea id="seg-descrizione-${escapeHtml(idSeg)}" class="input-textarea" rows="2" style="font-size: 12px; padding: 4px 8px; width: 100%; border-radius: 6px;">${escapeHtml(g.descrizione || '')}</textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px;">
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155;">Tecnico / Ditta:</label>
+                <input type="text" id="seg-tecnico-${escapeHtml(idSeg)}" class="input-text" style="font-size: 12px; padding: 4px 8px;" value="${escapeHtml(g.tecnico || '')}">
+              </div>
+              <div>
+                <label style="font-size: 11px; font-weight: 700; color: #334155;">Note Intervento:</label>
+                <input type="text" id="seg-note-${escapeHtml(idSeg)}" class="input-text" style="font-size: 12px; padding: 4px 8px;" value="${escapeHtml(g.note_intervento || '')}">
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 6px; margin-bottom: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="salvaModificheSegnalazione('${escapeHtml(idSeg)}')" style="flex: 1; min-width: 110px; font-size: 11px; font-weight: 700;">💾 Salva Modifiche</button>
+            ${!isRisolto ? `
+              <button type="button" class="btn btn-success btn-sm" onclick="risolviSegnalazioneMaster('${escapeHtml(idSeg)}')" style="font-size: 11px; font-weight: 700;">✅ Risolvi &amp; Archivia</button>
+            ` : `
+              <button type="button" class="btn btn-outline btn-sm" onclick="riapriSegnalazione('${escapeHtml(idSeg)}')" style="font-size: 11px; font-weight: 700; color: #d97706; border-color: #fcd34d;">↩️ Riapri Richiesta</button>
+            `}
+          </div>
+          <div>
+            <button type="button" class="btn btn-outline btn-sm btn-block" onclick="apriModalEmailAmministrazionePerGuasto('${escapeHtml(idSeg)}')" style="font-size: 11px; font-weight: 700; border-color: #0284c7; color: #0284c7; background: #f0f9ff; display: flex; align-items: center; justify-content: center; gap: 5px;">
+              <span>🏛️</span> Invia Mail ad Amministrazione
+            </button>
+          </div>
+        </div>
+      `;
+    }
 
     html += `
       <div class="master-block card" style="border-top: 4px solid #d97706;">
         <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
           <div><span class="master-tag" style="background:#d97706; color:#fff;">MASTER SEGNALAZIONI</span><h3 class="card-title" style="margin: 4px 0 0 0;">Gestione Segnalazioni</h3></div>
-          <div style="display: flex; gap: 6px;"><span class="badge" style="background:#fef3c7; color:#92400e; font-weight:700;">Aperte: ${aperteCount}</span><span class="badge" style="background:#dcfce7; color:#166534; font-weight:700;">Risolte: ${risolteCount}</span></div>
+          <div style="display: flex; gap: 6px;"><span class="badge" style="background:#fef3c7; color:#92400e; font-weight:700;">Aperte: ${aperteCount}</span><span class="badge" style="background:#dcfce7; color:#166534; font-weight:700;">Risolte/Archiviate: ${archiviateCount}</span></div>
         </div>
 
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;">
@@ -4025,45 +4804,56 @@ function renderMasterSection() {
             <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroCategoria === 'servizi' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni('servizi', undefined)" style="padding: 3px 8px; font-size: 11px;">🧹 (${serviziCount})</button>
           </div>
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-            <span style="font-size: 12px; font-weight: 700;">Stato:</span>
-            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'tutte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'tutte')" style="padding: 3px 8px; font-size: 11px;">Tutti</button>
-            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'aperte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'aperte')" style="padding: 3px 8px; font-size: 11px;">Aperte</button>
-            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'risolte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'risolte')" style="padding: 3px 8px; font-size: 11px;">Risolte</button>
+            <span style="font-size: 12px; font-weight: 700;">Filtro:</span>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'tutte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'tutte')" style="padding: 3px 8px; font-size: 11px;">Tutte</button>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'aperte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'aperte')" style="padding: 3px 8px; font-size: 11px;">Solo Aperte</button>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'lavorazione' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'lavorazione')" style="padding: 3px 8px; font-size: 11px;">In Lavorazione</button>
+            <button type="button" class="btn btn-sm ${masterSegnalazioniFiltroStato === 'risolte' ? 'btn-primary' : 'btn-secondary'}" onclick="filtraMasterSegnalazioni(undefined, 'risolte')" style="padding: 3px 8px; font-size: 11px;">Risolte/Archiviate</button>
           </div>
         </div>
 
+        <div style="background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px; padding: 12px 14px; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: space-between;">
+          <div>
+            <div style="font-size: 13px; font-weight: 800; color: #166534; display: flex; align-items: center; gap: 6px;">
+              <span>🏛️</span> Canale Email Amministrazione / Economato:
+            </div>
+            <div style="font-size: 12px; color: #334155; margin-top: 2px;">
+              Destinatario: <code style="background: #dcfce7; padding: 1px 6px; border-radius: 4px; color: #14532d; font-weight: 700; font-size: 12px;">${escapeHtml(appState.cachedConfig.Email_Amministrazione_Manutenzione || 'amministrazione@residenzanewman.org')}</code>
+              • Mittente/Reply-To: <strong style="color: #1e293b;">${escapeHtml(appState.cachedConfig.Email_Mittente_Segnalazioni || 'donandreadotti@gmail.com')}</strong>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="apriModalEmailAmministrazionePerGuasto(null)" style="background: #0284c7; border-color: #0284c7; font-weight: 700; font-size: 11.5px; display: inline-flex; align-items: center; gap: 5px;">
+              <span>✉️</span> Nuova Mail ad Amministrazione
+            </button>
+          </div>
+        </div>
+
+        <!-- GRIGLIA RICHIESTE APERTE -->
         <div class="guasti-feed-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-top: 14px;">
-          ${filteredSegnalazioni.length === 0 ? '<p class="empty-state-text" style="grid-column: 1 / -1; padding: 24px; text-align: center;">Nessuna segnalazione.</p>' : ''}
-          ${filteredSegnalazioni.map(g => {
-            const isRisolto = g.stato === "Risolto";
-            const isServizi = g.categoria === "servizi";
-            const idSeg = g.id || ("SEG_" + Math.random().toString().slice(2, 6));
-            return `
-              <div class="guasto-master-card card-inner" style="background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px;">
-                <div class="flex-between" style="margin-bottom: 8px;">
-                  <span class="badge" style="background: ${isServizi ? '#e0f2fe' : '#fef3c7'}; color: ${isServizi ? '#0369a1' : '#92400e'}; font-weight: 700;">${isServizi ? '🧹 Servizi' : '🛠️ Manutenzione'}</span>
-                  <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 11px;">ID: ${escapeHtml(idSeg)}</span>
+          ${aperteMaster.length === 0 ? '<p class="empty-state-text" style="grid-column: 1 / -1; padding: 24px; text-align: center; color: #64748b;">Nessuna segnalazione aperta da gestire.</p>' : ''}
+          ${aperteMaster.map(renderMasterGuastoCardHtml).join("")}
+        </div>
+
+        <!-- SEZIONE ARCHIVIATE / TERMINATE NASCOSTE DI DEFAULT CON PULSANTE DEDICATO -->
+        ${archiviateMaster.length > 0 ? `
+          <div style="margin-top: 18px; padding-top: 14px; border-top: 1px dashed #cbd5e1;">
+            <button type="button" class="btn btn-outline btn-block" onclick="toggleMostraArchiviateMaster()" style="display: flex; align-items: center; justify-content: center; gap: 8px; font-weight: 700; font-size: 12.5px; padding: 11px 16px; border-color: ${isMasterArchAperto ? '#94a3b8' : '#cbd5e1'}; background: ${isMasterArchAperto ? '#f1f5f9' : '#f8fafc'}; color: ${isMasterArchAperto ? '#0f172a' : '#475569'}; border-radius: 8px; cursor: pointer; transition: all 0.2s;">
+              <span>${isMasterArchAperto ? '🔼' : '📦'}</span>
+              <span>${isMasterArchAperto ? 'Nascondi Segnalazioni Archiviate / Terminate' : 'Mostra Segnalazioni Archiviate / Terminate'} (${archiviateMaster.length})</span>
+            </button>
+            ${isMasterArchAperto ? `
+              <div style="margin-top: 14px; opacity: 0.95;">
+                <div style="font-size: 13px; font-weight: 800; color: #166534; margin-bottom: 10px; display: flex; align-items: center; gap: 6px;">
+                  <span>✅</span> <strong>Segnalazioni Archiviate &amp; Terminate (${archiviateMaster.length}):</strong>
                 </div>
-                ${g.luogo ? `<div style="font-size: 12px; font-weight: 700; color: #0284c7; margin-bottom: 4px;">📍 ${escapeHtml(g.luogo)}</div>` : ''}
-                <p class="guasto-desc" style="font-size: 13.5px; line-height: 1.5; color: #1e293b; margin: 4px 0 10px 0;">${escapeHtml(g.descrizione)}</p>
-                ${g.link_foto ? `<div class="guasto-photo-box" style="margin-bottom: 10px;"><img src="${g.link_foto}" class="guasto-photo-img" style="max-height: 120px; border-radius: 6px; cursor: pointer;" onclick="apriFotoInNuovaScheda('${g.link_foto}')"></div>` : ''}
-                <div class="text-xs text-muted" style="margin-bottom: 10px;">Da: <strong>${escapeHtml(g.email)}</strong> • ${g.timestamp ? new Date(g.timestamp).toLocaleString("it-IT") : ''}</div>
-                <div style="background: #f8fafc; border: 1px solid #e2e8f0; padding: 10px; border-radius: 6px; margin-bottom: 10px;">
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
-                    <div><label style="font-size: 11px; font-weight: 700;">Priorità:</label><select id="seg-priorita-${escapeHtml(idSeg)}" class="input-select" style="font-size: 12px; padding: 4px 6px;"><option value="Bassa" ${g.priorita === 'Bassa' ? 'selected' : ''}>Bassa</option><option value="Media" ${(!g.priorita || g.priorita === 'Media') ? 'selected' : ''}>Media</option><option value="Alta" ${g.priorita === 'Alta' ? 'selected' : ''}>Alta</option><option value="Urgente" ${g.priorita === 'Urgente' ? 'selected' : ''}>⚠️ Urgente</option></select></div>
-                    <div><label style="font-size: 11px; font-weight: 700;">Stato:</label><select id="seg-stato-${escapeHtml(idSeg)}" class="input-select" style="font-size: 12px; padding: 4px 6px;"><option value="Da fare" ${(!g.stato || g.stato === 'Da fare') ? 'selected' : ''}>Da fare</option><option value="In Lavorazione" ${g.stato === 'In Lavorazione' ? 'selected' : ''}>In Lavorazione</option><option value="Risolto" ${g.stato === 'Risolto' ? 'selected' : ''}>✅ Risolto</option></select></div>
-                  </div>
-                  <div style="margin-bottom: 6px;"><label style="font-size: 11px; font-weight: 700;">Tecnico:</label><input type="text" id="seg-tecnico-${escapeHtml(idSeg)}" class="input-text" style="font-size: 12px; padding: 4px 8px;" value="${escapeHtml(g.tecnico || '')}"></div>
-                  <div><label style="font-size: 11px; font-weight: 700;">Note:</label><input type="text" id="seg-note-${escapeHtml(idSeg)}" class="input-text" style="font-size: 12px; padding: 4px 8px;" value="${escapeHtml(g.note_intervento || '')}"></div>
-                </div>
-                <div style="display: flex; gap: 6px;">
-                  <button type="button" class="btn btn-secondary btn-sm" onclick="salvaModificheSegnalazione('${escapeHtml(idSeg)}')" style="flex: 1; font-size: 11px;">💾 Salva</button>
-                  ${!isRisolto ? `<button type="button" class="btn btn-success btn-sm" onclick="risolviSegnalazioneMaster('${escapeHtml(idSeg)}')" style="font-size: 11px; font-weight: 700;">✅ Risolvi</button>` : `<span class="badge badge-success" style="padding: 6px 10px; font-weight: 700;">Archiviata</span>`}
+                <div class="guasti-feed-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px;">
+                  ${archiviateMaster.map(renderMasterGuastoCardHtml).join("")}
                 </div>
               </div>
-            `;
-          }).join("")}
-        </div>
+            ` : ''}
+          </div>
+        ` : ''}
       </div>
     `;
   }
@@ -4097,12 +4887,13 @@ window.salvaRuoliUtente = async function(email) {
   const permAdmin = document.getElementById(`edit-p-admin-${email}`)?.checked || false;
   const notifManut = document.getElementById(`edit-notif-manut-${email}`)?.checked || false;
   const notifSpazi = document.getElementById(`edit-notif-spazi-${email}`)?.checked || false;
+  const notifPush = document.getElementById(`edit-notif-push-${email}`)?.checked || false;
   try {
-    const res = await callApi("aggiornaRuoliUtente", { emailTarget: email, is_utente_mensa: isMensa, perm_mensa: permMensa, perm_manutenzione: permManut, perm_spazi: permSpazi, perm_admin: permAdmin, notif_manutenzione: notifManut, notif_spazi: notifSpazi });
+    const res = await callApi("aggiornaRuoliUtente", { emailTarget: email, is_utente_mensa: isMensa, perm_mensa: permMensa, perm_manutenzione: permManut, perm_spazi: permSpazi, perm_admin: permAdmin, notif_manutenzione: notifManut, notif_spazi: notifSpazi, notif_push: notifPush });
     if (res.success) {
       mostraToast(`✅ Ruoli aggiornati per ${email}!`, "success");
       if (appState.user && appState.user.email.toLowerCase() === email.toLowerCase()) {
-        Object.assign(appState.user, { is_utente_mensa: isMensa, perm_mensa: permMensa, perm_manutenzione: permManut, perm_spazi: permSpazi, perm_admin: permAdmin, notif_manutenzione: notifManut, notif_spazi: notifSpazi });
+        Object.assign(appState.user, { is_utente_mensa: isMensa, perm_mensa: permMensa, perm_manutenzione: permManut, perm_spazi: permSpazi, perm_admin: permAdmin, notif_manutenzione: notifManut, notif_spazi: notifSpazi, notif_push: notifPush });
         localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
         aggiornaUIUtente();
       }
@@ -4211,23 +5002,89 @@ window.handleSalvaOrariLimite = async function(e) {
 };
 
 window.salvaModificheSegnalazione = async function(id) {
-  const priorita = document.getElementById(`seg-priorita-${id}`)?.value || "Media";
-  const stato = document.getElementById(`seg-stato-${id}`)?.value || "Da fare";
-  const tecnico = document.getElementById(`seg-tecnico-${id}`)?.value?.trim() || "";
-  const note = document.getElementById(`seg-note-${id}`)?.value?.trim() || "";
+  const priorita = document.getElementById(`user-seg-priorita-${id}`)?.value || document.getElementById(`seg-priorita-${id}`)?.value || "Media";
+  const stato = document.getElementById(`user-seg-stato-${id}`)?.value || document.getElementById(`seg-stato-${id}`)?.value || "Da fare";
+  const tecnico = (document.getElementById(`user-seg-tecnico-${id}`)?.value ?? document.getElementById(`seg-tecnico-${id}`)?.value ?? "").trim();
+  const note = (document.getElementById(`user-seg-note-${id}`)?.value ?? document.getElementById(`seg-note-${id}`)?.value ?? "").trim();
+  const categoria = document.getElementById(`user-seg-categoria-${id}`)?.value || document.getElementById(`seg-categoria-${id}`)?.value || undefined;
+  const luogo = (document.getElementById(`user-seg-luogo-${id}`)?.value ?? document.getElementById(`seg-luogo-${id}`)?.value ?? undefined);
+  const descrizione = (document.getElementById(`user-seg-descrizione-${id}`)?.value ?? document.getElementById(`seg-descrizione-${id}`)?.value ?? undefined);
+
+  const payload = { id, priorita, stato, tecnico, note_intervento: note };
+  if (categoria !== undefined) payload.categoria = categoria;
+  if (luogo !== undefined) payload.luogo = luogo.trim();
+  if (descrizione !== undefined && descrizione.trim()) payload.descrizione = descrizione.trim();
+
   try {
-    const res = await callApi("aggiornaSegnalazione", { id, priorita, stato, tecnico, note_intervento: note });
-    if (res.success) { mostraToast("✅ Modifiche salvate!", "success"); caricaDatiMaster(); caricaGuastiRecenti(); }
-    else mostraToast("Errore: " + (res.error || "Impossibile"), "error");
-  } catch (err) { mostraToast("Errore di rete", "error"); }
+    const res = await callApi("aggiornaSegnalazione", payload);
+    if (res && res.success) {
+      mostraToast("✅ Modifiche salvate con successo!", "success");
+      if (appState.guasti) {
+        const item = appState.guasti.find(x => String(x.id) === String(id));
+        if (item) {
+          item.priorita = priorita;
+          item.stato = stato;
+          item.tecnico = tecnico;
+          item.note_intervento = note;
+          if (categoria !== undefined) item.categoria = categoria;
+          if (luogo !== undefined) item.luogo = luogo.trim();
+          if (descrizione !== undefined && descrizione.trim()) item.descrizione = descrizione.trim();
+        }
+      }
+      caricaGuastiRecenti();
+      if (haPermessiMaster()) {
+        caricaDatiMaster();
+        if (appState.currentTab === "master") renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore: " + (res?.error || "Impossibile salvare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete", "error");
+  }
 };
 
 window.risolviSegnalazioneMaster = async function(id) {
   try {
     const res = await callApi("aggiornaSegnalazione", { id, stato: "Risolto", data_chiusura: new Date().toISOString() });
-    if (res.success) { mostraToast("✅ Risolta!", "success"); caricaDatiMaster(); caricaGuastiRecenti(); }
-    else mostraToast("Errore: " + (res.error || "Errore"), "error");
+    if (res && res.success) {
+      mostraToast("✅ Segnalazione contrassegnata come Risolta & Archiviata!", "success");
+      if (appState.guasti) {
+        const item = appState.guasti.find(x => String(x.id) === String(id));
+        if (item) {
+          item.stato = "Risolto";
+          item.data_chiusura = new Date().toISOString();
+        }
+      }
+      caricaGuastiRecenti();
+      if (haPermessiMaster()) {
+        caricaDatiMaster();
+        if (appState.currentTab === "master") renderMasterSection();
+      }
+    } else mostraToast("Errore: " + (res?.error || "Impossibile risolvere"), "error");
   } catch (err) { mostraToast("Errore di rete", "error"); }
+};
+
+window.riapriSegnalazione = async function(id) {
+  try {
+    const res = await callApi("aggiornaSegnalazione", { id, stato: "In Lavorazione" });
+    if (res && res.success) {
+      mostraToast("↩️ Richiesta riaperta in lavorazione!", "info");
+      if (appState.guasti) {
+        const item = appState.guasti.find(x => String(x.id) === String(id));
+        if (item) item.stato = "In Lavorazione";
+      }
+      caricaGuastiRecenti();
+      if (haPermessiMaster()) {
+        caricaDatiMaster();
+        if (appState.currentTab === "master") renderMasterSection();
+      }
+    } else {
+      mostraToast("Errore durante la riapertura", "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete", "error");
+  }
 };
 
 window.approvaUtente = async function(email) {
@@ -4519,9 +5376,19 @@ function switchTab(tabId) {
   if (tabId === "spazi") renderSpaziView();
   if (tabId === "accoglienza") renderAccoglienzaView();
   if (tabId === "residenza") renderResidenzaView();
-  if (tabId === "manutenzione") caricaGuastiRecenti();
+  if (tabId === "manutenzione") {
+    caricaGuastiRecenti();
+    inizializzaSezioneEmailAmministrazione();
+  }
   if (tabId === "master") caricaDatiMaster();
-  if (tabId === "cucina") renderCucinaView();
+  if (tabId === "cucina") {
+    if (!haPermessiMasterMensa()) {
+      mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
+      switchTab("mensa");
+      return;
+    }
+    renderCucinaView();
+  }
   if (tabId === "calendario") renderCalendarioGlobaleView();
 }
 
@@ -4535,6 +5402,8 @@ window.renderCalendarioGlobaleView = function() {
   const container = document.getElementById("calendario-globale-container");
   if (!container) return;
   const isMasterOrAdmin = haPermessiMaster();
+  const isMasterSpazi = haPermessiMasterSpazi();
+  const currentUserEmail = (appState.user?.email || "").toLowerCase();
 
   if (!appState.calendarioFiltroAmbiente) appState.calendarioFiltroAmbiente = "tutti";
   if (!appState.calendarioFiltroPeriodo) appState.calendarioFiltroPeriodo = "prossimi";
@@ -4550,8 +5419,22 @@ window.renderCalendarioGlobaleView = function() {
     const dStr = formattaDataConfronto(s.data);
     if (!dStr) return;
     const isMasterApp = String(s.email || "").startsWith("Master");
-    const tit = isMasterApp ? s.email.replace(/^Master\s*\(?|\)?$/g, "") : `Prenotazione ${s.risorsa}`;
-    items.push({ id: s.id || `SP_${s.risorsa}_${dStr}_${s.slot_orario}`, origine: "spazio", tipo: s.risorsa === "Chiesa" ? "chiesa" : "salatv", categoria: s.risorsa, data: dStr, orario: s.slot_orario || "Orario", titolo: tit || `${s.risorsa} (${s.slot_orario})`, descrizione: s.note || (isMasterApp ? "Evento programmato" : `Prenotato da ${s.email}`), autore: s.email || "Residente", stato: s.stato || "Approvato" });
+    const isMio = currentUserEmail && String(s.email || "").toLowerCase() === currentUserEmail;
+
+    let tit = "";
+    let desc = "";
+    let aut = "";
+    if (isMasterSpazi || isMio) {
+      tit = isMasterApp ? s.email.replace(/^Master\s*\(?|\)?$/g, "") : `Prenotazione ${s.risorsa}`;
+      desc = s.note || (isMasterApp ? "Evento programmato" : `Prenotato da ${s.email}`);
+      aut = s.email || "Residente";
+    } else {
+      tit = `Occupato (${s.risorsa})`;
+      desc = "Ambiente riservato";
+      aut = "Riservato";
+    }
+
+    items.push({ id: s.id || `SP_${s.risorsa}_${dStr}_${s.slot_orario}`, origine: "spazio", tipo: s.risorsa === "Chiesa" ? "chiesa" : "salatv", categoria: s.risorsa, data: dStr, orario: s.slot_orario || "Orario", titolo: tit || `${s.risorsa} (${s.slot_orario})`, descrizione: desc, autore: aut, stato: s.stato || "Approvato" });
   });
 
   const bacheca = appState.bacheca || [];
@@ -4719,7 +5602,13 @@ function aggiornaUIUtente() {
       if (appState.user.perm_manutenzione) ruoli.push("Tecnico");
       userRole.innerText = ruoli.length > 0 ? ruoli.join(" • ") : "Residente";
     }
-    if (masterNav) masterNav.style.display = haPermessiMaster() ? "flex" : "none";
+    const isMaster = haPermessiMaster();
+    if (masterNav) masterNav.style.display = isMaster ? "flex" : "none";
+    const btnGuidaHead = document.getElementById("header-btn-guida");
+    if (btnGuidaHead) btnGuidaHead.style.display = isMaster ? "inline-flex" : "none";
+    const btnGuidaSettings = document.getElementById("settings-btn-guida");
+    if (btnGuidaSettings) btnGuidaSettings.style.display = isMaster ? "flex" : "none";
+
     if (mensaNav) {
       const isMensaEnabled = appState.user.is_utente_mensa !== false;
       mensaNav.style.display = isMensaEnabled ? "flex" : "none";
@@ -4730,6 +5619,10 @@ function aggiornaUIUtente() {
     if (userName) userName.innerText = "Ospite";
     if (userRole) userRole.innerText = "Accedi";
     if (masterNav) masterNav.style.display = "none";
+    const btnGuidaHead = document.getElementById("header-btn-guida");
+    if (btnGuidaHead) btnGuidaHead.style.display = "none";
+    const btnGuidaSettings = document.getElementById("settings-btn-guida");
+    if (btnGuidaSettings) btnGuidaSettings.style.display = "none";
     if (mensaNav) mensaNav.style.display = "flex";
   }
 }
@@ -4827,6 +5720,7 @@ function apriModalSettings() {
   if (boxPass) { boxPass.style.display = "none"; document.getElementById("form-cambia-password")?.reset(); }
 
   aggiornaPulsantiTema();
+  if (typeof window.aggiornaStatoUIPushNotifiche === "function") window.aggiornaStatoUIPushNotifiche();
   modal.style.display = "flex";
 }
 window.apriModalSettings = apriModalSettings;
@@ -4886,6 +5780,10 @@ window.handleCambiaPasswordUtente = async function(e) {
 // ----------------------------------------------------------------------------
 
 window.apriModalGuida = function() {
+  if (!haPermessiMaster()) {
+    mostraToast("🔒 Questa guida è visibile solo ai Master", "warning");
+    return;
+  }
   const modal = document.getElementById("modal-guida-app");
   if (!modal) return;
   modal.style.display = "flex";
@@ -5397,6 +6295,17 @@ window.toggleCucinaSpuntato = function(key) {
 window.renderCucinaView = function() {
   const container = document.getElementById("cucina-container");
   if (!container) return;
+  if (!haPermessiMasterMensa()) {
+    container.innerHTML = `
+      <div class="card" style="padding: 36px 20px; text-align: center; border-top: 4px solid #ea580c; max-width: 500px; margin: 40px auto;">
+        <span style="font-size: 42px; display: block; margin-bottom: 12px;">🔒</span>
+        <h3 style="margin: 0 0 8px 0; color: #9a3412; font-size: 18px;">Accesso Riservato Master Mensa</h3>
+        <p class="text-muted" style="font-size: 13.5px; line-height: 1.5; margin: 0 0 16px 0;">La visualizzazione del Registro Cucina è visibile unicamente agli utenti con autorizzazione "Master Mensa" o Amministratore.</p>
+        <button type="button" class="btn btn-primary" onclick="switchTab('mensa')" style="background: #ea580c; border-color: #ea580c; font-weight: 700;">Torna alla Mensa</button>
+      </div>
+    `;
+    return;
+  }
   const dataFiltroYMD = appState.cucinaSelectedDate || formatYMD(new Date());
   appState.cucinaSelectedDate = dataFiltroYMD;
   const filterPranzo = appState.cucinaFilterPranzo || "tutti";
@@ -5607,6 +6516,10 @@ window.renderCucinaView = function() {
 // ----------------------------------------------------------------------------
 
 window.apriModalElencoPastiCucina = function(dataYMD, tipoPasto) {
+  if (!haPermessiMasterMensa()) {
+    mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
+    return;
+  }
   const modal = document.getElementById("modal-elenco-pasti-cucina");
   if (!modal) return;
   const targetDate = dataYMD || appState.cucinaSelectedDate || formatYMD(new Date());
@@ -5753,3 +6666,290 @@ window.copiaTestoElencoCucinaModal = function() {
 };
 
 window.stampaElencoCucinaModal = function() { window.print(); };
+
+// ============================================================================
+// SISTEMA NOTIFICHE PUSH (OPZIONALI PER UTENTE)
+// - Avvisi alle ore 07:00 del mattino in caso di eventi del giorno
+// - Annuncio immediato approvazione definitiva richieste di accoglienza
+// ============================================================================
+
+window.inviaNotificaPush = async function(titolo, corpo, url = "/", tag = undefined) {
+  if (!("Notification" in window)) {
+    console.log("Notifiche Push non supportate nel browser corrente");
+    return false;
+  }
+  if (Notification.permission !== "granted") {
+    console.log("Permesso notifiche push non concesso:", Notification.permission);
+    return false;
+  }
+  try {
+    if ("serviceWorker" in navigator) {
+      const reg = await navigator.serviceWorker.ready;
+      if (reg && typeof reg.showNotification === "function") {
+        await reg.showNotification(titolo, {
+          body: corpo,
+          icon: "/icon-newman.png",
+          badge: "/icon-newman.png",
+          vibrate: [150, 60, 150],
+          data: url,
+          tag: tag || "newman-notif-" + Date.now(),
+          renotify: true
+        });
+        return true;
+      }
+    }
+    // Fallback standard
+    new Notification(titolo, {
+      body: corpo,
+      icon: "/icon-newman.png",
+      tag: tag || "newman-notif-" + Date.now()
+    });
+    return true;
+  } catch (err) {
+    console.warn("Errore visualizzazione notifica push:", err);
+    return false;
+  }
+};
+
+window.aggiornaStatoUIPushNotifiche = function() {
+  const badge = document.getElementById("settings-push-status-badge");
+  const btn = document.getElementById("btn-toggle-push-notifiche");
+  const warn = document.getElementById("push-perm-warning");
+
+  if (!("Notification" in window)) {
+    if (badge) { badge.textContent = "Non supportate"; badge.style.background = "#fee2e2"; badge.style.color = "#991b1b"; }
+    if (btn) { btn.disabled = true; btn.textContent = "Non supportate"; }
+    return;
+  }
+
+  const perm = Notification.permission;
+  const isAttive = Boolean(appState.user?.notif_push) && perm === "granted";
+
+  if (warn) {
+    warn.style.display = perm === "denied" ? "block" : "none";
+  }
+
+  if (badge) {
+    if (isAttive) {
+      badge.textContent = "Attive ✅";
+      badge.style.background = "#dcfce7";
+      badge.style.color = "#166534";
+    } else if (perm === "denied") {
+      badge.textContent = "Bloccate ⚠️";
+      badge.style.background = "#fee2e2";
+      badge.style.color = "#991b1b";
+    } else {
+      badge.textContent = "Opzionali ⚪";
+      badge.style.background = "#f1f5f9";
+      badge.style.color = "#475569";
+    }
+  }
+
+  if (btn) {
+    if (isAttive) {
+      btn.innerHTML = `<span>🔕</span><span>Disattiva Notifiche</span>`;
+      btn.className = "btn btn-sm btn-secondary";
+      btn.style.color = "#dc2626";
+      btn.style.borderColor = "#fca5a5";
+    } else {
+      btn.innerHTML = `<span>🔔</span><span>Attiva Notifiche</span>`;
+      btn.className = "btn btn-sm btn-primary";
+      btn.style.color = "";
+      btn.style.borderColor = "";
+    }
+  }
+};
+
+window.toggleNotifichePushUtente = async function() {
+  if (!("Notification" in window)) {
+    mostraToast("⚠️ Il tuo browser non supporta le notifiche push", "warning");
+    return;
+  }
+
+  const email = appState.user?.email || "ospite";
+  const perm = Notification.permission;
+  const statoAttuale = Boolean(appState.user?.notif_push) && perm === "granted";
+
+  if (!statoAttuale) {
+    let currentPerm = perm;
+    if (currentPerm === "denied") {
+      document.getElementById("push-perm-warning")?.style?.setProperty("display", "block");
+      mostraToast("⚠️ Permesso bloccato nel browser. Sbloccalo nelle impostazioni del browser.", "warning");
+      return;
+    }
+    if (currentPerm !== "granted") {
+      currentPerm = await Notification.requestPermission();
+    }
+    if (currentPerm !== "granted") {
+      mostraToast("Permesso notifiche non concesso", "info");
+      aggiornaStatoUIPushNotifiche();
+      return;
+    }
+
+    if (appState.user) appState.user.notif_push = true;
+    localStorage.setItem("newman_notif_push_" + email, "true");
+    if (appState.user) localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+
+    try {
+      await callApi("salvaPreferenzaPush", { email: email, notif_push: true });
+    } catch (e) {}
+
+    mostraToast("🔔 Notifiche Push attivate con successo!", "success");
+    aggiornaStatoUIPushNotifiche();
+
+    inviaNotificaPush(
+      "🔔 Notifiche Push Attivate!",
+      "Riceverai gli avvisi alle ore 07:00 in caso di eventi del giorno e notifiche quando le richieste di accoglienza vengono approvate.",
+      "/"
+    );
+
+    pianificaCheckNotificheOre7();
+  } else {
+    if (appState.user) appState.user.notif_push = false;
+    localStorage.setItem("newman_notif_push_" + email, "false");
+    if (appState.user) localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+
+    try {
+      await callApi("salvaPreferenzaPush", { email: email, notif_push: false });
+    } catch (e) {}
+
+    mostraToast("🔕 Notifiche Push disattivate", "info");
+    aggiornaStatoUIPushNotifiche();
+  }
+};
+
+window.inviaNotificaTestPush = async function() {
+  if (!("Notification" in window)) {
+    mostraToast("⚠️ Notifiche non supportate nel browser", "warning");
+    return;
+  }
+  if (Notification.permission !== "granted") {
+    const perm = await Notification.requestPermission();
+    if (perm !== "granted") {
+      mostraToast("⚠️ Permesso notifiche non concesso nel browser", "warning");
+      aggiornaStatoUIPushNotifiche();
+      return;
+    }
+  }
+  const ok = await inviaNotificaPush(
+    "🔔 Test Notifiche - Residenza Newman",
+    "Notifiche push attive e funzionanti! Riceverai gli avvisi alle ore 07:00 e gli annunci di accoglienza approvata.",
+    "/"
+  );
+  if (ok) {
+    mostraToast("✅ Notifica push inviata!", "success");
+  } else {
+    mostraToast("Impossibile mostrare la notifica", "warning");
+  }
+};
+
+window.controllaENotificaEventiOre7 = function(isTestManuale = false) {
+  const isAttive = Boolean(appState.user?.notif_push) && ("Notification" in window && Notification.permission === "granted");
+  if (!isAttive && !isTestManuale) return;
+
+  const oggiDate = new Date();
+  const todayStr = formatYMD(oggiDate);
+  const storageKeyToday = "newman_notif_ore7_inviata_" + todayStr;
+
+  if (!isTestManuale && localStorage.getItem(storageKeyToday) === "true") {
+    return;
+  }
+
+  const bachecaList = appState.bacheca || [];
+  const appuntamentiList = appState.appuntamentiComunita || [];
+  const eventiOggi = [];
+
+  bachecaList.forEach(b => {
+    const dataB = String(b.data || b.timestamp || "").split("T")[0];
+    if (dataB === todayStr) {
+      eventiOggi.push({
+        tipo: b.tipo || "avviso",
+        titolo: b.titolo || b.descrizione || "Avviso in bacheca"
+      });
+    }
+  });
+
+  appuntamentiList.forEach(a => {
+    const dataA = String(a.data || "").split("T")[0];
+    if (dataA === todayStr) {
+      eventiOggi.push({
+        tipo: "evento",
+        titolo: a.titolo || a.descrizione || "Appuntamento comunità"
+      });
+    }
+  });
+
+  if (eventiOggi.length > 0) {
+    const titoli = eventiOggi.map(e => e.titolo).slice(0, 3).join(", ");
+    const piuAltri = eventiOggi.length > 3 ? ` (+ altri ${eventiOggi.length - 3})` : "";
+    inviaNotificaPush(
+      `🌅 Eventi di Oggi in Residenza (${eventiOggi.length})`,
+      `Ore 07:00 - Oggi in programma: ${titoli}${piuAltri}. Apri l'app per i dettagli.`,
+      "/#bacheca",
+      "ore-7-eventi-" + todayStr
+    );
+    localStorage.setItem(storageKeyToday, "true");
+    if (isTestManuale) mostraToast(`🌅 Notifica ore 07:00 inviata (${eventiOggi.length} eventi)!`, "success");
+  } else {
+    if (isTestManuale) {
+      inviaNotificaPush(
+        "🌅 Residenza Newman - Avviso ore 07:00 (Test)",
+        "Nessun evento speciale in programma per oggi. Giornata libera!",
+        "/#bacheca"
+      );
+      mostraToast("ℹ️ Nessun evento oggi (notifica di test inviata)", "info");
+    }
+  }
+};
+
+window.pianificaCheckNotificheOre7 = function() {
+  if (!("Notification" in window)) return;
+  const now = new Date();
+  const ore = now.getHours();
+
+  // Se l'utente apre l'app tra le 07:00 e le 13:00 ed è la prima volta della giornata:
+  if (ore >= 7 && ore < 13) {
+    controllaENotificaEventiOre7(false);
+  }
+
+  // Calcola ms fino alle prossime ore 07:00:00 del mattino
+  const target = new Date(now);
+  target.setHours(7, 0, 0, 0);
+  if (now.getTime() >= target.getTime()) {
+    target.setDate(target.getDate() + 1);
+  }
+  const msUntil7 = target.getTime() - now.getTime();
+
+  if (window._timerNotificaOre7) clearTimeout(window._timerNotificaOre7);
+  window._timerNotificaOre7 = setTimeout(() => {
+    controllaENotificaEventiOre7(false);
+    pianificaCheckNotificheOre7();
+  }, msUntil7);
+};
+
+window.verificaENotificaAccoglienzaConfermata = function(accList) {
+  if (!accList || !Array.isArray(accList) || !appState.user) return;
+  const isAttive = Boolean(appState.user?.notif_push) && ("Notification" in window && Notification.permission === "granted");
+  if (!isAttive) return;
+
+  const myEmail = appState.user.email.toLowerCase();
+  accList.forEach(a => {
+    if (a.stato === "Confermata") {
+      const isMia = a.email && a.email.toLowerCase() === myEmail;
+      const keyNotif = `newman_notif_acc_ok_${a.id}`;
+      if (isMia && localStorage.getItem(keyNotif) !== "true") {
+        inviaNotificaPush(
+          "🛏️ Richiesta Accoglienza DEFINITIVAMENTE APPROVATA!",
+          `La tua richiesta per l'ospite ${a.nome_ospite || "ospite"} (${a.camera_assegnata || 'Camera Assegnata'}) è stata definitivamente approvata!`,
+          "/#accoglienza",
+          "acc-approvata-" + a.id
+        );
+        localStorage.setItem(keyNotif, "true");
+      }
+    }
+  });
+};
+
+window.testaNotificheOre7Manuale = function() {
+  controllaENotificaEventiOre7(true);
+};

@@ -799,8 +799,8 @@
         <button type="button" class="btn-icon-head" onclick="switchTab('calendario')" id="header-btn-calendario" title="Calendario Globale & Appuntamenti" style="font-size: 14px;">
           📅
         </button>
-        <!-- Pulsante Guida Mobile Popup -->
-        <button type="button" class="btn-icon-head" onclick="apriModalGuida()" id="header-btn-guida" title="Guida & Istruzioni dell'App" style="font-size: 14px;">
+        <!-- Pulsante Guida Mobile Popup (Visibile solo ai Master) -->
+        <button type="button" class="btn-icon-head" onclick="apriModalGuida()" id="header-btn-guida" title="Guida Master & Istruzioni dell'App" style="font-size: 14px; display: none;">
           📖
         </button>
         <!-- Badge utente corrente -->
@@ -844,12 +844,21 @@
           <h2 class="card-title">Segnalazioni di Residenza</h2>
           <p class="card-desc">Invia una segnalazione per problemi di manutenzione tecnica o per i servizi della Residenza.</p>
           <form id="form-segnala-guasto">
-            <div class="form-group">
-              <label for="manutenzione-categoria">Ambito della Segnalazione</label>
-              <select id="manutenzione-categoria" class="input-select" required>
-                <option value="manutenzione" selected>🔧 Manutenzione Tecnica (Idraulica, Luce, Clima, Porte, Arredi)</option>
-                <option value="servizi">🧹 Servizi di Residenza (Pulizie, Lavanderia, Rifiuti, Wi-Fi, Portineria)</option>
-              </select>
+            <div class="form-group" style="margin-bottom: 14px;">
+              <label style="font-weight: 700; font-size: 13px; margin-bottom: 8px; display: block; color: var(--text-main);">Seleziona Tipo di Segnalazione:</label>
+              <div class="tipo-segnalazione-buttons" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px;">
+                <button type="button" id="btn-tipo-manutenzione" class="btn-tipo-selector active" onclick="selezionaTipoManutenzione('manutenzione')" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 12px 10px; border-radius: 8px; border: 2px solid #d97706; background: #fffbeb; color: #92400e; cursor: pointer; font-weight: 700; transition: all 0.2s ease;">
+                  <span style="font-size: 22px; line-height: 1;">🛠️</span>
+                  <span style="font-size: 13.5px;">Manutenzione</span>
+                  <span style="font-size: 11px; font-weight: 500; color: #b45309; text-align: center;">Guasti tecnici, clima, idraulica, luci</span>
+                </button>
+                <button type="button" id="btn-tipo-segnalazione" class="btn-tipo-selector" onclick="selezionaTipoManutenzione('servizi')" style="display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; padding: 12px 10px; border-radius: 8px; border: 2px solid #e2e8f0; background: #f8fafc; color: #475569; cursor: pointer; font-weight: 700; transition: all 0.2s ease;">
+                  <span style="font-size: 22px; line-height: 1;">📢</span>
+                  <span style="font-size: 13.5px;">Segnalazione</span>
+                  <span style="font-size: 11px; font-weight: 500; color: #64748b; text-align: center;">Servizi comuni, pulizie, lavanderia, avvisi</span>
+                </button>
+              </div>
+              <input type="hidden" id="manutenzione-categoria" value="manutenzione">
             </div>
             <div class="form-group">
               <label for="manutenzione-luogo">Ubicazione / Stanza</label>
@@ -877,6 +886,61 @@
             </button>
           </form>
         </div>
+
+        <!-- SEZIONE COMUNICAZIONE EMAIL ALL'AMMINISTRAZIONE -->
+        <div class="card" id="card-email-amministrazione" style="border-top: 4px solid #0284c7; background: #ffffff;">
+          <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 10px;">
+            <div class="flex-align" style="gap: 8px;">
+              <span style="font-size: 24px;">🏛️</span>
+              <div>
+                <h3 class="card-title-sm" style="margin: 0; font-size: 15px; font-weight: 800; color: #0f172a;">Comunicazione Email all'Amministrazione</h3>
+                <span class="text-xs text-muted">Testo e indirizzo per inoltrare richieste formali di manutenzione all'economato</span>
+              </div>
+            </div>
+            <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700;">Amministrazione / Economato</span>
+          </div>
+
+          <!-- Campo per mettere l'indirizzo a cui mandarlo -->
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+            <label for="manutenzione-email-destinatario-amm" style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">
+              ✉️ Indirizzo Email Amministrazione a cui inviare:
+            </label>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+              <input type="email" id="manutenzione-email-destinatario-amm" class="input-text" style="flex: 1; min-width: 240px; font-size: 13px;" placeholder="amministrazione@residenzanewman.org" value="amministrazione@residenzanewman.org">
+              <button type="button" class="btn btn-outline btn-sm" onclick="salvaIndirizzoAmministrazioneDaManutenzione()" title="Salva questo indirizzo nelle impostazioni" style="font-size: 11.5px; font-weight: 700; border-color: #cbd5e1;">💾 Salva Indirizzo</button>
+            </div>
+            <span class="text-xs text-muted" style="margin-top: 4px; display: block;">L'indirizzo a cui inviare le comunicazioni di manutenzione (memorizzato nella configurazione della Residenza).</span>
+          </div>
+
+          <!-- Testo per mandare una mail all'amministrazione -->
+          <div class="form-group" style="margin-bottom: 12px;">
+            <div class="flex-between" style="margin-bottom: 4px; flex-wrap: wrap; gap: 4px;">
+              <label for="manutenzione-testo-email-amm" style="font-size: 12px; font-weight: 700; color: #334155;">
+                📝 Testo per Mandare la Mail all'Amministrazione:
+              </label>
+              <button type="button" class="btn-link" onclick="ripristinaTemplateEmailAmministrazione()" style="font-size: 11px; color: #0284c7; font-weight: 600;">🔄 Modello Standard</button>
+            </div>
+            <textarea id="manutenzione-testo-email-amm" class="input-textarea" rows="7" style="font-size: 12.5px; font-family: inherit; line-height: 1.5;"></textarea>
+          </div>
+
+          <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px;">
+            <button type="button" class="btn btn-primary" onclick="inviaMailAmministrazioneMailto()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; background: #0284c7; border-color: #0284c7;">
+              <span>✉️</span> Invia Email (Apri Client)
+            </button>
+            <button type="button" class="btn btn-outline" onclick="copiaTestoEmailAmministrazione()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700;">
+              <span>📋</span> Copia Testo
+            </button>
+            <button type="button" class="btn btn-primary" id="btn-invia-diretto-manutenzione" onclick="inviaMailAmministrazioneDiretta()" style="display: inline-flex; align-items: center; gap: 6px; font-weight: 700; background: #16a34a; border-color: #15803d;">
+              <span>🚀</span> Invia Subito dall'App
+            </button>
+          </div>
+
+          <div style="padding: 8px 12px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; font-size: 11.5px; color: #166534; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+            <span>✉️ Indirizzo mittente da cui partono le segnalazioni: <strong id="lbl-mittente-segnalazioni-card">donandreadotti@gmail.com</strong></span>
+            <span class="badge" style="background: #dcfce7; color: #166534; font-size: 10.5px;">👑 Configurato da Superadmin</span>
+          </div>
+        </div>
+
         <div class="card" id="card-segnalazioni-utente">
           <div class="flex-between">
             <h3 class="card-title-sm" id="titolo-mie-segnalazioni">Le Tue Segnalazioni</h3>
@@ -885,9 +949,16 @@
           <p class="text-xs text-muted" style="margin-top: 4px; line-height: 1.4;">
             Per motivi di riservatezza, lo storico globale e le riparazioni sono visibili esclusivamente ai Master incaricati e alla Direzione. Qui vedi unicamente il riepilogo delle segnalazioni da te inviate.
           </p>
-          <div id="manutenzione-recenti-list" style="margin-top: 12px;">
+          <div style="display: flex; gap: 6px; margin-top: 10px; margin-bottom: 8px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm btn-primary" id="btn-filter-feed-tutti" onclick="filtraFeedSegnalazioni('tutti')" style="font-size: 11px; padding: 4px 10px; font-weight: 700;">Tutte</button>
+            <button type="button" class="btn btn-sm btn-outline" id="btn-filter-feed-manutenzione" onclick="filtraFeedSegnalazioni('manutenzione')" style="font-size: 11px; padding: 4px 10px; font-weight: 700;">🛠️ Manutenzioni</button>
+            <button type="button" class="btn btn-sm btn-outline" id="btn-filter-feed-servizi" onclick="filtraFeedSegnalazioni('servizi')" style="font-size: 11px; padding: 4px 10px; font-weight: 700;">📢 Segnalazioni</button>
+          </div>
+          <div id="manutenzione-recenti-list" style="margin-top: 8px;">
             <p class="empty-state-text">Nessuna segnalazione inviata da te finora.</p>
           </div>
+          <!-- Sezione e pulsante dedicato per segnalazioni archiviate / risolte -->
+          <div id="manutenzione-archiviate-wrap" style="margin-top: 12px; border-top: 1px dashed #e2e8f0; padding-top: 10px;"></div>
         </div>
       </section>
       <section class="view-container" id="view-master">
@@ -1168,6 +1239,34 @@
           </button>
         </div>
       </div>
+
+      <!-- NOTIFICHE PUSH OPZIONALI -->
+      <div style="margin-bottom: 16px; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: var(--radius-md); padding: 12px 14px;">
+        <div class="flex-between" style="margin-bottom: 6px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 20px;">🔔</span>
+            <strong style="font-size: 13.5px; color: #1e40af;">Notifiche Push Dispositivo</strong>
+          </div>
+          <span class="badge" id="settings-push-status-badge" style="background: #dbeafe; color: #1e40af; font-size: 11px; font-weight: 700;">Opzionali</span>
+        </div>
+        <p class="text-xs text-muted" style="margin: 0 0 10px 0; line-height: 1.45; color: #1e40af;">
+          Ricevi un avviso alle <strong>ore 07:00</strong> con gli eventi della giornata e notifiche in tempo reale quando le tue richieste di alloggio vengono <strong>definitivamente approvate</strong>.
+        </p>
+        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+          <button type="button" id="btn-toggle-push-notifiche" class="btn btn-sm btn-primary" onclick="toggleNotifichePushUtente()" style="font-size: 12px; font-weight: 700; flex: 1;">
+            🔔 Attiva Notifiche
+          </button>
+          <button type="button" id="btn-test-push-notifica" class="btn btn-sm btn-outline" onclick="inviaNotificaTestPush()" style="font-size: 12px; font-weight: 600; border-color: #93c5fd; background: #ffffff;">
+            🧪 Test
+          </button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="controllaENotificaEventiOre7(true)" title="Simula notifica ore 07:00 con gli eventi di oggi" style="font-size: 12px; font-weight: 600; border-color: #fde047; background: #fefce8; color: #854d0e;">
+            🌅 Simula Ore 07:00
+          </button>
+        </div>
+        <div id="push-perm-warning" style="display: none; margin-top: 8px; font-size: 11px; color: #dc2626;">
+          ⚠️ I permessi di notifica sono bloccati nel tuo browser. Per attivarle, modificali nelle impostazioni del sito.
+        </div>
+      </div>
       <div style="margin-bottom: 16px;">
         <label style="font-size: 13px; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 8px;">
             Azioni e Navigazione Rapida
@@ -1187,10 +1286,10 @@
             </div>
             <span style="font-size: 12px; color: var(--text-muted);">Apri ↗</span>
           </button>
-          <button type="button" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); apriModalGuida();" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm);">
+          <button type="button" class="btn btn-outline btn-block" id="settings-btn-guida" onclick="chiudiModalSettings(); apriModalGuida();" style="display: none; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm);">
             <div class="flex-align" style="gap: 10px;">
               <span style="font-size: 16px;">📖</span>
-              <span style="font-weight: 600;">Guida &amp; Istruzioni Residenza</span>
+              <span style="font-weight: 600;">Guida Master &amp; Istruzioni Residenza</span>
             </div>
             <span style="font-size: 12px; color: var(--text-muted);">Popup ↗</span>
           </button>
@@ -1699,14 +1798,80 @@
     </div>
   </div>
 
+  <!-- MODAL INVIO EMAIL AMMINISTRAZIONE (MANUTENZIONE) -->
+  <div class="modal-overlay" id="modal-email-amministrazione" style="display: none;" onclick="if(event.target === this) chiudiModalEmailAmministrazione()">
+    <div class="modal-card" style="max-width: 620px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; padding: 18px 20px; border-radius: 12px;">
+      <div class="modal-header flex-between" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 12px; flex-shrink: 0;">
+        <div class="flex-align" style="gap: 10px;">
+          <span style="font-size: 26px;">🏛️</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 16px; font-weight: 800; color: #0f172a;">Invia Email all'Amministrazione</h3>
+            <span class="text-xs text-muted" id="modal-email-amm-sottotitolo">Comunicazione per interventi e richieste di manutenzione</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalEmailAmministrazione()" title="Chiudi" style="font-size: 16px; color: #475569;">✕</button>
+      </div>
+
+      <div style="flex: 1; overflow-y: auto; padding-right: 4px;">
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label for="modal-email-amm-destinatario" style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">
+            ✉️ Indirizzo Email Amministrazione (Destinatario):
+          </label>
+          <div style="display: flex; gap: 8px;">
+            <input type="email" id="modal-email-amm-destinatario" class="input-text" style="font-size: 13px; flex: 1;" placeholder="amministrazione@residenzanewman.org">
+            <button type="button" class="btn btn-outline btn-sm" onclick="salvaIndirizzoAmministrazioneDaModal()" title="Salva questo indirizzo nelle impostazioni" style="font-size: 11.5px; font-weight: 700; border-color: #cbd5e1;">💾 Salva</button>
+          </div>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 10px;">
+          <label for="modal-email-amm-oggetto" style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 4px;">
+            📌 Oggetto dell'Email:
+          </label>
+          <input type="text" id="modal-email-amm-oggetto" class="input-text" style="font-size: 13px;" value="[Manutenzione Residenza Newman] Richiesta Intervento">
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <div class="flex-between" style="margin-bottom: 4px;">
+            <label for="modal-email-amm-corpo" style="font-size: 12px; font-weight: 700; color: #334155;">
+              📝 Testo dell'Email:
+            </label>
+            <button type="button" class="btn-link" onclick="ripristinaTestoModalEmailAmministrazione()" style="font-size: 11px; color: #0284c7; font-weight: 600;">🔄 Modello Standard</button>
+          </div>
+          <textarea id="modal-email-amm-corpo" class="input-textarea" rows="9" style="font-size: 12.5px; font-family: inherit; line-height: 1.5;"></textarea>
+        </div>
+
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; font-size: 11.5px; color: #166534;">
+          <div style="font-weight: 700;">✉️ Indirizzo mittente / Reply-To: <span id="modal-email-amm-mittente-label">donandreadotti@gmail.com</span></div>
+          <div class="text-xs text-muted" style="margin-top: 2px;">(Configurato nel pannello Superadmin come indirizzo da cui partono le segnalazioni)</div>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; padding-top: 10px; border-top: 1px solid #e2e8f0; flex-shrink: 0;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="chiudiModalEmailAmministrazione()" style="font-size: 12px;">Chiudi</button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="copiaTestoModalEmailAmministrazione()" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: 12px;">
+          <span>📋</span> Copia Testo
+        </button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="inviaMailModalAmministrazioneMailto()" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 700; border-color: #0284c7; color: #0284c7; font-size: 12px;">
+          <span>✉️</span> Client Email
+        </button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-invia-diretto-modal-amm" onclick="inviaMailModalAmministrazioneDiretta()" style="display: inline-flex; align-items: center; gap: 5px; font-weight: 700; background: #16a34a; border-color: #15803d; font-size: 12px;">
+          <span>🚀</span> Invia dall'App
+        </button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modal-guida-app" style="display: none;" onclick="if(event.target === this) chiudiModalGuida()">
     <div class="modal-card" style="max-width: 660px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; padding: 18px 20px; border-radius: 14px;">
       <div class="flex-between" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; flex-shrink: 0;">
         <div class="flex-align" style="gap: 10px;">
           <span style="font-size: 26px;">📖</span>
           <div>
-            <h3 class="modal-title" style="margin: 0; font-size: 17px; font-weight: 800; color: #0f172a;">Guida &amp; Istruzioni Residenza</h3>
-            <span class="text-xs text-muted">Manuale rapido per Residenti, Cuoca e Amministrazione Master</span>
+            <div style="display: flex; align-items: center; gap: 8px;">
+              <h3 class="modal-title" style="margin: 0; font-size: 17px; font-weight: 800; color: #0f172a;">Guida &amp; Istruzioni Master</h3>
+              <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 800; font-size: 10.5px; padding: 2px 7px;">👑 Solo Master</span>
+            </div>
+            <span class="text-xs text-muted">Manuale operativo riservato all'Amministrazione Master e Direzione</span>
           </div>
         </div>
         <button type="button" class="btn-icon-head" onclick="chiudiModalGuida()" style="color:#0f172a; font-size: 16px;" title="Chiudi">✕</button>

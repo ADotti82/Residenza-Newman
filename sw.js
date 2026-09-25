@@ -106,3 +106,42 @@ self.addEventListener('fetch', (event) => {
   // Default network pass-through
   event.respondWith(fetch(req));
 });
+
+// Gestione Notifiche Push nel Service Worker
+self.addEventListener('push', (event) => {
+  let data = {};
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data = { title: 'Residenza Newman', body: event.data.text() };
+    }
+  }
+  const title = data.title || 'Residenza Newman';
+  const options = {
+    body: data.body || '',
+    icon: '/icon-newman.png',
+    badge: '/icon-newman.png',
+    vibrate: [100, 50, 100],
+    data: data.url || '/'
+  };
+  event.waitUntil(self.registration.showNotification(title, options));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const urlToOpen = event.notification.data || '/';
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
+      for (let client of windowClients) {
+        if (client.url && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(urlToOpen);
+      }
+    })
+  );
+});
+
