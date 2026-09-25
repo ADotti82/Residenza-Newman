@@ -499,6 +499,152 @@
     .guasto-photo-box { margin: 8px 0; }
     .guasto-photo-img { max-width: 100%; max-height: 160px; border-radius: var(--radius-sm); object-fit: cover; cursor: pointer; }
 
+    /* Specifiche Utente Responsive (No Horizontal Scroll) */
+    .user-spec-card {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+      margin-bottom: 10px;
+      overflow-x: hidden;
+      box-shadow: var(--shadow-sm);
+      transition: var(--transition);
+    }
+    [data-theme="dark"] .user-spec-card {
+      background: var(--surface);
+      border-color: var(--border);
+    }
+    .user-spec-card:hover {
+      border-color: var(--accent);
+    }
+    .user-spec-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid #f1f5f9;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    [data-theme="dark"] .user-spec-header {
+      border-bottom-color: var(--border);
+    }
+    .user-spec-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+      gap: 6px;
+      width: 100%;
+      box-sizing: border-box;
+      margin-bottom: 8px;
+    }
+    .user-spec-chip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      font-weight: 600;
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 5px 8px;
+      cursor: pointer;
+      user-select: none;
+      word-break: break-word;
+    }
+    [data-theme="dark"] .user-spec-chip {
+      background: var(--surface-alt);
+      border-color: var(--border);
+      color: var(--text-main);
+    }
+    .user-spec-chip input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      accent-color: var(--primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .user-spec-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding-top: 8px;
+      border-top: 1px dashed #f1f5f9;
+      font-size: 11.5px;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    [data-theme="dark"] .user-spec-footer {
+      border-top-color: var(--border);
+    }
+
+    /* Guest Stepper Controls */
+    .guest-counter-stepper {
+      display: inline-flex;
+      align-items: center;
+      background: #f8fafc;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      overflow: hidden;
+      height: 28px;
+      box-sizing: border-box;
+    }
+    [data-theme="dark"] .guest-counter-stepper {
+      background: var(--surface-alt);
+      border-color: var(--border);
+    }
+    .guest-stepper-btn {
+      background: #f1f5f9;
+      border: none;
+      color: #1e293b;
+      font-weight: 800;
+      font-size: 14px;
+      width: 26px;
+      height: 100%;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: var(--transition);
+      padding: 0;
+    }
+    [data-theme="dark"] .guest-stepper-btn {
+      background: var(--surface);
+      color: var(--text-main);
+    }
+    .guest-stepper-btn:hover:not(:disabled) {
+      background: #e2e8f0;
+    }
+    .guest-stepper-input {
+      width: 32px;
+      height: 100%;
+      border: none;
+      background: #ffffff;
+      text-align: center;
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--primary);
+      padding: 0;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+    [data-theme="dark"] .guest-stepper-input {
+      background: var(--surface-alt);
+      color: #f1f5f9;
+    }
+    .guest-stepper-input::-webkit-outer-spin-button,
+    .guest-stepper-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
     .form-group { margin-bottom: 12px; }
     label { display: block; font-size: 12px; font-weight: 600; color: var(--text-main); margin-bottom: 4px; }
     .input-text, .input-date, .input-select, .input-textarea { width: 100%; padding: 10px 12px; font-family: inherit; font-size: 14px; border: 1px solid var(--border-dark); border-radius: var(--radius-sm); background-color: #ffffff; color: var(--text-main); transition: var(--transition); outline: none; }

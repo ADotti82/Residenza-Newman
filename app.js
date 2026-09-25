@@ -1707,6 +1707,262 @@ function getNomeGiorno(data) {
   return giorni[data.getDay()];
 }
 
+/**
+ * Ritorna l'elenco dei residenti con diritto di mensa (Stato Approvato e is_utente_mensa !== false)
+ */
+function getListaUtentiMensa() {
+  const list = (appState.tuttiUtenti && appState.tuttiUtenti.length > 0)
+    ? appState.tuttiUtenti
+    : (INITIAL_MOCK_DB.utenti || []);
+  let result = list.filter(u => u.stato === "Approvato" && u.is_utente_mensa !== false);
+  if (appState.user && appState.user.stato === "Approvato" && appState.user.is_utente_mensa !== false) {
+    const userEmail = appState.user.email.toLowerCase().trim();
+    if (!result.some(u => String(u.email || "").toLowerCase().trim() === userEmail)) {
+      result.push(appState.user);
+    }
+  }
+  return result;
+}
+
+/**
+ * Controlla se il pasto è contrassegnato dalla busta (pranzo al sacco).
+ * Di norma martedì e giovedì a pranzo, oppure se contrassegnato nel menu base.
+ */
+function isPastoBustaGiorno(dataVal, tipoPasto) {
+  if (String(tipoPasto || "").trim().toLowerCase() !== "pranzo") return false;
+  let d;
+  if (dataVal instanceof Date) d = dataVal;
+  else {
+    const s = String(dataVal).split("T")[0];
+    d = new Date(s + "T12:00:00");
+  }
+  const day = d.getDay();
+  if (day === 2 || day === 4) return true; // martedì o giovedì
+
+  try {
+    const cicloSettimana = getSettimanaMenu(d);
+    const giornoKey = getNomeGiorno(d);
+    const menuGiorno = MENU_14_GIORNI[cicloSettimana]?.[giornoKey]?.pranzo;
+    if (menuGiorno && (menuGiorno.opzioneBustaDisponibile || menuGiorno.busta)) {
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+/**
+ * Calcola il contatore pasti:
+ * - Parte di default con TUTTI i residenti mensa abilitati presenti
+ * - Sottrae SOLO chi ha esplicitamente contrassegnato l'assenza
+ * - Esclude dalla regola automatica i pasti contrassegnati dalla busta (es. pranzo martedì/giovedì),
+ *   per i quali si contano solo le buste esplicitamente prenotate (+ eventuali loro ospiti)
+ * - Somma gli ospiti registrati
+ */
+function calcolaContatoreMensa(dataStr, tipoPasto) {
+  const isBustaMeal = isPastoBustaGiorno(dataStr, tipoPasto);
+  const utentiMensa = getListaUtentiMensa();
+  const dbMensa = appState.mensaBookings || [];
+  const prenotazioniPasto = dbMensa.filter(m => String(m.data).split("T")[0] === dataStr && m.tipo_pasto === tipoPasto);
+
+  if (isBustaMeal) {
+    // I pasti contrassegnati dalla busta sono esclusi dalla presenza automatica di default:
+    // vengono contati solo coloro che hanno esplicitamente prenotato la busta (+ eventuali loro ospiti)
+    const prenotatiBusta = prenotazioniPasto.filter(m => m.busta && m.stato_presenza !== "assente" && m.stato_presenza !== "Assente");
+    const countBuste = prenotatiBusta.reduce((acc, m) => acc + 1 + (parseInt(m.ospiti, 10) || 0), 0);
+    const countAssenti = prenotazioniPasto.filter(m => m.stato_presenza === "assente" || m.stato_presenza === "Assente").length;
+    const countRitardi = prenotatiBusta.filter(m => m.ritardo).length;
+    return {
+      totale: countBuste,
+      inSala: 0,
+      buste: countBuste,
+      assenti: countAssenti,
+      ritardi: countRitardi,
+      ospitiTotali: prenotatiBusta.reduce((acc, m) => acc + (parseInt(m.ospiti, 10) || 0), 0),
+      isBustaGiorno: true
+    };
+  }
+
+  // Pasti normali in sala (tutti i pranzi regolari e tutte le cene):
+  // Partono di default con TUTTI i residenti presenti!
+  let countAssenti = 0;
+  let countBuste = 0;
+  let countRitardi = 0;
+  let ospitiTotali = 0;
+
+  const prenotazioniMap = new Map();
+  prenotazioniPasto.forEach(p => {
+    if (p.email) prenotazioniMap.set(p.email.toLowerCase().trim(), p);
+  });
+
+  const dettagliPresenti = [];
+
+  utentiMensa.forEach(u => {
+    const emailNorm = String(u.email || "").toLowerCase().trim();
+    const pren = prenotazioniMap.get(emailNorm);
+    const isAssente = pren && (pren.stato_presenza === "assente" || pren.stato_presenza === "Assente");
+    const haBusta = pren && Boolean(pren.busta);
+    const inRitardo = pren && Boolean(pren.ritardo);
+    const ospiti = pren ? Math.max(0, parseInt(pren.ospiti, 10) || 0) : 0;
+
+    if (isAssente) {
+      countAssenti++;
+    } else if (haBusta) {
+      countBuste += (1 + ospiti);
+      ospitiTotali += ospiti;
+      dettagliPresenti.push({ ...u, busta: true, ritardo: inRitardo, ospiti, note: pren?.note || "", defaultPresence: false });
+    } else {
+      if (inRitardo) countRitardi++;
+      ospitiTotali += ospiti;
+      dettagliPresenti.push({ ...u, busta: false, ritardo: inRitardo, ospiti, note: pren?.note || "", defaultPresence: !pren });
+    }
+  });
+
+  // Aggiungi eventuali prenotazioni esterne non nella lista base
+  prenotazioniPasto.forEach(p => {
+    const emailNorm = String(p.email || "").toLowerCase().trim();
+    const giaIncluso = utentiMensa.some(u => String(u.email || "").toLowerCase().trim() === emailNorm);
+    if (!giaIncluso && p.stato_presenza !== "assente" && p.stato_presenza !== "Assente") {
+      const ospiti = Math.max(0, parseInt(p.ospiti, 10) || 0);
+      if (p.busta) countBuste += (1 + ospiti);
+      if (p.ritardo) countRitardi++;
+      ospitiTotali += ospiti;
+      dettagliPresenti.push({ email: p.email, nome: p.nome || p.email.split("@")[0], busta: Boolean(p.busta), ritardo: Boolean(p.ritardo), ospiti, note: p.note || "", defaultPresence: false });
+    }
+  });
+
+  const basePresenti = utentiMensa.length;
+  const ospitiInSala = ospitiTotali - (prenotazioniPasto.filter(m => m.busta).reduce((s, m) => s + (parseInt(m.ospiti, 10) || 0), 0));
+  const busteResidenti = prenotazioniPasto.filter(m => m.busta && m.stato_presenza !== "assente" && m.stato_presenza !== "Assente").length;
+  const inSala = Math.max(0, basePresenti - countAssenti - busteResidenti) + Math.max(0, ospitiInSala);
+  const totalePasti = inSala + countBuste;
+
+  return {
+    totale: totalePasti,
+    inSala: inSala,
+    buste: countBuste,
+    assenti: countAssenti,
+    ritardi: countRitardi,
+    ospitiTotali: ospitiTotali,
+    dettagliPresenti: dettagliPresenti,
+    isBustaGiorno: false
+  };
+}
+
+/**
+ * Ricava lo stato presenza del singolo utente per un pasto
+ */
+function getStatoPresenzaUtente(dataStr, tipoPasto, userEmail) {
+  if (!userEmail) return { isPresente: false, isAssente: false, isBusta: false, isRitardo: false, ospiti: 0, isDefault: false, note: "" };
+  const emailNorm = userEmail.toLowerCase().trim();
+  const pren = (appState.mensaBookings || []).find(m =>
+    String(m.data).split("T")[0] === dataStr &&
+    m.tipo_pasto === tipoPasto &&
+    String(m.email).toLowerCase().trim() === emailNorm
+  );
+
+  const isBustaMeal = isPastoBustaGiorno(dataStr, tipoPasto);
+
+  if (pren) {
+    const isAssente = (pren.stato_presenza === "assente" || pren.stato_presenza === "Assente");
+    return {
+      pren,
+      isPresente: !isAssente,
+      isAssente: isAssente,
+      isBusta: Boolean(pren.busta),
+      isRitardo: Boolean(pren.ritardo),
+      ospiti: Math.max(0, parseInt(pren.ospiti, 10) || 0),
+      note: pren.note || "",
+      isDefault: false
+    };
+  }
+
+  // Nessuna registrazione esplicita
+  if (isBustaMeal) {
+    // La busta NON è presente di default: va richiesta
+    return {
+      pren: null,
+      isPresente: false,
+      isAssente: false,
+      isBusta: false,
+      isRitardo: false,
+      ospiti: 0,
+      note: "",
+      isDefault: false
+    };
+  }
+
+  // Pasto normale: Presente di default!
+  return {
+    pren: null,
+    isPresente: true,
+    isAssente: false,
+    isBusta: false,
+    isRitardo: false,
+    ospiti: 0,
+    note: "",
+    isDefault: true
+  };
+}
+
+window.modificaOspitiRapido = async function(dataStr, tipoPasto, delta) {
+  if (!appState.user) { mostraModalAuth(true); return; }
+  const inp = document.getElementById(`quick-ospiti-${dataStr}-${tipoPasto}`);
+  const curVal = inp ? parseInt(inp.value, 10) || 0 : 0;
+  const maxOspiti = parseInt(appState.cachedConfig?.Max_Ospiti_Mensa || 5, 10);
+  const newVal = Math.max(0, Math.min(maxOspiti, curVal + delta));
+  if (inp) inp.value = newVal;
+  await window.impostaOspitiRapido(dataStr, tipoPasto, newVal);
+};
+
+window.impostaOspitiRapido = async function(dataStr, tipoPasto, val) {
+  if (!appState.user) { mostraModalAuth(true); return; }
+  const maxOspiti = parseInt(appState.cachedConfig?.Max_Ospiti_Mensa || 5, 10);
+  const numOspiti = Math.max(0, Math.min(maxOspiti, parseInt(val, 10) || 0));
+  const existBooking = (appState.mensaBookings || []).find(m =>
+    String(m.data).split("T")[0] === dataStr &&
+    m.tipo_pasto === tipoPasto &&
+    m.email.toLowerCase() === appState.user.email.toLowerCase()
+  );
+
+  const isBusta = isPastoBustaGiorno(dataStr, tipoPasto);
+  const busta = existBooking ? Boolean(existBooking.busta) : (isBusta && tipoPasto === "pranzo");
+  const ritardo = existBooking ? Boolean(existBooking.ritardo) : false;
+  const note = existBooking ? (existBooking.note || "") : "";
+
+  const payload = {
+    data: dataStr,
+    email: appState.user.email,
+    tipo_pasto: tipoPasto,
+    busta: busta,
+    ritardo: ritardo,
+    ospiti: numOspiti,
+    stato_presenza: "presente",
+    note: note
+  };
+
+  try {
+    const res = await callApi("prenotaMensa", payload);
+    if (res.success) {
+      const entry = { id: res.id || ("M_" + Date.now()), ...payload };
+      const idx = appState.mensaBookings.findIndex(m =>
+        String(m.data).split("T")[0] === dataStr &&
+        m.tipo_pasto === tipoPasto &&
+        m.email.toLowerCase() === appState.user.email.toLowerCase()
+      );
+      if (idx !== -1) appState.mensaBookings[idx] = entry;
+      else appState.mensaBookings.push(entry);
+
+      mostraToast(numOspiti > 0 ? `👥 ${numOspiti} ospiti registrati per ${tipoPasto}!` : `Ospiti aggiornati a 0 per ${tipoPasto}`, "success");
+      renderMensaView();
+      if (haPermessiMaster()) caricaDatiMaster();
+    } else {
+      mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete", "error");
+  }
+};
+
 function initDateSelectorMensa() { appState.selectedDateMensa = new Date(); }
 
 function getOrariLimitePasti() {
@@ -1877,6 +2133,7 @@ function renderMensaView() {
 function renderWeeklyScrollView(lunediDate) {
   const giorniNomi = ["lunedi", "martedi", "mercoledi", "giovedi", "venerdi", "sabato", "domenica"];
   const giorniLabels = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
+  const maxOspiti = parseInt(appState.cachedConfig?.Max_Ospiti_Mensa || 5, 10);
   let out = `<div class="weekly-scroll-container">`;
 
   for (let i = 0; i < 7; i++) {
@@ -1896,8 +2153,11 @@ function renderWeeklyScrollView(lunediDate) {
     const pranzoLocked = isPranzoBloccato(d);
     const cenaLocked = isCenaBloccata(d);
     const emailUtente = appState.user ? appState.user.email.toLowerCase() : "";
-    const prenPranzo = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "pranzo" && m.email.toLowerCase() === emailUtente);
-    const prenCena = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "cena" && m.email.toLowerCase() === emailUtente);
+
+    const statoPranzo = getStatoPresenzaUtente(dStr, "pranzo", emailUtente);
+    const statoCena = getStatoPresenzaUtente(dStr, "cena", emailUtente);
+    const countPranzoInfo = calcolaContatoreMensa(dStr, "pranzo");
+    const countCenaInfo = calcolaContatoreMensa(dStr, "cena");
 
     out += `
       <div class="weekly-day-card ${isToday ? 'is-today' : ''} ${isSelected ? 'is-selected' : ''}" id="day-card-${dStr}">
@@ -1913,8 +2173,14 @@ function renderWeeklyScrollView(lunediDate) {
           <div class="weekly-meal-header">
             <div class="weekly-meal-title">
               <span>☀️ Pranzo (14:30)</span>
-              ${prenPranzo ? ((prenPranzo.stato_presenza === 'assente' || prenPranzo.stato_presenza === 'Assente') ? `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>` : `<span class="meal-status-pill booked">✓ Presente ${prenPranzo.ospiti > 0 ? `(+${prenPranzo.ospiti})` : ''} ${prenPranzo.busta ? '(Busta)' : ''} ${prenPranzo.ritardo ? '(Ritardo)' : ''}</span>`) : `<span class="meal-status-pill not-booked">Non segnato</span>`}
-              ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')">👥 Pasti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'pranzo' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((s, m) => s + 1 + (parseInt(m.ospiti, 10) || 0), 0)}</span></span>` : ''}
+              ${statoPranzo.isAssente ? `
+                <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+              ` : (statoPranzo.isPresente ? `
+                <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoPranzo.isDefault ? '<small style="font-weight:600; opacity:0.85;">(Default)</small>' : ''} ${statoPranzo.ospiti > 0 ? `(+${statoPranzo.ospiti} osp.)` : ''} ${statoPranzo.isBusta ? '(Busta)' : ''} ${statoPranzo.isRitardo ? '(Ritardo)' : ''}</span>
+              ` : `
+                <span class="meal-status-pill not-booked">Non prenotata</span>
+              `)}
+              ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">👥 Pasti: <span class="count-num">${countPranzoInfo.totale}</span></span>` : ''}
             </div>
             <span class="badge ${pranzoLocked ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${pranzoLocked ? 'Chiuso' : 'Aperto'}</span>
           </div>
@@ -1931,21 +2197,36 @@ function renderWeeklyScrollView(lunediDate) {
             ${isMaster ? `<div style="margin-top: 4px;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">👩‍🍳 ${variazionePranzo ? 'Modifica' : '+ Variazione'} Pranzo</button></div>` : ''}
           </div>
           <div class="booking-inline-controls">
-            ${prenPranzo ? ((prenPranzo.stato_presenza === 'assente' || prenPranzo.stato_presenza === 'Assente') ? `
-              <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
-              <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Rimuovi Assenza</button>
+            ${isTuesdayOrThursday ? `
+              ${statoPranzo.isAssente ? `
+                <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+                <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Rimuovi Assenza</button>
+              ` : (statoPranzo.isPresente ? `
+                <span class="presence-summary-badge">🥪 Busta Richiesta ${statoPranzo.ospiti > 0 ? `(+${statoPranzo.ospiti})` : ''}</span>
+                <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-weight: 700;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
+                <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Annulla Busta</button>
+              ` : `
+                <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, false)">🥪 Richiedi Busta</button>
+                <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px; font-weight: 700;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
+              `)}
             ` : `
-              <span class="presence-summary-badge">✅ Presenza ${prenPranzo.ospiti > 0 ? `(+${prenPranzo.ospiti})` : ''} ${isTuesdayOrThursday ? '(Busta)' : ''}</span>
-              <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Annulla Presenza</button>
-            `) : (isTuesdayOrThursday ? `
-              <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, false)">🥪 Richiedi Busta Pranzo</button>
-              <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, true)">⏰ Ritiro Posticipato</button>
-              <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
-            ` : `
-              <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, false)">🍽️ Presente</button>
-              <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, true)">⏰ In Ritardo</button>
-              <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
-            `)}
+              ${statoPranzo.isAssente ? `
+                <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+                <button type="button" class="btn-quick-book" style="background: #16a34a; color: #fff; border-color: #16a34a; font-weight: 700;" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">✓ Torna Presente</button>
+              ` : `
+                <span class="presence-summary-badge">✅ Presente ${statoPranzo.isDefault ? '<small>(Default)</small>' : ''} ${statoPranzo.ospiti > 0 ? `(+${statoPranzo.ospiti})` : ''}</span>
+                <button type="button" class="btn-quick-cancel" style="background: #fee2e2; border-color: #fca5a5; color: #dc2626; font-weight: 700; font-size: 11.5px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
+                <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569; font-size: 11px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', false, true)">⏰ In Ritardo</button>
+              `}
+            `}
+
+            <!-- Campo numerico per gli ospiti -->
+            <div class="guest-counter-stepper" title="Ospiti aggiuntivi">
+              <span style="font-size: 10px; font-weight: 700; color: #64748b; padding: 0 4px;">👥</span>
+              <button type="button" class="guest-stepper-btn" ${pranzoLocked ? 'disabled' : ''} onclick="modificaOspitiRapido('${dStr}', 'pranzo', -1)">-</button>
+              <input type="number" id="quick-ospiti-${dStr}-pranzo" class="guest-stepper-input" min="0" max="${maxOspiti}" value="${statoPranzo.ospiti}" ${pranzoLocked ? 'disabled' : ''} onchange="impostaOspitiRapido('${dStr}', 'pranzo', this.value)">
+              <button type="button" class="guest-stepper-btn" ${pranzoLocked ? 'disabled' : ''} onclick="modificaOspitiRapido('${dStr}', 'pranzo', 1)">+</button>
+            </div>
           </div>
         </div>
 
@@ -1953,8 +2234,12 @@ function renderWeeklyScrollView(lunediDate) {
           <div class="weekly-meal-header">
             <div class="weekly-meal-title">
               <span>🌙 Cena (19:30)</span>
-              ${prenCena ? ((prenCena.stato_presenza === 'assente' || prenCena.stato_presenza === 'Assente') ? `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>` : `<span class="meal-status-pill booked">✓ Presente ${prenCena.ospiti > 0 ? `(+${prenCena.ospiti})` : ''} ${prenCena.ritardo ? '(Ritardo)' : ''}</span>`) : `<span class="meal-status-pill not-booked">Non segnato</span>`}
-              ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')">👥 Pasti: <span class="count-num">${appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'cena' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((s, m) => s + 1 + (parseInt(m.ospiti, 10) || 0), 0)}</span></span>` : ''}
+              ${statoCena.isAssente ? `
+                <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+              ` : `
+                <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoCena.isDefault ? '<small style="font-weight:600; opacity:0.85;">(Default)</small>' : ''} ${statoCena.ospiti > 0 ? `(+${statoCena.ospiti} osp.)` : ''} ${statoCena.isRitardo ? '(Ritardo)' : ''}</span>
+              `}
+              ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">👥 Pasti: <span class="count-num">${countCenaInfo.totale}</span></span>` : ''}
             </div>
             <span class="badge ${cenaLocked ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${cenaLocked ? 'Chiuso' : 'Aperto'}</span>
           </div>
@@ -1964,17 +2249,22 @@ function renderWeeklyScrollView(lunediDate) {
             ${isMaster ? `<div style="margin-top: 4px;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'cena')">👩‍🍳 ${variazioneCena ? 'Modifica' : '+ Variazione'} Cena</button></div>` : ''}
           </div>
           <div class="booking-inline-controls">
-            ${prenCena ? ((prenCena.stato_presenza === 'assente' || prenCena.stato_presenza === 'Assente') ? `
+            ${statoCena.isAssente ? `
               <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
-              <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">Rimuovi Assenza</button>
+              <button type="button" class="btn-quick-book" style="background: #16a34a; color: #fff; border-color: #16a34a; font-weight: 700;" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">✓ Torna Presente</button>
             ` : `
-              <span class="presence-summary-badge">✅ Presenza ${prenCena.ospiti > 0 ? `(+${prenCena.ospiti})` : ''}</span>
-              <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">Annulla Presenza</button>
-            `) : `
-              <button type="button" class="btn-quick-book" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', false, false)">🍽️ Presente</button>
-              <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', false, true)">⏰ In Ritardo</button>
-              <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'cena')">❌ Assente</button>
+              <span class="presence-summary-badge">✅ Presente ${statoCena.isDefault ? '<small>(Default)</small>' : ''} ${statoCena.ospiti > 0 ? `(+${statoCena.ospiti})` : ''}</span>
+              <button type="button" class="btn-quick-cancel" style="background: #fee2e2; border-color: #fca5a5; color: #dc2626; font-weight: 700; font-size: 11.5px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'cena')">❌ Assente</button>
+              <button type="button" class="btn-quick-book" style="border-color: #64748b; color: #475569; font-size: 11px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'cena', false, true)">⏰ In Ritardo</button>
             `}
+
+            <!-- Campo numerico per gli ospiti cena -->
+            <div class="guest-counter-stepper" title="Ospiti aggiuntivi">
+              <span style="font-size: 10px; font-weight: 700; color: #64748b; padding: 0 4px;">👥</span>
+              <button type="button" class="guest-stepper-btn" ${cenaLocked ? 'disabled' : ''} onclick="modificaOspitiRapido('${dStr}', 'cena', -1)">-</button>
+              <input type="number" id="quick-ospiti-${dStr}-cena" class="guest-stepper-input" min="0" max="${maxOspiti}" value="${statoCena.ospiti}" ${cenaLocked ? 'disabled' : ''} onchange="impostaOspitiRapido('${dStr}', 'cena', this.value)">
+              <button type="button" class="guest-stepper-btn" ${cenaLocked ? 'disabled' : ''} onclick="modificaOspitiRapido('${dStr}', 'cena', 1)">+</button>
+            </div>
           </div>
         </div>
       </div>
@@ -1999,12 +2289,11 @@ function renderDailyDetailedView(dataSel) {
   const nomeGiornoFormat = capitalize(giornoKey);
   const dataFormattata = formattaDataItaliana(dataSel);
   const emailUtente = appState.user ? appState.user.email.toLowerCase() : "";
-  const prenPranzo = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "pranzo" && m.email.toLowerCase() === emailUtente);
-  const prenCena = appState.mensaBookings.find(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === "cena" && m.email.toLowerCase() === emailUtente);
-  const isAssentePranzo = prenPranzo && (prenPranzo.stato_presenza === 'assente' || prenPranzo.stato_presenza === 'Assente');
-  const isAssenteCena = prenCena && (prenCena.stato_presenza === 'assente' || prenCena.stato_presenza === 'Assente');
-  const totPastiPranzo = appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'pranzo' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((s, m) => s + 1 + (parseInt(m.ospiti, 10) || 0), 0);
-  const totPastiCena = appState.mensaBookings.filter(m => String(m.data).split("T")[0] === dStr && m.tipo_pasto === 'cena' && m.stato_presenza !== 'assente' && m.stato_presenza !== 'Assente').reduce((s, m) => s + 1 + (parseInt(m.ospiti, 10) || 0), 0);
+
+  const statoPranzo = getStatoPresenzaUtente(dStr, "pranzo", emailUtente);
+  const statoCena = getStatoPresenzaUtente(dStr, "cena", emailUtente);
+  const countPranzoInfo = calcolaContatoreMensa(dStr, "pranzo");
+  const countCenaInfo = calcolaContatoreMensa(dStr, "cena");
 
   return `
     <div class="card" style="margin-bottom: 12px; background: var(--surface-alt);">
@@ -2023,8 +2312,14 @@ function renderDailyDetailedView(dataSel) {
             <span class="meal-sub">${pranzoLocked ? '🔒 Chiuso' : '🟢 Prenotazioni aperte'}</span>
           </div>
         </div>
-        ${prenPranzo ? (isAssentePranzo ? `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Assente</span>` : `<span class="meal-status-pill booked">✓ Presente</span>`) : ''}
-        ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')">👥 Pasti: <span class="count-num">${totPastiPranzo}</span></span>` : ''}
+        ${statoPranzo.isAssente ? `
+          <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+        ` : (statoPranzo.isPresente ? `
+          <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoPranzo.isDefault ? '(Default)' : ''}</span>
+        ` : `
+          <span class="meal-status-pill not-booked">Non prenotata</span>
+        `)}
+        ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">👥 Pasti: <span class="count-num">${countPranzoInfo.totale}</span></span>` : ''}
         <span class="badge ${pranzoLocked ? 'badge-danger' : 'badge-success'}">${pranzoLocked ? 'Chiuso' : 'Aperto'}</span>
       </div>
 
@@ -2055,22 +2350,37 @@ function renderDailyDetailedView(dataSel) {
         <div class="checkbox-group">
           ${isTuesdayOrThursday ? `
             <label class="custom-checkbox"><input type="checkbox" id="pranzo-busta" checked disabled><span><strong>Pranzo al sacco: Busta</strong></span></label>
-            <label class="custom-checkbox"><input type="checkbox" id="pranzo-ritardo" ${prenPranzo?.ritardo ? 'checked' : ''} ${pranzoLocked ? 'disabled' : ''}><span>Ritiro posticipato</span></label>
+            <label class="custom-checkbox"><input type="checkbox" id="pranzo-ritardo" ${statoPranzo.isRitardo ? 'checked' : ''} ${pranzoLocked ? 'disabled' : ''}><span>Ritiro posticipato</span></label>
           ` : `
-            <label class="custom-checkbox"><input type="checkbox" id="pranzo-ritardo" ${prenPranzo?.ritardo ? 'checked' : ''} ${pranzoLocked ? 'disabled' : ''}><span>Arrivo in Ritardo</span></label>
+            <label class="custom-checkbox"><input type="checkbox" id="pranzo-ritardo" ${statoPranzo.isRitardo ? 'checked' : ''} ${pranzoLocked ? 'disabled' : ''}><span>Arrivo in Ritardo</span></label>
           `}
         </div>
         <div style="margin-top: 10px; padding: 8px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
           <div class="flex-between">
-            <div><label for="pranzo-ospiti" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block;">👥 Ospiti:</label><span class="text-xs text-muted">Max ${maxOspiti}</span></div>
-            <input type="number" id="pranzo-ospiti" class="input-text" min="0" max="${maxOspiti}" value="${prenPranzo?.ospiti || 0}" style="width: 65px; text-align: center; font-weight: 700; padding: 4px;" ${pranzoLocked ? 'disabled' : ''}>
+            <div>
+              <label for="pranzo-ospiti" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block;">👥 Ospiti aggiuntivi:</label>
+              <span class="text-xs text-muted">Max ${maxOspiti} persone</span>
+            </div>
+            <div class="guest-counter-stepper">
+              <button type="button" class="guest-stepper-btn" ${pranzoLocked ? 'disabled' : ''} onclick="const inp=document.getElementById('pranzo-ospiti'); if(inp){inp.value=Math.max(0, (parseInt(inp.value,10)||0)-1);}">-</button>
+              <input type="number" id="pranzo-ospiti" class="guest-stepper-input" min="0" max="${maxOspiti}" value="${statoPranzo.ospiti}" ${pranzoLocked ? 'disabled' : ''}>
+              <button type="button" class="guest-stepper-btn" ${pranzoLocked ? 'disabled' : ''} onclick="const inp=document.getElementById('pranzo-ospiti'); if(inp){inp.value=Math.min(${maxOspiti}, (parseInt(inp.value,10)||0)+1);}">+</button>
+            </div>
           </div>
         </div>
-        <div class="form-group" style="margin-top: 10px;"><input type="text" id="pranzo-note" class="input-text" placeholder="Note per la cucina..." value="${escapeHtml(prenPranzo?.note || '')}" ${pranzoLocked ? 'disabled' : ''}></div>
+        <div class="form-group" style="margin-top: 10px;">
+          <input type="text" id="pranzo-note" class="input-text" placeholder="Note per la cucina..." value="${escapeHtml(statoPranzo.note)}" ${pranzoLocked ? 'disabled' : ''}>
+        </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="submit" class="btn btn-primary" style="flex: 1;" ${pranzoLocked ? 'disabled' : ''}>${prenPranzo && !isAssentePranzo ? 'Aggiorna' : (isTuesdayOrThursday ? 'Prenota Busta' : 'Presente')}</button>
-          <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-size: 12px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
-          ${prenPranzo ? `<button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Annulla</button>` : ''}
+          <button type="submit" class="btn btn-primary" style="flex: 1;" ${pranzoLocked ? 'disabled' : ''}>
+            ${statoPranzo.isPresente && !statoPranzo.isDefault ? 'Aggiorna Preferenze' : (isTuesdayOrThursday ? 'Prenota Busta' : 'Conferma Presenza')}
+          </button>
+          <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-weight: 700; font-size: 12px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">
+            ❌ Assente
+          </button>
+          ${!statoPranzo.isDefault ? `
+            <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Ripristina Default</button>
+          ` : ''}
         </div>
       </form>
     </div>
@@ -2084,8 +2394,12 @@ function renderDailyDetailedView(dataSel) {
             <span class="meal-sub">${cenaLocked ? '🔒 Chiuso' : '🟢 Prenotazioni aperte'}</span>
           </div>
         </div>
-        ${prenCena ? (isAssenteCena ? `<span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Assente</span>` : `<span class="meal-status-pill booked">✓ Presente</span>`) : ''}
-        ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')">👥 Pasti: <span class="count-num">${totPastiCena}</span></span>` : ''}
+        ${statoCena.isAssente ? `
+          <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+        ` : `
+          <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoCena.isDefault ? '(Default)' : ''}</span>
+        `}
+        ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">👥 Pasti: <span class="count-num">${countCenaInfo.totale}</span></span>` : ''}
         <span class="badge ${cenaLocked ? 'badge-danger' : 'badge-success'}">${cenaLocked ? 'Chiuso' : 'Aperto'}</span>
       </div>
       <div class="meal-menu-body">
@@ -2098,18 +2412,35 @@ function renderDailyDetailedView(dataSel) {
         ${variazioneCena ? `<div class="cuoca-var-box has-var" style="margin-top: 10px;"><div class="flex-between"><div class="flex-align"><span style="font-size: 18px;">👩‍🍳</span><strong style="color: #92400e; font-size: 13px;">Variazione Cena:</strong></div>${isMaster ? `<button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="apriModalVariazioneCuoca('${dStr}', 'cena')">Modifica</button>` : ''}</div><p style="margin: 6px 0 0 0; font-size: 13px; color: #78350f; line-height: 1.4;">${escapeHtml(variazioneCena)}</p></div>` : (isMaster ? `<div style="margin-top: 8px; text-align: right;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'cena')">👩‍🍳 + Variazione Cena</button></div>` : '')}
       </div>
       <form id="form-prenota-cena" onsubmit="handlePrenotazioneMensa(event, 'cena')">
-        <div class="checkbox-group"><label class="custom-checkbox"><input type="checkbox" id="cena-ritardo" ${prenCena?.ritardo ? 'checked' : ''} ${cenaLocked ? 'disabled' : ''}><span>Arrivo in Ritardo</span></label></div>
+        <div class="checkbox-group">
+          <label class="custom-checkbox"><input type="checkbox" id="cena-ritardo" ${statoCena.isRitardo ? 'checked' : ''} ${cenaLocked ? 'disabled' : ''}><span>Arrivo in Ritardo</span></label>
+        </div>
         <div style="margin-top: 10px; padding: 8px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
           <div class="flex-between">
-            <div><label for="cena-ospiti" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block;">👥 Ospiti:</label><span class="text-xs text-muted">Max ${maxOspiti}</span></div>
-            <input type="number" id="cena-ospiti" class="input-text" min="0" max="${maxOspiti}" value="${prenCena?.ospiti || 0}" style="width: 65px; text-align: center; font-weight: 700; padding: 4px;" ${cenaLocked ? 'disabled' : ''}>
+            <div>
+              <label for="cena-ospiti" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block;">👥 Ospiti aggiuntivi:</label>
+              <span class="text-xs text-muted">Max ${maxOspiti} persone</span>
+            </div>
+            <div class="guest-counter-stepper">
+              <button type="button" class="guest-stepper-btn" ${cenaLocked ? 'disabled' : ''} onclick="const inp=document.getElementById('cena-ospiti'); if(inp){inp.value=Math.max(0, (parseInt(inp.value,10)||0)-1);}">-</button>
+              <input type="number" id="cena-ospiti" class="guest-stepper-input" min="0" max="${maxOspiti}" value="${statoCena.ospiti}" ${cenaLocked ? 'disabled' : ''}>
+              <button type="button" class="guest-stepper-btn" ${cenaLocked ? 'disabled' : ''} onclick="const inp=document.getElementById('cena-ospiti'); if(inp){inp.value=Math.min(${maxOspiti}, (parseInt(inp.value,10)||0)+1);}">+</button>
+            </div>
           </div>
         </div>
-        <div class="form-group" style="margin-top: 10px;"><input type="text" id="cena-note" class="input-text" placeholder="Note per la cucina..." value="${escapeHtml(prenCena?.note || '')}" ${cenaLocked ? 'disabled' : ''}></div>
+        <div class="form-group" style="margin-top: 10px;">
+          <input type="text" id="cena-note" class="input-text" placeholder="Note per la cucina..." value="${escapeHtml(statoCena.note)}" ${cenaLocked ? 'disabled' : ''}>
+        </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="submit" class="btn btn-primary" style="flex: 1;" ${cenaLocked ? 'disabled' : ''}>${prenCena && !isAssenteCena ? 'Aggiorna' : 'Presente'}</button>
-          <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-size: 12px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'cena')">❌ Assente</button>
-          ${prenCena ? `<button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">Annulla</button>` : ''}
+          <button type="submit" class="btn btn-primary" style="flex: 1;" ${cenaLocked ? 'disabled' : ''}>
+            ${statoCena.isPresente && !statoCena.isDefault ? 'Aggiorna Preferenze' : 'Conferma Presenza'}
+          </button>
+          <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-weight: 700; font-size: 12px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'cena')">
+            ❌ Assente
+          </button>
+          ${!statoCena.isDefault ? `
+            <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">Ripristina Default</button>
+          ` : ''}
         </div>
       </form>
     </div>
@@ -3283,37 +3614,90 @@ function renderMasterSection() {
         </div>
 
         <div class="sub-section" style="margin-top: 20px;">
-          <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700;">👥 Residenti Registrati (${tuttiUtenti.length})</h4>
-          <div class="table-responsive">
-            <table class="master-table">
-              <thead>
-                <tr><th>Residente</th><th>Stato</th><th>🍽️ Mensa</th><th>Master Mensa</th><th>Manut.</th><th>Spazi</th><th>Admin</th><th>🔔 Manut.</th><th>🔔 Ambienti</th><th>Password</th><th>Azione</th></tr>
-              </thead>
-              <tbody>
-                ${tuttiUtenti.length === 0 ? '<tr><td colspan="11" style="text-align:center; padding: 14px;">Nessun utente.</td></tr>' : ''}
-                ${tuttiUtenti.map(u => `
-                  <tr>
-                    <td><strong>${escapeHtml(u.nome || u.email)}</strong><div class="text-xs text-muted">${escapeHtml(u.email)}</div></td>
-                    <td><span class="badge ${u.stato === 'Approvato' ? 'badge-success' : 'badge-warning'}">${escapeHtml(u.stato || 'Attivo')}</span></td>
-                    <td style="text-align: center;"><input type="checkbox" id="edit-is-mensa-${escapeHtml(u.email)}" ${u.is_utente_mensa !== false ? 'checked' : ''}></td>
-                    <td style="text-align: center;"><input type="checkbox" id="edit-p-mensa-${escapeHtml(u.email)}" ${u.perm_mensa ? 'checked' : ''}></td>
-                    <td style="text-align: center;"><input type="checkbox" id="edit-p-manut-${escapeHtml(u.email)}" ${u.perm_manutenzione ? 'checked' : ''}></td>
-                    <td style="text-align: center;"><input type="checkbox" id="edit-p-spazi-${escapeHtml(u.email)}" ${u.perm_spazi ? 'checked' : ''}></td>
-                    <td style="text-align: center;"><input type="checkbox" id="edit-p-admin-${escapeHtml(u.email)}" ${u.perm_admin ? 'checked' : ''}></td>
-                    <td style="text-align: center;"><input type="checkbox" id="edit-notif-manut-${escapeHtml(u.email)}" ${u.notif_manutenzione ? 'checked' : ''}></td>
-                    <td style="text-align: center;"><input type="checkbox" id="edit-notif-spazi-${escapeHtml(u.email)}" ${u.notif_spazi ? 'checked' : ''}></td>
-                    <td style="font-size: 11px;">${u.password ? `<code style="background: #f1f5f9; padding: 2px 6px; border-radius: 4px;">${escapeHtml(u.password)}</code>` : '<span class="text-xs text-muted">newman2026</span>'}</td>
-                    <td>
-                      <div style="display: flex; gap: 4px;">
-                        <button type="button" class="btn btn-secondary btn-sm" onclick="salvaRuoliUtente('${escapeHtml(u.email)}')" style="font-size: 11px; padding: 4px 7px;">💾</button>
-                        <button type="button" class="btn btn-outline btn-sm" onclick="resetPasswordUtenteMaster('${escapeHtml(u.email)}', '${escapeHtml(u.nome || u.email)}')" style="font-size: 11px; padding: 4px 7px; color: #b45309;">🔑</button>
-                        <button type="button" class="btn btn-outline btn-sm" onclick="eliminaUtente('${escapeHtml(u.email)}', '${escapeHtml(u.nome || u.email)}')" style="font-size: 11px; padding: 4px 7px; color: #dc2626;">🗑️</button>
+          <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
+            <div>
+              <h4 style="margin: 0; font-size: 14.5px; font-weight: 800; color: #1e293b;">👥 Specifiche & Permessi Residenti (${tuttiUtenti.length})</h4>
+              <p class="text-xs text-muted" style="margin: 2px 0 0 0;">Configura i diritti mensa, ruoli e notifiche per ciascun utente (layout reattivo, senza scorrimento)</p>
+            </div>
+            <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700;">Larghezza 100% Reattiva</span>
+          </div>
+
+          <div id="master-residenti-container" style="width: 100%; box-sizing: border-box;">
+            ${tuttiUtenti.length === 0 ? '<div class="empty-state-text" style="background: #f8fafc; padding: 18px; border-radius: 8px; border: 1px dashed #cbd5e1; text-align: center; font-size: 13px;">Nessun residente registrato.</div>' : ''}
+            ${tuttiUtenti.map(u => {
+              const uEmail = escapeHtml(u.email);
+              const uNome = escapeHtml(u.nome || u.email);
+              const isApprovato = (u.stato || 'Attivo') === 'Approvato';
+              return `
+                <div class="user-spec-card">
+                  <div class="user-spec-header">
+                    <div style="flex: 1; min-width: 200px;">
+                      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <strong style="font-size: 14px; color: #0f172a;">${uNome}</strong>
+                        <span class="badge ${isApprovato ? 'badge-success' : 'badge-warning'}" style="font-size: 10.5px; padding: 2px 8px;">${escapeHtml(u.stato || 'Attivo')}</span>
                       </div>
-                    </td>
-                  </tr>
-                `).join("")}
-              </tbody>
-            </table>
+                      <span class="text-xs text-muted" style="display: block; word-break: break-all; margin-top: 2px;">${uEmail}</span>
+                    </div>
+                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                      <button type="button" class="btn btn-primary btn-sm" onclick="salvaRuoliUtente('${uEmail}')" title="Salva permessi per ${uNome}" style="font-size: 11.5px; padding: 5px 10px; font-weight: 700; background: #0284c7; border-color: #0284c7; display: inline-flex; align-items: center; gap: 4px;">
+                        <span>💾</span> Salva
+                      </button>
+                      <button type="button" class="btn btn-outline btn-sm" onclick="resetPasswordUtenteMaster('${uEmail}', '${uNome}')" title="Modifica password" style="font-size: 11px; padding: 5px 8px; color: #b45309; border-color: #fde68a;">
+                        🔑 Password
+                      </button>
+                      <button type="button" class="btn btn-outline btn-sm" onclick="eliminaUtente('${uEmail}', '${uNome}')" title="Elimina residente" style="font-size: 11px; padding: 5px 8px; color: #dc2626; border-color: #fca5a5;">
+                        🗑️
+                      </button>
+                    </div>
+                  </div>
+
+                  <div class="user-spec-grid">
+                    <label class="user-spec-chip" title="Abilita utente al servizio mensa ordinario">
+                      <input type="checkbox" id="edit-is-mensa-${uEmail}" ${u.is_utente_mensa !== false ? 'checked' : ''}>
+                      <span>🍽️ Utente Mensa</span>
+                    </label>
+
+                    <label class="user-spec-chip" title="Abilita ruolo Master per gestione pasti e cucina">
+                      <input type="checkbox" id="edit-p-mensa-${uEmail}" ${u.perm_mensa ? 'checked' : ''}>
+                      <span>👨‍🍳 Master Mensa</span>
+                    </label>
+
+                    <label class="user-spec-chip" title="Abilita gestione segnalazioni e guasti">
+                      <input type="checkbox" id="edit-p-manut-${uEmail}" ${u.perm_manutenzione ? 'checked' : ''}>
+                      <span>🛠️ Manutenzione</span>
+                    </label>
+
+                    <label class="user-spec-chip" title="Abilita gestione prenotazioni ambienti (Chiesa / Sala TV)">
+                      <input type="checkbox" id="edit-p-spazi-${uEmail}" ${u.perm_spazi ? 'checked' : ''}>
+                      <span>⛪ Ambienti/Spazi</span>
+                    </label>
+
+                    <label class="user-spec-chip" title="Pieni poteri amministrativi">
+                      <input type="checkbox" id="edit-p-admin-${uEmail}" ${u.perm_admin ? 'checked' : ''}>
+                      <span>👑 Super Admin</span>
+                    </label>
+
+                    <label class="user-spec-chip" title="Ricevi notifiche per nuove segnalazioni manutenzione">
+                      <input type="checkbox" id="edit-notif-manut-${uEmail}" ${u.notif_manutenzione ? 'checked' : ''}>
+                      <span>🔔 Notif. Guasti</span>
+                    </label>
+
+                    <label class="user-spec-chip" title="Ricevi notifiche per richieste ambienti">
+                      <input type="checkbox" id="edit-notif-spazi-${uEmail}" ${u.notif_spazi ? 'checked' : ''}>
+                      <span>🔔 Notif. Spazi</span>
+                    </label>
+                  </div>
+
+                  <div class="user-spec-footer">
+                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                      <span class="text-muted" style="font-size: 11px;">Password di accesso:</span>
+                      <code style="background: #f1f5f9; padding: 2px 7px; border-radius: 4px; font-weight: 700; color: #334155; font-size: 11px;">${escapeHtml(u.password || 'newman2026')}</code>
+                    </div>
+                    <span class="text-muted" style="font-size: 11px;">Ultimo aggiornamento automatico</span>
+                  </div>
+                </div>
+              `;
+            }).join("")}
           </div>
         </div>
 
@@ -3532,11 +3916,18 @@ function renderMasterSection() {
   // SCHEDA MENSA
   if (perm_mensa && (isVistaTutto || activeTab === "mensa")) {
     const dataFiltroYMD = appState.masterMensaDate || formatYMD(new Date());
-    const prenotazioniGiorno = mensaBookings.filter(m => String(m.data).split("T")[0] === dataFiltroYMD);
-    const countPranzo = prenotazioniGiorno.filter(m => m.tipo_pasto === "pranzo").length;
-    const countCena = prenotazioniGiorno.filter(m => m.tipo_pasto === "cena").length;
-    const countBuste = prenotazioniGiorno.filter(m => m.busta).length;
-    const countRitardi = prenotazioniGiorno.filter(m => m.ritardo).length;
+    const statsPranzo = calcolaContatoreMensa(dataFiltroYMD, "pranzo");
+    const statsCena = calcolaContatoreMensa(dataFiltroYMD, "cena");
+    const countPranzo = statsPranzo.totale;
+    const countCena = statsCena.totale;
+    const countBuste = statsPranzo.buste + statsCena.buste;
+    const countRitardi = statsPranzo.ritardi + statsCena.ritardi;
+    const totalePresentiGiorno = countPranzo + countCena;
+
+    // Unisci elenco presenti con etichetta pasto
+    const listaPresenzeMaster = [];
+    (statsPranzo.dettagliPresenti || []).forEach(p => listaPresenzeMaster.push({ ...p, tipo_pasto: "pranzo" }));
+    (statsCena.dettagliPresenti || []).forEach(p => listaPresenzeMaster.push({ ...p, tipo_pasto: "cena" }));
 
     html += `
       <div class="master-block card" style="border-top: 4px solid var(--primary);">
@@ -3568,13 +3959,13 @@ function renderMasterSection() {
         </div>
 
         <div class="sub-section" style="margin-top: 16px;">
-          <h4 style="margin: 0 0 8px 0;">Presenti (${dataFiltroYMD}) — Totale: ${prenotazioniGiorno.length}</h4>
+          <h4 style="margin: 0 0 8px 0;">Presenti Previsti (${dataFiltroYMD}) — Totale: ${totalePresentiGiorno} (Pranzo: ${countPranzo}, Cena: ${countCena})</h4>
           <div class="table-responsive">
             <table class="master-table">
-              <thead><tr><th>Residente</th><th>Pasto</th><th>Busta</th><th>Ritardo</th><th>Note</th></tr></thead>
+              <thead><tr><th>Residente</th><th>Pasto</th><th>Busta</th><th>Ritardo</th><th>Ospiti</th><th>Stato</th></tr></thead>
               <tbody>
-                ${prenotazioniGiorno.length === 0 ? `<tr><td colspan="5" style="text-align:center; padding: 18px;">Nessuna presenza.</td></tr>` : ''}
-                ${prenotazioniGiorno.map(p => `<tr><td><strong>${escapeHtml(p.email)}</strong></td><td><span class="badge ${p.tipo_pasto === 'pranzo' ? 'badge-accent' : 'badge-primary'}">${p.tipo_pasto === 'pranzo' ? '☀️ Pranzo' : '🌙 Cena'}</span></td><td>${p.busta ? '🥪 Sì' : '—'}</td><td>${p.ritardo ? '⏰ Sì' : '—'}</td><td class="text-sm">${escapeHtml(p.note || '-')}</td></tr>`).join("")}
+                ${listaPresenzeMaster.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding: 18px;">Nessuna presenza calcolata.</td></tr>` : ''}
+                ${listaPresenzeMaster.map(p => `<tr><td><strong>${escapeHtml(p.nome || p.email)}</strong><div class="text-xs text-muted">${escapeHtml(p.email)}</div></td><td><span class="badge ${p.tipo_pasto === 'pranzo' ? 'badge-accent' : 'badge-primary'}">${p.tipo_pasto === 'pranzo' ? '☀️ Pranzo' : '🌙 Cena'}</span></td><td>${p.busta ? '🥪 Sì' : '—'}</td><td>${p.ritardo ? '⏰ Sì' : '—'}</td><td>${p.ospiti > 0 ? `<span class="badge badge-warning">+${p.ospiti} ospiti</span>` : '—'}</td><td><span class="badge badge-success">${p.defaultPresence ? 'Default (Presente)' : 'Confermato'}</span></td></tr>`).join("")}
               </tbody>
             </table>
           </div>
@@ -5020,10 +5411,10 @@ window.renderCucinaView = function() {
   const giornoSettimanaCapitalized = dataEstesa.charAt(0).toUpperCase() + dataEstesa.slice(1);
   const isOggi = dataFiltroYMD === formatYMD(new Date());
 
-  const dbMensa = appState.mensaBookings || [];
-  const prenotazioniGiorno = dbMensa.filter(m => String(m.data).split("T")[0] === dataFiltroYMD);
-  const listaPranzo = prenotazioniGiorno.filter(m => m.tipo_pasto === "pranzo");
-  const listaCena = prenotazioniGiorno.filter(m => m.tipo_pasto === "cena");
+  const statsPranzo = calcolaContatoreMensa(dataFiltroYMD, "pranzo");
+  const statsCena = calcolaContatoreMensa(dataFiltroYMD, "cena");
+  const listaPranzo = statsPranzo.dettagliPresenti || [];
+  const listaCena = statsCena.dettagliPresenti || [];
 
   const dataVar = appState.cachedConfig.Data_Variazione_Menu;
   const testoVar = appState.cachedConfig.Testo_Variazione;
@@ -5040,11 +5431,11 @@ window.renderCucinaView = function() {
 
   const filteredPranzo = applicaFiltro(listaPranzo, filterPranzo);
   const filteredCena = applicaFiltro(listaCena, filterCena);
-  const countBustePranzo = listaPranzo.filter(m => m.busta).length;
-  const countRitardiPranzo = listaPranzo.filter(m => m.ritardo).length;
+  const countBustePranzo = statsPranzo.buste;
+  const countRitardiPranzo = statsPranzo.ritardi;
   const countNotePranzo = listaPranzo.filter(m => m.note && m.note.trim()).length;
-  const countBusteCena = listaCena.filter(m => m.busta).length;
-  const countRitardiCena = listaCena.filter(m => m.ritardo).length;
+  const countBusteCena = statsCena.buste;
+  const countRitardiCena = statsCena.ritardi;
   const countNoteCena = listaCena.filter(m => m.note && m.note.trim()).length;
 
   const prossimiGiorni = [];
@@ -5052,8 +5443,16 @@ window.renderCucinaView = function() {
     const d = new Date();
     d.setDate(d.getDate() + i);
     const ymd = formatYMD(d);
-    const pGiorno = dbMensa.filter(m => String(m.data).split("T")[0] === ymd);
-    prossimiGiorni.push({ ymd, label: d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "numeric" }), pranzo: pGiorno.filter(m => m.tipo_pasto === "pranzo").length, cena: pGiorno.filter(m => m.tipo_pasto === "cena").length, buste: pGiorno.filter(m => m.busta).length, isSel: ymd === dataFiltroYMD });
+    const sP = calcolaContatoreMensa(ymd, "pranzo");
+    const sC = calcolaContatoreMensa(ymd, "cena");
+    prossimiGiorni.push({
+      ymd,
+      label: d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "numeric" }),
+      pranzo: sP.totale,
+      cena: sC.totale,
+      buste: sP.buste + sC.buste,
+      isSel: ymd === dataFiltroYMD
+    });
   }
 
   let html = `
@@ -5252,26 +5651,23 @@ window.renderContenutoModalCucina = function() {
     dataEstesa = dataEstesa.charAt(0).toUpperCase() + dataEstesa.slice(1);
   } catch (e) {}
 
-  const dbMensa = appState.mensaBookings || [];
-  const tuttiUtenti = appState.tuttiUtenti || [];
-  const prenotazioniPasto = dbMensa.filter(m => String(m.data).split("T")[0] === dataYMD && m.tipo_pasto === tipoPasto);
-  const prenotati = prenotazioniPasto.map(p => {
-    const userMatch = tuttiUtenti.find(u => u.email.toLowerCase() === p.email.toLowerCase());
-    let nomeVisualizzato = "";
-    if (userMatch && userMatch.nome) nomeVisualizzato = userMatch.nome;
-    else {
+  const statsPasto = calcolaContatoreMensa(dataYMD, tipoPasto);
+  const prenotati = (statsPasto.dettagliPresenti || []).map(p => {
+    let nomeVisualizzato = p.nome || "";
+    if (!nomeVisualizzato && p.email) {
       const emailBase = p.email.split("@")[0].replace(/\./g, " ");
       nomeVisualizzato = emailBase.charAt(0).toUpperCase() + emailBase.slice(1);
     }
     return { ...p, nomeVisualizzato };
   });
 
-  const countBuste = prenotati.filter(p => p.busta).length;
-  const countRitardi = prenotati.filter(p => p.ritardo).length;
+  const countBuste = statsPasto.buste;
+  const countRitardi = statsPasto.ritardi;
   const countNote = prenotati.filter(p => p.note && p.note.trim()).length;
-  const countInSala = prenotati.length - countBuste;
+  const countInSala = statsPasto.inSala;
+  const totalePasti = statsPasto.totale;
 
-  if (sottotitoloEl) sottotitoloEl.innerHTML = `📅 <strong>${dataEstesa}</strong> • Totale: <strong>${prenotati.length}</strong> (${countInSala} sala, ${countBuste} buste)`;
+  if (sottotitoloEl) sottotitoloEl.innerHTML = `📅 <strong>${dataEstesa}</strong> • Totale: <strong>${totalePasti}</strong> (${countInSala} sala, ${countBuste} buste${statsPasto.ospitiTotali > 0 ? `, +${statsPasto.ospitiTotali} ospiti` : ''})`;
   if (filtriContainer) {
     filtriContainer.innerHTML = `
       <button type="button" class="btn btn-sm ${filtro === 'tutti' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('tutti')" style="padding: 3px 8px; font-size: 11px;">Tutti (${prenotati.length})</button>
