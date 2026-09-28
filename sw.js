@@ -1,30 +1,45 @@
-const STATIC_CACHE = 'newman-static-v4';
-const API_CACHE = 'newman-api-v4';
+/**
+ * ============================================================================
+ * RESIDENZA CARDINAL NEWMAN - SERVICE WORKER (sw.js)
+ * ============================================================================
+ * Strategia:
+ * - Asset statici (immagini, manifest, icone) → Cache-First
+ * - HTML e app.js → Network-First (prendono sempre la versione fresca se online)
+ * - Chiamate a Google Apps Script → NON intercettate (passano dirette al server)
+ * ============================================================================
+ */
+
+const STATIC_CACHE = 'newman-static-v7';
+const API_CACHE = 'newman-api-v7';
 
 const STATIC_ASSETS = [
   '/',
   '/index.html',
-  '/src/app.js',
+  '/app.js',
   '/manifest.json',
-  '/052a904e-e80d-4afb-82d5-ca5c18ebabda.webp',
-  '/052a904e-e80d-4afb-82d5-ca5c18ebabda.jpg',
   '/icon-newman.png',
-  '/apple-touch-icon.png'
+  '/apple-touch-icon.png',
+  '/favicon.ico'
 ];
 
+// ---------------------------------------------------------------------------
+// INSTALL: pre-cacha gli asset statici singolarmente (uno alla volta)
+// ---------------------------------------------------------------------------
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
-      // Cacha ogni asset singolarmente: se uno manca, gli altri vengono comunque cachati
       return Promise.allSettled(
         STATIC_ASSETS.map(url =>
-          cache.add(url).catch(err => console.log('Skip:', url))
+          cache.add(url).catch(err => console.log('Skip pre-cache:', url, err.message))
         )
       );
     }).then(() => self.skipWaiting())
   );
 });
 
+// ---------------------------------------------------------------------------
+// ACTIVATE: rimuove le cache vecchie
+// ---------------------------------------------------------------------------
 self.addEventListener('activate', (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -39,54 +54,66 @@ self.addEventListener('activate', (event) => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// FETCH: gestione delle richieste
+// ---------------------------------------------------------------------------
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   const url = new URL(req.url);
 
-  // Network-first con fallback su cache per script.google.com
-  if (url.hostname.includes('script.google.com')) {
+  // ✅ CRITICO: NON intercettare MAI le chiamate a Google Apps Script.
+  // Devono passare direttamente al server. Il SW non ha senso per POST e
+  // qualsiasi tentativo di manipolarle introduce errori e timeout.
+  if (url.hostname.includes('script.google.com') || url.hostname.includes('googleusercontent.com')) {
+    return;
+  }
+
+  // Solo GET sono gestiti dal SW (POST, PUT, DELETE passano diretti)
+  if (req.method !== 'GET') {
+    return;
+  }
+
+  // Asset critici (HTML, app.js) → NETWORK-FIRST con fallback su cache
+  const isCritical = url.pathname === '/' ||
+                     url.pathname.endsWith('.html') ||
+                     url.pathname === '/app.js' ||
+                     url.pathname.endsWith('/app.js');
+
+  if (isCritical) {
     event.respondWith(
-      fetch(req.clone())
+      fetch(req)
         .then((networkRes) => {
           if (networkRes && networkRes.status === 200) {
             const clone = networkRes.clone();
-            caches.open(API_CACHE).then((cache) => cache.put(req, clone)).catch(() => {});
+            caches.open(STATIC_CACHE).then((cache) => cache.put(req, clone)).catch(() => {});
           }
           return networkRes;
         })
-        .catch(async () => {
-          const cached = await caches.match(req);
-          if (cached) return cached;
-          return new Response(JSON.stringify({ success: false, error: 'Offline - cache non disponibile' }), {
-            headers: { 'Content-Type': 'application/json;charset=utf-8' }
-          });
-        })
+        .catch(() => caches.match(req).then(c => c || caches.match('/index.html')))
     );
     return;
   }
 
-  // Cache-first per asset statici (HTML, JS, immagini, manifest, stili)
-  if (
-    req.method === 'GET' &&
-    (req.destination === 'image' ||
-     req.destination === 'script' ||
-     req.destination === 'style' ||
-     req.destination === 'document' ||
-     url.pathname === '/' ||
-     url.pathname.endsWith('.html') ||
-     url.pathname.endsWith('.js') ||
-     url.pathname.endsWith('.webp') ||
-     url.pathname.endsWith('.jpg') ||
-     url.pathname.endsWith('.png') ||
-     url.pathname.endsWith('.json'))
-  ) {
+  // Asset non critici (immagini, manifest, font, icone) → CACHE-FIRST + revalidate
+  const isStaticAsset = req.destination === 'image' ||
+                        req.destination === 'style' ||
+                        req.destination === 'font' ||
+                        url.pathname.endsWith('.webp') ||
+                        url.pathname.endsWith('.jpg') ||
+                        url.pathname.endsWith('.jpeg') ||
+                        url.pathname.endsWith('.png') ||
+                        url.pathname.endsWith('.svg') ||
+                        url.pathname.endsWith('.ico') ||
+                        url.pathname.endsWith('.json');
+
+  if (isStaticAsset) {
     event.respondWith(
       caches.match(req).then((cached) => {
         if (cached) {
-          // In background aggiorna la cache (stale-while-revalidate per static assets)
+          // Aggiorna in background (stale-while-revalidate)
           fetch(req).then((netRes) => {
             if (netRes && netRes.status === 200) {
-              caches.open(STATIC_CACHE).then((cache) => cache.put(req, netRes));
+              caches.open(STATIC_CACHE).then((cache) => cache.put(req, netRes)).catch(() => {});
             }
           }).catch(() => {});
           return cached;
@@ -97,17 +124,19 @@ self.addEventListener('fetch', (event) => {
             caches.open(STATIC_CACHE).then((cache) => cache.put(req, clone)).catch(() => {});
           }
           return networkRes;
-        });
-      }).catch(() => caches.match('/index.html'))
+        }).catch(() => caches.match('/index.html'));
+      })
     );
     return;
   }
 
-  // Default network pass-through
-  event.respondWith(fetch(req));
+  // Tutto il resto: passa direttamente alla rete
+  return;
 });
 
-// Gestione Notifiche Push nel Service Worker
+// ---------------------------------------------------------------------------
+// NOTIFICHE PUSH
+// ---------------------------------------------------------------------------
 self.addEventListener('push', (event) => {
   let data = {};
   if (event.data) {
@@ -144,4 +173,3 @@ self.addEventListener('notificationclick', (event) => {
     })
   );
 });
-
