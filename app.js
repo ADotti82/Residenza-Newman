@@ -387,28 +387,36 @@ function checkAuthAndLoad() {
 // ----------------------------------------------------------------------------
 // LAYER DI RETE E API
 // ----------------------------------------------------------------------------
-
 async function callApi(action, params = {}) {
   const payload = { action, ...params };
+  const targetUrl = appState.backendUrl || DEFAULT_GAS_URL;
 
-  if (appState.backendUrl && !appState.isOfflineMode) {
-    try {
-      const response = await fetch(appState.backendUrl, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=utf-8" },
-        body: JSON.stringify(payload)
-      });
-      const data = await response.json();
-      return data;
-    } catch (err) {
-      console.warn("Chiamata GAS fallita. Uso fallback locale.", err);
-      mostraToast("Server GAS non raggiungibile. Operazione in modalità locale.", "warning");
-      return mockBackendExecution(action, params);
-    }
-  } else {
+  if (!targetUrl || appState.isOfflineMode) {
     return new Promise(resolve => {
       setTimeout(() => resolve(mockBackendExecution(action, params)), 250);
     });
+  }
+
+  // ✅ Usa il proxy dedicato su Vercel per bypassare il rate limit di Google
+  const proxyUrl = `/api/proxy?target=${encodeURIComponent(targetUrl)}`;
+
+  try {
+    const response = await fetch(proxyUrl, {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=utf-8" },
+      body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data;
+  } catch (err) {
+    console.warn("Chiamata GAS fallita via proxy. Uso fallback locale.", err);
+    mostraToast("Server non raggiungibile. Modalità locale attiva.", "warning");
+    return mockBackendExecution(action, params);
   }
 }
 
