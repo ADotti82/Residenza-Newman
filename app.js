@@ -6960,4 +6960,4 @@ window.verificaENotificaAccoglienzaConfermata = function(accList) {
 
 window.testaNotificheOre7Manuale = function() {
   controllaENotificaEventiOre7(true);
-};
+}; 
