@@ -184,8 +184,16 @@ const INITIAL_MOCK_DB = {
     { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false, notif_manutenzione: true, notif_spazi: false, notif_push: true, password: "newman2026" }
   ],
   mensa: [
-    { id: "M_001", data: "2026-09-16", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Piatto standard", timestamp: "2026-09-16T09:00:00Z" },
-    { id: "M_002", data: "2026-09-16", email: "donandreadotti@gmail.com", tipo_pasto: "pranzo", busta: false, ritardo: true, ospiti: 0, stato_presenza: "Ritardo", note: "Arrivo alle 13:45 causa lezioni", timestamp: "2026-09-16T09:30:00Z" }
+    { id: "M_001", data: "2026-09-15", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Busta asporto per convegno", timestamp: "2026-09-14T18:00:00Z" },
+    { id: "M_002", data: "2026-09-15", email: "donsergio@newman.it", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 1, stato_presenza: "Presente", note: "Busta per me e collega", timestamp: "2026-09-14T19:00:00Z" },
+    { id: "M_003", data: "2026-09-16", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Piatto standard", timestamp: "2026-09-16T09:00:00Z" },
+    { id: "M_004", data: "2026-09-16", email: "donandreadotti@gmail.com", tipo_pasto: "pranzo", busta: false, ritardo: true, ospiti: 0, stato_presenza: "Ritardo", note: "Arrivo alle 13:45 causa lezioni", timestamp: "2026-09-16T09:30:00Z" },
+    { id: "M_005", data: "2026-09-16", email: "francesco.studente@newman.it", tipo_pasto: "cena", busta: false, ritardo: false, ospiti: 2, stato_presenza: "Presente", note: "Ospiti familiari a cena", timestamp: "2026-09-16T14:00:00Z" },
+    { id: "M_006", data: "2026-09-17", email: "donsergio@newman.it", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Busta per rientro tardivo", timestamp: "2026-09-16T18:00:00Z" },
+    { id: "M_007", data: "2026-09-18", email: "donrocco@newman.it", tipo_pasto: "cena", busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Cena fuori per impegno pastorale", timestamp: "2026-09-18T10:00:00Z" },
+    { id: "M_008", data: "2026-09-22", email: "francesco.studente@newman.it", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Busta pranzo martedì", timestamp: "2026-09-21T16:00:00Z" },
+    { id: "M_009", data: "2026-09-24", email: "donandreadotti@gmail.com", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Busta pranzo giovedì", timestamp: "2026-09-23T15:00:00Z" },
+    { id: "M_010", data: "2026-09-25", email: "donsergio@newman.it", tipo_pasto: "cena", busta: false, ritardo: true, ospiti: 1, stato_presenza: "Presente", note: "Ritardo con ospite", timestamp: "2026-09-25T14:00:00Z" }
   ],
   accoglienza: [
     {
@@ -211,7 +219,12 @@ const INITIAL_MOCK_DB = {
   ],
   manutenzione: [
     { id: "SEG_001", timestamp: "2026-09-14T11:20:00Z", email: "donrocco@newman.it", categoria: "manutenzione", luogo: "Bagno Piano 2", descrizione: "Perdita d'acqua dal rubinetto del lavabo al piano 2", link_foto: "", priorita: "Alta", stato: "In Lavorazione", note_intervento: "Contattato idraulico convenzionato per sostituzione guarnizione", tecnico: "Idraulico Mario", data_chiusura: "" },
-    { id: "SEG_002", timestamp: "2026-09-12T16:00:00Z", email: "donandreadotti@gmail.com", categoria: "servizi", luogo: "Lavanderia Comune", descrizione: "Mancanza detersivi e richiesta sanificazione cestelli lavatrice 2", link_foto: "", priorita: "Media", stato: "Risolto", note_intervento: "Riforniti flaconi detersivo e igienizzati i cestelli dalla cooperativa", tecnico: "Impresa Pulizie", data_chiusura: "2026-09-13T10:00:00Z" }
+    { id: "SEG_002", timestamp: "2026-09-12T16:00:00Z", email: "donandreadotti@gmail.com", categoria: "servizi", luogo: "Lavanderia Comune", descrizione: "Mancanza detersivi e richiesta sanificazione cestelli lavatrice 2", link_foto: "", priorita: "Media", stato: "Risolto", note_intervento: "Riforniti flaconi detersivo e igienizzati i cestelli dalla cooperativa", tecnico: "Impresa Pulizie", data_chiusura: "2026-09-13T10:00:00Z" },
+    { id: "SEG_003", timestamp: "2026-09-18T09:15:00Z", email: "donsergio@newman.it", categoria: "manutenzione", luogo: "Camera 204", descrizione: "Sfarfallio lampadario principale e presa elettrica allentata", link_foto: "", priorita: "Media", stato: "Risolto", note_intervento: "Sostituito alimentatore LED e fissata presa", tecnico: "Elettricista Luigi", data_chiusura: "2026-09-19T14:30:00Z" },
+    { id: "SEG_004", timestamp: "2026-09-22T14:00:00Z", email: "francesco.studente@newman.it", categoria: "manutenzione", luogo: "Stanza 108", descrizione: "Condizionatore emette aria poco fredda e rumore anomalo della ventola", link_foto: "", priorita: "Alta", stato: "In Lavorazione", note_intervento: "In attesa pezzo di ricambio ventola split", tecnico: "Ditta ClimaTech", data_chiusura: "" },
+    { id: "SEG_005", timestamp: "2026-09-24T18:40:00Z", email: "donrocco@newman.it", categoria: "servizi", luogo: "Corridoio Piano 1", descrizione: "Richiesta passaggio aspirapolvere e pulizia approfondita vetrate", link_foto: "", priorita: "Bassa", stato: "Aperta", note_intervento: "", tecnico: "", data_chiusura: "" },
+    { id: "SEG_006", timestamp: "2026-09-27T10:05:00Z", email: "donandreadotti@gmail.com", categoria: "manutenzione", luogo: "Chiesa / Cappella", descrizione: "Maniglia della porta laterale dissaldata e chiusura difficoltosa", link_foto: "", priorita: "Media", stato: "Aperta", note_intervento: "Da concordare sopralluogo fabbro/falegname", tecnico: "", data_chiusura: "" },
+    { id: "SEG_007", timestamp: "2026-09-28T08:30:00Z", email: "donsergio@newman.it", categoria: "manutenzione", luogo: "Cucina Comunitaria", descrizione: "Gocciolamento sifone sotto il lavello principale", link_foto: "", priorita: "Alta", stato: "Risolto", note_intervento: "Sostituito manicotto di scarico e serrato raccordo", tecnico: "Idraulico Mario", data_chiusura: "2026-09-28T16:00:00Z" }
   ],
   configurazione: {
     Messaggio_Supermaster: "Cari sacerdoti e residenti, benvenuti nella nostra Residenza. Ricordo a tutti che gli orari di mensa vanno rispettati per agevolare il servizio della cuoca. Per qualsiasi esigenza pastorale o accademica la porta della Direzione è sempre aperta.",
@@ -2130,7 +2143,10 @@ function renderMensaView() {
       <div class="mensa-view-mode-tabs" style="display: flex; flex-wrap: wrap; gap: 6px;">
         <button type="button" class="mode-tab-btn ${mode === 'settimana' ? 'active' : ''}" onclick="setMensaViewMode('settimana')">📅 Settimana Completa</button>
         <button type="button" class="mode-tab-btn ${mode === 'giorno' ? 'active' : ''}" onclick="setMensaViewMode('giorno')">☀️ Vista Giorno</button>
-        ${haPermessiMasterMensa() ? `<button type="button" class="mode-tab-btn" style="background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; font-weight: 700;" onclick="switchTab('cucina')">👩‍🍳 Vista Cuoca</button>` : ''}
+        ${haPermessiMasterMensa() ? `
+          <button type="button" class="mode-tab-btn" style="background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; font-weight: 700;" onclick="switchTab('cucina')">👩‍🍳 Vista Cuoca</button>
+          <button type="button" class="mode-tab-btn" style="background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; font-weight: 700;" onclick="switchTab('statistiche-mensa')">📊 Statistiche Mensili</button>
+        ` : ''}
       </div>
       <div class="mensa-day-pills">${renderDayPills(dataSel)}</div>
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; margin-top: 8px; font-size: 11.5px; color: #475569; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
@@ -4615,6 +4631,7 @@ function renderMasterSection() {
           <div class="flex-align"><span class="master-tag">MENSA</span><h3 class="card-title" style="margin: 0;">Presenze & Cucina</h3></div>
           <div class="flex-align" style="gap: 6px; flex-wrap: wrap;">
             <button type="button" class="btn btn-sm btn-primary" onclick="switchTab('cucina')" style="background: #ea580c; border-color: #ea580c; font-weight: 700; font-size: 11.5px;">👩‍🍳 Vista Cuoca</button>
+            <button type="button" class="btn btn-sm" onclick="switchTab('statistiche-mensa')" style="background: #0284c7; color: #fff; border-color: #0284c7; font-weight: 700; font-size: 11.5px;">📊 Statistiche Mensili</button>
             <input type="date" class="input-date" style="padding: 3px 8px; font-size: 12px;" value="${dataFiltroYMD}" onchange="cambiaDataMasterMensa(this.value)">
           </div>
         </div>
@@ -4801,7 +4818,11 @@ function renderMasterSection() {
       <div class="master-block card" style="border-top: 4px solid #d97706;">
         <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
           <div><span class="master-tag" style="background:#d97706; color:#fff;">MASTER SEGNALAZIONI</span><h3 class="card-title" style="margin: 4px 0 0 0;">Gestione Segnalazioni</h3></div>
-          <div style="display: flex; gap: 6px;"><span class="badge" style="background:#fef3c7; color:#92400e; font-weight:700;">Aperte: ${aperteCount}</span><span class="badge" style="background:#dcfce7; color:#166534; font-weight:700;">Risolte/Archiviate: ${archiviateCount}</span></div>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <button type="button" class="btn btn-sm btn-primary" onclick="switchTab('sintesi-manutenzioni')" style="background: #2563eb; border-color: #2563eb; font-weight: 700; font-size: 11.5px;">📈 Sintesi &amp; Statistiche</button>
+            <span class="badge" style="background:#fef3c7; color:#92400e; font-weight:700;">Aperte: ${aperteCount}</span>
+            <span class="badge" style="background:#dcfce7; color:#166534; font-weight:700;">Risolte/Archiviate: ${archiviateCount}</span>
+          </div>
         </div>
 
         <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; margin: 12px 0; display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between;">
@@ -5368,7 +5389,7 @@ function switchTab(tabId) {
     else item.classList.remove("active");
   });
 
-  const views = ["info", "mensa", "spazi", "accoglienza", "residenza", "manutenzione", "master", "cucina", "calendario"];
+  const views = ["info", "mensa", "spazi", "accoglienza", "residenza", "manutenzione", "master", "cucina", "calendario", "statistiche-mensa", "sintesi-manutenzioni"];
   views.forEach(v => {
     const el = document.getElementById(`view-${v}`);
     if (el) {
@@ -5396,6 +5417,22 @@ function switchTab(tabId) {
       return;
     }
     renderCucinaView();
+  }
+  if (tabId === "statistiche-mensa") {
+    if (!haPermessiMasterMensa()) {
+      mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
+      switchTab("mensa");
+      return;
+    }
+    renderStatisticheMensaView();
+  }
+  if (tabId === "sintesi-manutenzioni") {
+    if (!haPermessiMasterManutenzione()) {
+      mostraToast("Accesso riservato: richiede autorizzazione Master Manutenzione", "warning");
+      switchTab("manutenzione");
+      return;
+    }
+    renderSintesiManutenzioniView();
   }
   if (tabId === "calendario") renderCalendarioGlobaleView();
 }
@@ -5617,6 +5654,9 @@ function aggiornaUIUtente() {
     const btnGuidaSettings = document.getElementById("settings-btn-guida");
     if (btnGuidaSettings) btnGuidaSettings.style.display = isMaster ? "flex" : "none";
 
+    const bannerSintesi = document.getElementById("banner-master-manutenzione-sintesi");
+    if (bannerSintesi) bannerSintesi.style.display = haPermessiMasterManutenzione() ? "block" : "none";
+
     if (mensaNav) {
       const isMensaEnabled = appState.user.is_utente_mensa !== false;
       mensaNav.style.display = isMensaEnabled ? "flex" : "none";
@@ -5631,6 +5671,8 @@ function aggiornaUIUtente() {
     if (btnGuidaHead) btnGuidaHead.style.display = "none";
     const btnGuidaSettings = document.getElementById("settings-btn-guida");
     if (btnGuidaSettings) btnGuidaSettings.style.display = "none";
+    const bannerSintesi = document.getElementById("banner-master-manutenzione-sintesi");
+    if (bannerSintesi) bannerSintesi.style.display = "none";
     if (mensaNav) mensaNav.style.display = "flex";
   }
 }
@@ -5701,12 +5743,20 @@ function apriModalSettings() {
       avatarEl.textContent = parts.length > 1 ? (parts[0][0] + parts[1][0]).toUpperCase() : parts[0].slice(0, 2).toUpperCase();
     }
     if (masterShortcut) masterShortcut.style.display = haPermessiMaster() ? "flex" : "none";
+    const statMensaShortcut = document.getElementById("settings-btn-statistiche-mensa");
+    if (statMensaShortcut) statMensaShortcut.style.display = haPermessiMasterMensa() ? "flex" : "none";
+    const sintesiManutShortcut = document.getElementById("settings-btn-sintesi-manutenzioni");
+    if (sintesiManutShortcut) sintesiManutShortcut.style.display = haPermessiMasterManutenzione() ? "flex" : "none";
   } else {
     if (nameEl) nameEl.textContent = "Ospite";
     if (emailEl) emailEl.textContent = "Accesso non effettuato";
     if (roleEl) { roleEl.textContent = "Ospite"; roleEl.style.background = "var(--surface-alt)"; roleEl.style.color = "var(--text-muted)"; }
     if (avatarEl) avatarEl.textContent = "👤";
     if (masterShortcut) masterShortcut.style.display = "none";
+    const statMensaShortcut = document.getElementById("settings-btn-statistiche-mensa");
+    if (statMensaShortcut) statMensaShortcut.style.display = "none";
+    const sintesiManutShortcut = document.getElementById("settings-btn-sintesi-manutenzioni");
+    if (sintesiManutShortcut) sintesiManutShortcut.style.display = "none";
   }
 
   const logoutBtn = document.getElementById("btn-settings-logout");
@@ -6960,4 +7010,803 @@ window.verificaENotificaAccoglienzaConfermata = function(accList) {
 
 window.testaNotificheOre7Manuale = function() {
   controllaENotificaEventiOre7(true);
-}; 
+};
+
+// ============================================================================
+// SEZIONE STATISTICHE MENSA MENSILE (RISERVATO MASTER MENSA)
+// ============================================================================
+
+const NOMI_MESI_ITALIANI = [
+  "Gennaio", "Febbraio", "Marzo", "Aprile", "Maggio", "Giugno",
+  "Luglio", "Agosto", "Settembre", "Ottobre", "Novembre", "Dicembre"
+];
+
+window.cambiaMeseStatisticheMensa = function(delta) {
+  let anno = appState.statisticheMensaAnno || (new Date().getFullYear());
+  let mese = (appState.statisticheMensaMese !== undefined) ? appState.statisticheMensaMese : (new Date().getMonth());
+
+  mese += delta;
+  if (mese > 11) {
+    mese = 0;
+    anno += 1;
+  } else if (mese < 0) {
+    mese = 11;
+    anno -= 1;
+  }
+
+  appState.statisticheMensaAnno = anno;
+  appState.statisticheMensaMese = mese;
+  renderStatisticheMensaView();
+};
+
+window.selezionaMeseStatisticheMensa = function(annoMeseStr) {
+  if (!annoMeseStr) return;
+  const parts = annoMeseStr.split("-");
+  if (parts.length === 2) {
+    appState.statisticheMensaAnno = parseInt(parts[0], 10);
+    appState.statisticheMensaMese = parseInt(parts[1], 10) - 1;
+    renderStatisticheMensaView();
+  }
+};
+
+window.renderStatisticheMensaView = function() {
+  const container = document.getElementById("statistiche-mensa-container");
+  if (!container) return;
+
+  if (!haPermessiMasterMensa()) {
+    container.innerHTML = `
+      <div class="card" style="padding: 36px 20px; text-align: center; border-top: 4px solid #0284c7; max-width: 500px; margin: 40px auto;">
+        <span style="font-size: 42px; display: block; margin-bottom: 12px;">🔒</span>
+        <h3 style="margin: 0 0 8px 0; color: #0369a1; font-size: 18px;">Accesso Riservato Master Mensa</h3>
+        <p class="text-muted" style="font-size: 13.5px; line-height: 1.5; margin: 0 0 16px 0;">La consultazione delle statistiche mensili della mensa è riservata agli utenti autorizzati come "Master Mensa" o Amministratore.</p>
+        <button type="button" class="btn btn-primary" onclick="switchTab('mensa')" style="background: #0284c7; border-color: #0284c7; font-weight: 700;">Torna alla Mensa</button>
+      </div>
+    `;
+    return;
+  }
+
+  const currentDate = new Date();
+  const annoSel = appState.statisticheMensaAnno || currentDate.getFullYear();
+  const meseSel = (appState.statisticheMensaMese !== undefined) ? appState.statisticheMensaMese : currentDate.getMonth();
+  appState.statisticheMensaAnno = annoSel;
+  appState.statisticheMensaMese = meseSel;
+
+  const nomeMese = NOMI_MESI_ITALIANI[meseSel];
+  const numGiorniMese = new Date(annoSel, meseSel + 1, 0).getDate();
+
+  // Calcolo statistiche giorno per giorno
+  let totalePastiMese = 0;
+  let totalePranziMese = 0;
+  let totaleCeneMese = 0;
+  let totaleBusteMese = 0;
+  let totaleOspitiMese = 0;
+  let totaleRitardiMese = 0;
+  let piccoPresenze = { data: "", tot: 0, giornoNome: "" };
+  let giornoMinimo = { data: "", tot: 9999, giornoNome: "" };
+
+  const datiGiornalieri = [];
+  const noteDieteticheMese = [];
+
+  for (let g = 1; g <= numGiorniMese; g++) {
+    const mmStr = String(meseSel + 1).padStart(2, "0");
+    const ggStr = String(g).padStart(2, "0");
+    const ymd = `${annoSel}-${mmStr}-${ggStr}`;
+    const dayObj = new Date(annoSel, meseSel, g);
+    const dayOfWeekShort = dayObj.toLocaleDateString("it-IT", { weekday: "short" });
+    const dayOfWeekFull = dayObj.toLocaleDateString("it-IT", { weekday: "long" });
+
+    const statsPranzo = calcolaContatoreMensa(ymd, "pranzo");
+    const statsCena = calcolaContatoreMensa(ymd, "cena");
+
+    const pranzoTot = statsPranzo.totale;
+    const pranzoBuste = statsPranzo.buste;
+    const pranzoInSala = statsPranzo.inSala;
+    const pranzoOspiti = statsPranzo.ospitiTotali;
+
+    const cenaTot = statsCena.totale;
+    const cenaInSala = statsCena.inSala;
+    const cenaBuste = statsCena.buste;
+    const cenaOspiti = statsCena.ospitiTotali;
+
+    const totaleGiorno = pranzoTot + cenaTot;
+    const busteGiorno = pranzoBuste + cenaBuste;
+    const ospitiGiorno = pranzoOspiti + cenaOspiti;
+
+    totalePastiMese += totaleGiorno;
+    totalePranziMese += pranzoTot;
+    totaleCeneMese += cenaTot;
+    totaleBusteMese += busteGiorno;
+    totaleOspitiMese += ospitiGiorno;
+    totaleRitardiMese += (statsPranzo.ritardi + statsCena.ritardi);
+
+    if (totaleGiorno > piccoPresenze.tot) {
+      piccoPresenze = { data: ymd, tot: totaleGiorno, giornoNome: `${dayOfWeekShort} ${g}` };
+    }
+    if (totaleGiorno > 0 && totaleGiorno < giornoMinimo.tot) {
+      giornoMinimo = { data: ymd, tot: totaleGiorno, giornoNome: `${dayOfWeekShort} ${g}` };
+    }
+
+    // Raccogli note dietetiche / speciali
+    (statsPranzo.dettagliPresenti || []).forEach(p => {
+      if (p.note && p.note.trim()) {
+        noteDieteticheMese.push({ data: ymd, pasto: "pranzo", nome: p.nome || p.email, note: p.note });
+      }
+    });
+    (statsCena.dettagliPresenti || []).forEach(p => {
+      if (p.note && p.note.trim()) {
+        noteDieteticheMese.push({ data: ymd, pasto: "cena", nome: p.nome || p.email, note: p.note });
+      }
+    });
+
+    // Menù previsto del giorno
+    let menuDesc = "";
+    try {
+      const ciclo = getSettimanaMenu(dayObj);
+      const nomeGiorno = getNomeGiorno(dayObj);
+      const mGiorno = MENU_14_GIORNI[ciclo]?.[nomeGiorno];
+      if (mGiorno) {
+        menuDesc = `Pranzo: ${mGiorno.pranzo?.primo || ''}, ${mGiorno.pranzo?.secondo || ''} • Cena: ${mGiorno.cena?.primo || ''}, ${mGiorno.cena?.secondo || ''}`;
+      }
+    } catch (e) {}
+
+    datiGiornalieri.push({
+      giornoNum: g,
+      ymd,
+      dayOfWeekShort: dayOfWeekShort.charAt(0).toUpperCase() + dayOfWeekShort.slice(1),
+      dayOfWeekFull: dayOfWeekFull.charAt(0).toUpperCase() + dayOfWeekFull.slice(1),
+      pranzoTot,
+      pranzoInSala,
+      pranzoBuste,
+      pranzoOspiti,
+      cenaTot,
+      cenaInSala,
+      cenaBuste,
+      cenaOspiti,
+      totaleGiorno,
+      busteGiorno,
+      ospitiGiorno,
+      menuDesc,
+      isBustaPranzo: statsPranzo.isBustaGiorno,
+      isOggi: ymd === formatYMD(new Date())
+    });
+  }
+
+  const mediaPastiGiorno = (totalePastiMese / numGiorniMese).toFixed(1);
+  const percBuste = totalePastiMese > 0 ? Math.round((totaleBusteMese / totalePastiMese) * 100) : 0;
+  const percPranzi = totalePastiMese > 0 ? Math.round((totalePranziMese / totalePastiMese) * 100) : 0;
+  const percCene = totalePastiMese > 0 ? Math.round((totaleCeneMese / totalePastiMese) * 100) : 0;
+
+  // Max value for bar chart height
+  const maxDayVal = Math.max(1, ...datiGiornalieri.map(d => d.totaleGiorno));
+
+  // Genera opzioni select mesi
+  const opzioniMesi = [];
+  for (let m = 0; m < 12; m++) {
+    const val = `${annoSel}-${String(m + 1).padStart(2, '0')}`;
+    const sel = (m === meseSel) ? 'selected' : '';
+    opzioniMesi.push(`<option value="${val}" ${sel}>${NOMI_MESI_ITALIANI[m]} ${annoSel}</option>`);
+  }
+
+  let html = `
+    <div class="statistiche-mensa-view">
+      <!-- HEADER CON NAVIGAZIONE MESE E AZIONI -->
+      <div class="card" style="border-top: 5px solid #0284c7; background: linear-gradient(to bottom, #f0f9ff, #ffffff); padding: 16px; margin-bottom: 14px;">
+        <div class="flex-between" style="flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 30px;">📊</span>
+            <div>
+              <h2 style="margin: 0; font-size: 20px; color: #0369a1; font-weight: 800;">Statistiche &amp; Dati Mensili Mensa</h2>
+              <div style="font-size: 13px; color: #0284c7; font-weight: 600;">Residenza Card. Newman • Report Mensile Consumi e Presenze</div>
+            </div>
+          </div>
+          <div class="no-print" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('mensa')" style="font-weight: 700;">← Mensa</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('cucina')" style="font-weight: 700; color: #c2410c; border-color: #fdba74;">👩‍🍳 Cuoca</button>
+            <button type="button" class="btn btn-sm" onclick="window.print()" style="background: #0f172a; color: #ffffff; font-weight: 700; padding: 6px 12px; cursor: pointer;">🖨️ Stampa</button>
+            <button type="button" class="btn btn-sm" onclick="esportaCSVMensaMese()" style="background: #16a34a; color: #ffffff; font-weight: 700; padding: 6px 12px; cursor: pointer;">📥 Esporta CSV</button>
+          </div>
+        </div>
+
+        <!-- SELETTORE MESE & ANNO -->
+        <div style="background: #ffffff; border: 1.5px solid #bae6fd; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="cambiaMeseStatisticheMensa(-1)" style="font-weight: 800; padding: 6px 12px;">◀ Mese Prec.</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="appState.statisticheMensaAnno=new Date().getFullYear(); appState.statisticheMensaMese=new Date().getMonth(); renderStatisticheMensaView();" style="font-weight: 700; padding: 6px 10px;">Oggi</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="cambiaMeseStatisticheMensa(1)" style="font-weight: 800; padding: 6px 12px;">Mese Succ. ▶</button>
+          </div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 13px; font-weight: 700; color: #0369a1;">Seleziona Mese:</span>
+            <select class="input-select" onchange="selezionaMeseStatisticheMensa(this.value)" style="padding: 6px 12px; font-weight: 800; font-size: 14px; color: #0c4a6e; border-color: #7dd3fc; border-radius: 6px; cursor: pointer;">
+              ${opzioniMesi.join("")}
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <!-- CRUSCOTTO KPI MENSILI -->
+      <div class="stat-kpi-grid">
+        <div class="stat-kpi-card" style="border-top: 4px solid #0284c7;">
+          <span class="stat-kpi-val" style="color: #0284c7;">${totalePastiMese}</span>
+          <span class="stat-kpi-lbl">🍽️ Pasti Totali nel Mese</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">Media: ${mediaPastiGiorno} pasti/giorno</span>
+        </div>
+        <div class="stat-kpi-card" style="border-top: 4px solid #d97706;">
+          <span class="stat-kpi-val" style="color: #d97706;">${totalePranziMese}</span>
+          <span class="stat-kpi-lbl">☀️ Totale Pranzi</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">${percPranzi}% del consumo</span>
+        </div>
+        <div class="stat-kpi-card" style="border-top: 4px solid #2563eb;">
+          <span class="stat-kpi-val" style="color: #2563eb;">${totaleCeneMese}</span>
+          <span class="stat-kpi-lbl">🌙 Totale Cene</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">${percCene}% del consumo</span>
+        </div>
+        <div class="stat-kpi-card" style="border-top: 4px solid #ea580c;">
+          <span class="stat-kpi-val" style="color: #ea580c;">${totaleBusteMese}</span>
+          <span class="stat-kpi-lbl">🥪 Buste Asporto</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">${percBuste}% del totale pasti</span>
+        </div>
+        <div class="stat-kpi-card" style="border-top: 4px solid #16a34a;">
+          <span class="stat-kpi-val" style="color: #16a34a;">${totaleOspitiMese}</span>
+          <span class="stat-kpi-lbl">👥 Ospiti Accolti</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">${totaleRitardiMese} ritardi segnalati</span>
+        </div>
+        <div class="stat-kpi-card" style="border-top: 4px solid #7c3aed;">
+          <span class="stat-kpi-val" style="color: #7c3aed; font-size: 20px; line-height: 1.3;">${piccoPresenze.tot} pasti</span>
+          <span class="stat-kpi-lbl">🏆 Picco Presenze</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">${piccoPresenze.giornoNome || '—'}</span>
+        </div>
+      </div>
+
+      <!-- GRAFICO VISIVO AFFLUENZA GIORNALIERA DEL MESE -->
+      <div class="card" style="margin-bottom: 16px; padding: 16px;">
+        <div class="flex-between" style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h3 style="margin: 0; font-size: 15px; font-weight: 800; color: var(--text-main);">📈 Andamento Affluenza Giornaliera (${nomeMese} ${annoSel})</h3>
+            <span class="text-xs text-muted">Distribuzione dei pasti giorno per giorno (clicca su una colonna per dettagli)</span>
+          </div>
+          <div style="display: flex; gap: 12px; font-size: 11px; font-weight: 700; align-items: center;">
+            <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #0284c7; border-radius: 2px;"></span> Totale Pasti</span>
+            <span style="display: inline-flex; align-items: center; gap: 4px;"><span style="width: 10px; height: 10px; background: #ea580c; border-radius: 2px;"></span> Buste Asporto</span>
+          </div>
+        </div>
+
+        <div class="stat-bar-chart-container">
+          ${datiGiornalieri.map(d => {
+            const hPct = Math.round((d.totaleGiorno / maxDayVal) * 100);
+            const isWeekend = d.dayOfWeekShort === "Sab" || d.dayOfWeekShort === "Dom";
+            const colBg = d.busteGiorno > 0 ? '#ea580c' : '#0284c7';
+            return `
+              <div class="stat-bar-col" onclick="apriModalElencoPastiCucina('${d.ymd}', 'pranzo')" title="${d.dayOfWeekShort} ${d.giornoNum} ${nomeMese}: ${d.totaleGiorno} pasti (Pranzi: ${d.pranzoTot}, Cene: ${d.cenaTot}, Buste: ${d.busteGiorno})">
+                <span style="font-size: 9px; font-weight: 800; color: ${colBg}; margin-bottom: 2px;">${d.totaleGiorno > 0 ? d.totaleGiorno : ''}</span>
+                <div class="stat-bar-fill" style="height: ${Math.max(4, hPct)}%; background: ${d.isOggi ? '#16a34a' : colBg}; opacity: ${isWeekend ? '0.75' : '1'};"></div>
+                <span class="stat-bar-label" style="font-weight: ${d.isOggi ? '800' : '600'}; color: ${d.isOggi ? '#16a34a' : (isWeekend ? '#94a3b8' : 'inherit')}">${d.giornoNum}</span>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      </div>
+
+      <!-- SEGNALAZIONI & NOTE DIETETICHE DEL MESE -->
+      ${noteDieteticheMese.length > 0 ? `
+        <div class="card" style="margin-bottom: 16px; background: #fffbeb; border: 1px solid #fde68a; padding: 14px;">
+          <h4 style="margin: 0 0 8px 0; color: #92400e; font-size: 13.5px; font-weight: 800; display: flex; align-items: center; gap: 6px;">
+            <span>💬</span> Note &amp; Preferenze Dietetiche Registrate nel Mese (${noteDieteticheMese.length})
+          </h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 8px;">
+            ${noteDieteticheMese.map(n => `
+              <div style="background: #ffffff; border: 1px solid #fef08a; border-radius: 6px; padding: 8px 10px; font-size: 12px;">
+                <div class="flex-between">
+                  <strong>${escapeHtml(n.nome)}</strong>
+                  <span class="badge" style="background: #ffedd5; color: #9a3412; font-size: 10.5px;">${n.pasto === 'pranzo' ? '☀️ Pranzo' : '🌙 Cena'} • ${formattaDataItaliana(n.data)}</span>
+                </div>
+                <div style="color: #78350f; margin-top: 3px; font-style: italic;">"${escapeHtml(n.note)}"</div>
+              </div>
+            `).join("")}
+          </div>
+        </div>
+      ` : ''}
+
+      <!-- TABELLA COMPLETA REGISTRO GIORNALIERO DEL MESE -->
+      <div class="card" style="padding: 16px; margin-bottom: 16px;">
+        <div class="flex-between" style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text-main);">📋 Registro Giornaliero Dettagliato — ${nomeMese} ${annoSel}</h3>
+            <span class="text-xs text-muted">Dettaglio presenze in sala, buste da asporto, ospiti e menù per ogni giorno</span>
+          </div>
+          <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700;">Totale Mese: ${totalePastiMese} Pasti</span>
+        </div>
+
+        <div class="table-responsive">
+          <table class="stat-report-table">
+            <thead>
+              <tr>
+                <th style="width: 110px;">Data</th>
+                <th>Giorno</th>
+                <th style="min-width: 140px;">Menù Previsto</th>
+                <th style="text-align: center;">☀️ Pranzo</th>
+                <th style="text-align: center;">🌙 Cena</th>
+                <th style="text-align: center;">🥪 Buste</th>
+                <th style="text-align: center;">👥 Ospiti</th>
+                <th style="text-align: center; font-weight: 800;">Totale</th>
+                <th class="no-print" style="text-align: center;">Dettaglio</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${datiGiornalieri.map(d => {
+                const isDomenica = d.dayOfWeekShort === "Dom";
+                return `
+                  <tr style="${d.isOggi ? 'background: #f0fdf4; font-weight: 600;' : (isDomenica ? 'background: #fafafa;' : '')}">
+                    <td>
+                      <strong>${formattaDataItaliana(d.ymd)}</strong>
+                      ${d.isOggi ? '<span class="badge badge-success" style="font-size: 9.5px; margin-left: 4px;">Oggi</span>' : ''}
+                    </td>
+                    <td><span style="font-weight: 700; color: ${isDomenica ? '#dc2626' : 'inherit'};">${d.dayOfWeekShort}</span></td>
+                    <td>
+                      <div class="text-xs text-muted" style="max-width: 240px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;" title="${escapeHtml(d.menuDesc || 'Menù standard')}">
+                        ${escapeHtml(d.menuDesc || 'Menù ordinario')}
+                      </div>
+                    </td>
+                    <td style="text-align: center;">
+                      <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700;">${d.pranzoTot}</span>
+                    </td>
+                    <td style="text-align: center;">
+                      <span class="badge" style="background: #eff6ff; color: #1e40af; font-weight: 700;">${d.cenaTot}</span>
+                    </td>
+                    <td style="text-align: center;">
+                      ${d.busteGiorno > 0 ? `<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800;">${d.busteGiorno}</span>` : '<span style="color: #cbd5e1;">—</span>'}
+                    </td>
+                    <td style="text-align: center;">
+                      ${d.ospitiGiorno > 0 ? `<span class="badge badge-warning">+${d.ospitiGiorno}</span>` : '<span style="color: #cbd5e1;">0</span>'}
+                    </td>
+                    <td style="text-align: center;">
+                      <strong style="font-size: 14px; color: ${d.totaleGiorno > 0 ? '#0f172a' : '#94a3b8'};">${d.totaleGiorno}</strong>
+                    </td>
+                    <td class="no-print" style="text-align: center;">
+                      <div style="display: inline-flex; gap: 4px;">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="apriModalElencoPastiCucina('${d.ymd}', 'pranzo')" title="Vedi residenti pranzo" style="padding: 2px 6px; font-size: 11px;">☀️</button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="apriModalElencoPastiCucina('${d.ymd}', 'cena')" title="Vedi residenti cena" style="padding: 2px 6px; font-size: 11px;">🌙</button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+            <tfoot>
+              <tr style="background: #f8fafc; font-weight: 800; border-top: 2px solid var(--border);">
+                <td colspan="3" style="padding: 12px 10px;">TOTALE MENSILE (${nomeMese} ${annoSel})</td>
+                <td style="text-align: center; color: #0369a1; font-size: 14px;">${totalePranziMese}</td>
+                <td style="text-align: center; color: #1e40af; font-size: 14px;">${totaleCeneMese}</td>
+                <td style="text-align: center; color: #854d0e; font-size: 14px;">${totaleBusteMese}</td>
+                <td style="text-align: center; color: #ca8a04; font-size: 14px;">+${totaleOspitiMese}</td>
+                <td style="text-align: center; color: #0284c7; font-size: 16px;">${totalePastiMese}</td>
+                <td class="no-print"></td>
+              </tr>
+            </tfoot>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+};
+
+window.esportaCSVMensaMese = function() {
+  const annoSel = appState.statisticheMensaAnno || (new Date().getFullYear());
+  const meseSel = (appState.statisticheMensaMese !== undefined) ? appState.statisticheMensaMese : (new Date().getMonth());
+  const nomeMese = NOMI_MESI_ITALIANI[meseSel];
+  const numGiorniMese = new Date(annoSel, meseSel + 1, 0).getDate();
+
+  let csv = "\uFEFF"; // UTF-8 BOM
+  csv += `Data;Giorno;Pranzo in Sala;Pranzo Buste;Pranzo Ospiti;Totale Pranzo;Cena in Sala;Cena Ospiti;Totale Cena;Totale Pasti Giorno\n`;
+
+  for (let g = 1; g <= numGiorniMese; g++) {
+    const mmStr = String(meseSel + 1).padStart(2, "0");
+    const ggStr = String(g).padStart(2, "0");
+    const ymd = `${annoSel}-${mmStr}-${ggStr}`;
+    const dayObj = new Date(annoSel, meseSel, g);
+    const dayOfWeek = dayObj.toLocaleDateString("it-IT", { weekday: "long" });
+
+    const sP = calcolaContatoreMensa(ymd, "pranzo");
+    const sC = calcolaContatoreMensa(ymd, "cena");
+
+    const pInSala = sP.inSala;
+    const pBuste = sP.buste;
+    const pOspiti = sP.ospitiTotali;
+    const pTot = sP.totale;
+
+    const cInSala = sC.inSala;
+    const cOspiti = sC.ospitiTotali;
+    const cTot = sC.totale;
+    const totGiorno = pTot + cTot;
+
+    csv += `${formattaDataItaliana(ymd)};${dayOfWeek};${pInSala};${pBuste};${pOspiti};${pTot};${cInSala};${cOspiti};${cTot};${totGiorno}\n`;
+  }
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `statistiche_mensa_${nomeMese.toLowerCase()}_${annoSel}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  mostraToast(`📥 CSV esportato: statistiche_mensa_${nomeMese.toLowerCase()}_${annoSel}.csv`, "success");
+};
+
+// ============================================================================
+// SEZIONE SINTESI & STATISTICHE MANUTENZIONI (RISERVATO MASTER MANUTENZIONE)
+// ============================================================================
+
+window.filtraSintesiManutenzioni = function(periodo, cat, stato, prio) {
+  if (periodo !== undefined) appState.sintesiManutenzioniPeriodo = periodo;
+  if (cat !== undefined) appState.sintesiManutenzioniCategoria = cat;
+  if (stato !== undefined) appState.sintesiManutenzioniStato = stato;
+  if (prio !== undefined) appState.sintesiManutenzioniPriorita = prio;
+  renderSintesiManutenzioniView();
+};
+
+window.cercaSintesiManutenzioni = function(val) {
+  appState.sintesiManutenzioniSearch = String(val || "").trim().toLowerCase();
+  renderSintesiManutenzioniView();
+};
+
+window.renderSintesiManutenzioniView = function() {
+  const container = document.getElementById("sintesi-manutenzioni-container");
+  if (!container) return;
+
+  if (!haPermessiMasterManutenzione()) {
+    container.innerHTML = `
+      <div class="card" style="padding: 36px 20px; text-align: center; border-top: 4px solid #2563eb; max-width: 500px; margin: 40px auto;">
+        <span style="font-size: 42px; display: block; margin-bottom: 12px;">🔒</span>
+        <h3 style="margin: 0 0 8px 0; color: #1e40af; font-size: 18px;">Accesso Riservato Master Manutenzione</h3>
+        <p class="text-muted" style="font-size: 13.5px; line-height: 1.5; margin: 0 0 16px 0;">La consultazione del quadro di sintesi delle manutenzioni è riservata agli utenti autorizzati come "Master Manutenzione" o Amministratore.</p>
+        <button type="button" class="btn btn-primary" onclick="switchTab('manutenzione')" style="background: #2563eb; border-color: #2563eb; font-weight: 700;">Torna a Segnalazioni</button>
+      </div>
+    `;
+    return;
+  }
+
+  const tutteSegnalazioni = (appState.guasti && appState.guasti.length > 0) ? appState.guasti : (appState.manutenzioneList || []);
+
+  const periodoSel = appState.sintesiManutenzioniPeriodo || "tutto";
+  const catSel = appState.sintesiManutenzioniCategoria || "tutte";
+  const statoSel = appState.sintesiManutenzioniStato || "tutti";
+  const prioSel = appState.sintesiManutenzioniPriorita || "tutte";
+  const searchTxt = appState.sintesiManutenzioniSearch || "";
+
+  const isArchiviataFn = g => g.stato === "Risolto" || g.stato === "Archiviata" || g.stato === "Terminata";
+
+  // Filtro periodo
+  const now = new Date();
+  const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const prevYearMonth = `${prevMonthDate.getFullYear()}-${String(prevMonthDate.getMonth() + 1).padStart(2, '0')}`;
+
+  let listaFiltrata = tutteSegnalazioni.filter(g => {
+    const ts = g.timestamp || "";
+    const gDateStr = ts.includes("T") ? ts.split("T")[0] : ts.split(" ")[0];
+
+    // Periodo
+    if (periodoSel === "mese_corrente") {
+      if (!gDateStr.startsWith(currentYearMonth)) return false;
+    } else if (periodoSel === "mese_precedente") {
+      if (!gDateStr.startsWith(prevYearMonth)) return false;
+    }
+
+    // Categoria
+    if (catSel !== "tutte") {
+      const gCat = g.categoria || "manutenzione";
+      if (gCat !== catSel) return false;
+    }
+
+    // Stato
+    if (statoSel !== "tutti") {
+      if (statoSel === "aperte" && isArchiviataFn(g)) return false;
+      if (statoSel === "lavorazione" && g.stato !== "In Lavorazione") return false;
+      if (statoSel === "risolte" && !isArchiviataFn(g)) return false;
+    }
+
+    // Priorità
+    if (prioSel !== "tutte") {
+      if ((g.priorita || "Media") !== prioSel) return false;
+    }
+
+    // Ricerca
+    if (searchTxt) {
+      const haystack = `${g.id || ''} ${g.luogo || ''} ${g.descrizione || ''} ${g.email || ''} ${g.tecnico || ''} ${g.note_intervento || ''}`.toLowerCase();
+      if (!haystack.includes(searchTxt)) return false;
+    }
+
+    return true;
+  });
+
+  // KPI calcolati
+  const totaleTicket = listaFiltrata.length;
+  const aperteCount = listaFiltrata.filter(g => !isArchiviataFn(g) && g.stato !== "In Lavorazione").length;
+  const inLavorazioneCount = listaFiltrata.filter(g => g.stato === "In Lavorazione").length;
+  const risolteCount = listaFiltrata.filter(g => g.stato === "Risolto").length;
+  const archiviateCount = listaFiltrata.filter(g => g.stato === "Archiviata" || g.stato === "Terminata").length;
+  const completateTotali = risolteCount + archiviateCount;
+  const tassoRisoluzione = totaleTicket > 0 ? Math.round((completateTotali / totaleTicket) * 100) : 0;
+  const urgentiCount = listaFiltrata.filter(g => (g.priorita === "Alta" || g.priorita === "Urgente") && !isArchiviataFn(g)).length;
+
+  // Ripartizione per Tipologia specifica (analisi keyword)
+  const categorieAnalisi = {
+    idraulica: { label: "🚰 Idraulica & Bagni", count: 0, color: "#0284c7" },
+    elettrica: { label: "⚡ Impianti Elettrici & Luci", count: 0, color: "#d97706" },
+    clima: { label: "❄️ Clima & Riscaldamento", count: 0, color: "#2563eb" },
+    infissi: { label: "🪟 Infissi & Falegnameria", count: 0, color: "#7c3aed" },
+    pulizie: { label: "🧹 Pulizie & Lavanderia", count: 0, color: "#059669" },
+    varie: { label: "📦 Arredi & Varie", count: 0, color: "#64748b" }
+  };
+
+  const tecniciMap = new Map();
+  const luoghiMap = new Map();
+
+  listaFiltrata.forEach(g => {
+    const text = `${g.luogo || ''} ${g.descrizione || ''}`.toLowerCase();
+    if (text.includes("acqua") || text.includes("rubinetto") || text.includes("lavabo") || text.includes("scarico") || text.includes("wc") || text.includes("doccia") || text.includes("sifone") || text.includes("idraulico")) {
+      categorieAnalisi.idraulica.count++;
+    } else if (text.includes("luce") || text.includes("lampad") || text.includes("elettric") || text.includes("presa") || text.includes("interruttor") || text.includes("corrente")) {
+      categorieAnalisi.elettrica.count++;
+    } else if (text.includes("clima") || text.includes("condizionat") || text.includes("aria") || text.includes("riscaldament") || text.includes("calorifer") || text.includes("termosifone")) {
+      categorieAnalisi.clima.count++;
+    } else if (text.includes("porta") || text.includes("finestr") || text.includes("maniglia") || text.includes("infiss") || text.includes("serratur") || text.includes("chiave") || text.includes("falegname")) {
+      categorieAnalisi.infissi.count++;
+    } else if (g.categoria === "servizi" || text.includes("puliz") || text.includes("lavand") || text.includes("detersiv") || text.includes("cestell")) {
+      categorieAnalisi.pulizie.count++;
+    } else {
+      categorieAnalisi.varie.count++;
+    }
+
+    // Tecnico
+    const tec = (g.tecnico && g.tecnico.trim()) ? g.tecnico.trim() : "Non Assegnato";
+    tecniciMap.set(tec, (tecniciMap.get(tec) || 0) + 1);
+
+    // Luogo
+    const luogo = (g.luogo && g.luogo.trim()) ? g.luogo.trim() : "Non Specificato";
+    luoghiMap.set(luogo, (luoghiMap.get(luogo) || 0) + 1);
+  });
+
+  // Priorità distribution
+  const prioAlta = listaFiltrata.filter(g => g.priorita === "Alta" || g.priorita === "Urgente").length;
+  const prioMedia = listaFiltrata.filter(g => !g.priorita || g.priorita === "Media").length;
+  const prioBassa = listaFiltrata.filter(g => g.priorita === "Bassa").length;
+
+  let html = `
+    <div class="sintesi-manutenzioni-view">
+      <!-- HEADER CON AZIONI -->
+      <div class="card" style="border-top: 5px solid #2563eb; background: linear-gradient(to bottom, #eff6ff, #ffffff); padding: 16px; margin-bottom: 14px;">
+        <div class="flex-between" style="flex-wrap: wrap; gap: 10px; margin-bottom: 14px;">
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 30px;">📈</span>
+            <div>
+              <h2 style="margin: 0; font-size: 20px; color: #1e40af; font-weight: 800;">Quadro di Sintesi &amp; Statistiche Manutenzioni</h2>
+              <div style="font-size: 13px; color: #2563eb; font-weight: 600;">Residenza Card. Newman • Report Gestionale Guasti, Riparazioni e Servizi</div>
+            </div>
+          </div>
+          <div class="no-print" style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('manutenzione')" style="font-weight: 700;">← Segnalazioni</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('master')" style="font-weight: 700; color: #d97706; border-color: #fde68a;">⚙️ Gestione Master</button>
+            <button type="button" class="btn btn-sm" onclick="window.print()" style="background: #0f172a; color: #ffffff; font-weight: 700; padding: 6px 12px; cursor: pointer;">🖨️ Stampa</button>
+            <button type="button" class="btn btn-sm" onclick="esportaCSVManutenzioni()" style="background: #16a34a; color: #ffffff; font-weight: 700; padding: 6px 12px; cursor: pointer;">📥 Esporta CSV</button>
+          </div>
+        </div>
+
+        <!-- BARRA FILTRI RAPIDI -->
+        <div style="background: #ffffff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <span style="font-size: 12px; font-weight: 700; color: #1e40af;">Periodo:</span>
+            <button type="button" class="btn btn-sm ${periodoSel === 'tutto' ? 'btn-primary' : 'btn-outline'}" onclick="filtraSintesiManutenzioni('tutto', undefined, undefined, undefined)" style="padding: 4px 10px; font-size: 11.5px;">Tutto lo Storico</button>
+            <button type="button" class="btn btn-sm ${periodoSel === 'mese_corrente' ? 'btn-primary' : 'btn-outline'}" onclick="filtraSintesiManutenzioni('mese_corrente', undefined, undefined, undefined)" style="padding: 4px 10px; font-size: 11.5px;">Questo Mese</button>
+            <button type="button" class="btn btn-sm ${periodoSel === 'mese_precedente' ? 'btn-primary' : 'btn-outline'}" onclick="filtraSintesiManutenzioni('mese_precedente', undefined, undefined, undefined)" style="padding: 4px 10px; font-size: 11.5px;">Mese Scorso</button>
+          </div>
+
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <span style="font-size: 12px; font-weight: 700; color: #1e40af;">Tipo:</span>
+            <button type="button" class="btn btn-sm ${catSel === 'tutte' ? 'btn-primary' : 'btn-outline'}" onclick="filtraSintesiManutenzioni(undefined, 'tutte', undefined, undefined)" style="padding: 4px 8px; font-size: 11.5px;">Tutte</button>
+            <button type="button" class="btn btn-sm ${catSel === 'manutenzione' ? 'btn-primary' : 'btn-outline'}" onclick="filtraSintesiManutenzioni(undefined, 'manutenzione', undefined, undefined)" style="padding: 4px 8px; font-size: 11.5px;">🛠️ Manutenzione</button>
+            <button type="button" class="btn btn-sm ${catSel === 'servizi' ? 'btn-primary' : 'btn-outline'}" onclick="filtraSintesiManutenzioni(undefined, 'servizi', undefined, undefined)" style="padding: 4px 8px; font-size: 11.5px;">🧹 Servizi</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- CRUSCOTTO KPI -->
+      <div class="stat-kpi-grid">
+        <div class="stat-kpi-card" style="border-top: 4px solid #2563eb;">
+          <span class="stat-kpi-val" style="color: #2563eb;">${totaleTicket}</span>
+          <span class="stat-kpi-lbl">📋 Totale Ticket</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">Nel periodo selezionato</span>
+        </div>
+        <div class="stat-kpi-card" style="border-top: 4px solid #dc2626;">
+          <span class="stat-kpi-val" style="color: #dc2626;">${aperteCount}</span>
+          <span class="stat-kpi-lbl">🔴 Da Assegnare</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">Aperte non ancora in carico</span>
+        </div>
+        <div class="stat-kpi-card" style="border-top: 4px solid #d97706;">
+          <span class="stat-kpi-val" style="color: #d97706;">${inLavorazioneCount}</span>
+          <span class="stat-kpi-lbl">🟡 In Lavorazione</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">Tecnico / ditta incaricata</span>
+        </div>
+        <div class="stat-kpi-card" style="border-top: 4px solid #16a34a;">
+          <span class="stat-kpi-val" style="color: #16a34a;">${risolteCount + archiviateCount}</span>
+          <span class="stat-kpi-lbl">🟢 Risolte / Chiuse</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">Intervento completato</span>
+        </div>
+        <div class="stat-kpi-card" style="border-top: 4px solid #7c3aed;">
+          <span class="stat-kpi-val" style="color: #7c3aed;">${tassoRisoluzione}%</span>
+          <span class="stat-kpi-lbl">⏱️ Tasso Risoluzione</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">Percentuale completamento</span>
+        </div>
+        <div class="stat-kpi-card" style="border-top: 4px solid #b91c1c;">
+          <span class="stat-kpi-val" style="color: #b91c1c;">${urgentiCount}</span>
+          <span class="stat-kpi-lbl">⚠️ Priorità Alta Aperte</span>
+          <span class="text-xs text-muted" style="display: block; margin-top: 4px;">Richiedono intervento urgente</span>
+        </div>
+      </div>
+
+      <!-- ANALISI RIPARTIZIONI: CATEGORIE, PRIORITÀ, DITTE -->
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 14px; margin-bottom: 16px;">
+        <!-- RIPARTIZIONE PER AREA D'INTERVENTO -->
+        <div class="card" style="padding: 16px;">
+          <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 800; color: var(--text-main);">🔍 Ripartizione per Tipologia di Intervento</h3>
+          <div>
+            ${Object.values(categorieAnalisi).map(cat => {
+              const pct = totaleTicket > 0 ? Math.round((cat.count / totaleTicket) * 100) : 0;
+              return `
+                <div class="stat-progress-row">
+                  <div class="flex-between" style="font-size: 12px; font-weight: 700;">
+                    <span>${cat.label}</span>
+                    <span>${cat.count} ticket (${pct}%)</span>
+                  </div>
+                  <div class="stat-progress-bar-wrap">
+                    <div class="stat-progress-bar-inner" style="width: ${pct}%; background: ${cat.color};"></div>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+
+        <!-- RIPARTIZIONE PRIORITÀ E TECNICI -->
+        <div class="card" style="padding: 16px;">
+          <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 800; color: var(--text-main);">⚡ Distribuzione Priorità &amp; Tecnici</h3>
+
+          <div style="margin-bottom: 14px;">
+            <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">Livelli di Urgenza:</div>
+            <div style="display: flex; gap: 8px;">
+              <div style="flex: 1; background: #fee2e2; border: 1px solid #fecaca; border-radius: 6px; padding: 8px; text-align: center;">
+                <span style="font-size: 16px; font-weight: 800; color: #991b1b; display: block;">${prioAlta}</span>
+                <span style="font-size: 10.5px; font-weight: 700; color: #b91c1c;">ALTA / URGENTE</span>
+              </div>
+              <div style="flex: 1; background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; padding: 8px; text-align: center;">
+                <span style="font-size: 16px; font-weight: 800; color: #92400e; display: block;">${prioMedia}</span>
+                <span style="font-size: 10.5px; font-weight: 700; color: #b45309;">MEDIA</span>
+              </div>
+              <div style="flex: 1; background: #e0f2fe; border: 1px solid #bae6fd; border-radius: 6px; padding: 8px; text-align: center;">
+                <span style="font-size: 16px; font-weight: 800; color: #0369a1; display: block;">${prioBassa}</span>
+                <span style="font-size: 10.5px; font-weight: 700; color: #0284c7;">BASSA</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 6px;">Ditte &amp; Tecnici Incaricati:</div>
+            <div style="display: flex; flex-direction: column; gap: 4px; max-height: 140px; overflow-y: auto;">
+              ${Array.from(tecniciMap.entries()).map(([tec, count]) => `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; background: var(--surface-alt); border-radius: 6px; font-size: 12px;">
+                  <span style="font-weight: 600;">👨‍🔧 ${escapeHtml(tec)}</span>
+                  <span class="badge" style="background: #2563eb; color: #fff; font-weight: 700;">${count} ticket</span>
+                </div>
+              `).join("")}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TABELLA DI SINTESI DELLE MANUTENZIONI -->
+      <div class="card" style="padding: 16px; margin-bottom: 16px;">
+        <div class="flex-between" style="margin-bottom: 12px; flex-wrap: wrap; gap: 8px;">
+          <div>
+            <h3 style="margin: 0; font-size: 16px; font-weight: 800; color: var(--text-main);">📋 Elenco di Sintesi Dettagliato (${listaFiltrata.length})</h3>
+            <span class="text-xs text-muted">Monitoraggio completo con stato di avanzamento, ditta e note d'intervento</span>
+          </div>
+          <div class="no-print" style="display: flex; gap: 6px; align-items: center;">
+            <input type="text" class="input-text" placeholder="🔍 Cerca stanza, ditta, guasto..." value="${escapeHtml(searchTxt)}" oninput="cercaSintesiManutenzioni(this.value)" style="padding: 5px 10px; font-size: 12px; width: 220px;">
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="stat-report-table">
+            <thead>
+              <tr>
+                <th style="width: 85px;">ID</th>
+                <th style="width: 105px;">Data</th>
+                <th>Ubicazione</th>
+                <th>Tipo</th>
+                <th style="min-width: 180px;">Descrizione</th>
+                <th style="text-align: center;">Priorità</th>
+                <th style="text-align: center;">Stato</th>
+                <th>Tecnico / Ditta</th>
+                <th>Note Intervento</th>
+                <th class="no-print" style="text-align: center;">Azioni</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${listaFiltrata.length === 0 ? `<tr><td colspan="10" style="text-align: center; padding: 28px; color: #64748b;">Nessuna segnalazione corrisponde ai filtri selezionati.</td></tr>` : ''}
+              ${listaFiltrata.map(g => {
+                const isRisolto = isArchiviataFn(g);
+                const isServizi = g.categoria === "servizi";
+                let prioBadge = `<span class="badge" style="background:#e0e7ff; color:#3730a3; font-size:10.5px;">Media</span>`;
+                if (g.priorita === "Alta" || g.priorita === "Urgente") prioBadge = `<span class="badge" style="background:#fee2e2; color:#991b1b; font-weight:800; font-size:10.5px;">⚠️ Alta</span>`;
+                else if (g.priorita === "Bassa") prioBadge = `<span class="badge" style="background:#f1f5f9; color:#475569; font-size:10.5px;">Bassa</span>`;
+
+                let statoBadge = `<span class="badge" style="background:#fef3c7; color:#92400e; font-weight:700; font-size:10.5px;">${escapeHtml(g.stato || 'Aperta')}</span>`;
+                if (g.stato === "In Lavorazione") statoBadge = `<span class="badge" style="background:#ffedd5; color:#c2410c; font-weight:800; font-size:10.5px;">🟡 In Corso</span>`;
+                else if (isRisolto) statoBadge = `<span class="badge badge-success" style="font-weight:700; font-size:10.5px;">✅ Risolto</span>`;
+
+                return `
+                  <tr style="${isRisolto ? 'opacity: 0.75; background: #fafafa;' : ''}">
+                    <td><code style="background: #f1f5f9; padding: 1px 5px; border-radius: 4px; font-weight: 700; font-size: 11px;">${escapeHtml(g.id || '—')}</code></td>
+                    <td><span style="font-size: 11.5px;">${formattaDataItaliana(g.timestamp)}</span></td>
+                    <td><strong>${escapeHtml(g.luogo || '—')}</strong></td>
+                    <td><span class="badge" style="background:${isServizi ? '#e0f2fe' : '#fef3c7'}; color:${isServizi ? '#0369a1' : '#92400e'}; font-size:10.5px;">${isServizi ? '🧹 Servizi' : '🛠️ Tecnico'}</span></td>
+                    <td><div style="max-width: 220px; font-size: 12px; line-height: 1.4;">${escapeHtml(g.descrizione || '')}</div></td>
+                    <td style="text-align: center;">${prioBadge}</td>
+                    <td style="text-align: center;">${statoBadge}</td>
+                    <td><span style="font-weight: 600; font-size: 12px;">${escapeHtml(g.tecnico || '—')}</span></td>
+                    <td><span class="text-xs text-muted">${escapeHtml(g.note_intervento || '—')}</span></td>
+                    <td class="no-print" style="text-align: center;">
+                      <div style="display: inline-flex; gap: 4px;">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('master'); if(typeof cambiaSchedaMaster==='function') cambiaSchedaMaster('manutenzione');" title="Gestisci nel pannello Master" style="padding: 3px 6px; font-size: 11px; cursor: pointer;">⚙️</button>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="apriModalEmailAmministrazionePerGuasto('${escapeHtml(g.id)}')" title="Invia email economato per questo guasto" style="padding: 3px 6px; font-size: 11px; cursor: pointer;">✉️</button>
+                      </div>
+                    </td>
+                  </tr>
+                `;
+              }).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  `;
+
+  container.innerHTML = html;
+};
+
+window.esportaCSVManutenzioni = function() {
+  const tutteSegnalazioni = (appState.guasti && appState.guasti.length > 0) ? appState.guasti : (appState.manutenzioneList || []);
+  let csv = "\uFEFF"; // UTF-8 BOM
+  csv += `ID;Data;Categoria;Ubicazione;Richiedente;Descrizione;Priorita;Stato;Tecnico;Note Intervento;Data Chiusura\n`;
+
+  tutteSegnalazioni.forEach(g => {
+    const sanitize = str => `"${String(str || '').replace(/"/g, '""').replace(/\n/g, ' ')}"`;
+    csv += [
+      sanitize(g.id),
+      sanitize(formattaDataItaliana(g.timestamp)),
+      sanitize(g.categoria || "manutenzione"),
+      sanitize(g.luogo),
+      sanitize(g.email),
+      sanitize(g.descrizione),
+      sanitize(g.priorita || "Media"),
+      sanitize(g.stato || "Aperta"),
+      sanitize(g.tecnico),
+      sanitize(g.note_intervento),
+      sanitize(formattaDataItaliana(g.data_chiusura))
+    ].join(";") + "\n";
+  });
+
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `sintesi_manutenzioni_${formatYMD(new Date())}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  mostraToast(`📥 CSV esportato: sintesi_manutenzioni_${formatYMD(new Date())}.csv`, "success");
+};

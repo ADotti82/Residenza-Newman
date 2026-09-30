@@ -738,6 +738,28 @@
     .stepper-auth-step { padding: 3px 8px; border-radius: 12px; font-weight: 600; background: var(--surface-alt); color: var(--text-muted); border: 1px solid var(--border); }
     .stepper-auth-step.active { background: #fef3c7; color: #92400e; border-color: #f59e0b; font-weight: 700; }
     .stepper-auth-step.completed { background: #dcfce7; color: #166534; border-color: #22c55e; font-weight: 700; }
+
+    /* Stili per Statistiche Mensa e Sintesi Manutenzioni */
+    .stat-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-bottom: 16px; }
+    .stat-kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); padding: 14px; text-align: center; box-shadow: var(--shadow-sm); transition: var(--transition); }
+    .stat-kpi-val { font-size: 26px; font-weight: 800; line-height: 1.1; margin-bottom: 4px; display: block; }
+    .stat-kpi-lbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+    .stat-bar-chart-container { display: flex; align-items: flex-end; gap: 4px; height: 160px; padding: 12px 6px 0 6px; overflow-x: auto; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-md); margin-bottom: 16px; }
+    .stat-bar-col { flex: 0 0 24px; display: flex; flex-direction: column; align-items: center; height: 100%; justify-content: flex-end; cursor: pointer; }
+    .stat-bar-fill { width: 14px; border-radius: 4px 4px 0 0; min-height: 4px; transition: height 0.3s ease; }
+    .stat-bar-label { font-size: 9.5px; color: var(--text-muted); margin-top: 4px; text-align: center; font-weight: 600; white-space: nowrap; }
+    .stat-progress-row { margin-bottom: 10px; }
+    .stat-progress-bar-wrap { background: var(--surface-alt); border-radius: 6px; height: 10px; overflow: hidden; width: 100%; border: 1px solid var(--border); margin-top: 4px; }
+    .stat-progress-bar-inner { height: 100%; border-radius: 6px; transition: width 0.4s ease; }
+    .stat-report-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .stat-report-table th { background: var(--surface-alt); padding: 9px 10px; text-align: left; font-weight: 700; font-size: 11.5px; color: var(--text-muted); border-bottom: 1.5px solid var(--border); }
+    .stat-report-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); color: var(--text-main); vertical-align: middle; }
+    .stat-report-table tr:hover td { background: rgba(0, 0, 0, 0.02); }
+    @media print {
+      .no-print, .no-print-area { display: none !important; }
+      .stat-kpi-card { border: 1px solid #333 !important; }
+      .stat-report-table th, .stat-report-table td { border: 1px solid #666 !important; }
+    }
     .stepper-auth-step.rejected { background: #fee2e2; color: #991b1b; border-color: #ef4444; font-weight: 700; }
     .mensa-guest-selector { display: inline-flex; align-items: center; gap: 4px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; font-size: 12px; }
     .mensa-guest-selector select { border: none; background: transparent; font-weight: 700; font-size: 12px; color: var(--primary); cursor: pointer; outline: none; }
@@ -840,6 +862,22 @@
         <div id="residenza-container"></div>
       </section>
       <section class="view-container" id="view-manutenzione">
+        <!-- BANNER RAPIDO MASTER SINTESI MANUTENZIONI -->
+        <div id="banner-master-manutenzione-sintesi" style="display: none; margin-bottom: 14px; background: linear-gradient(135deg, #1e3a8a, #2563eb); border-radius: var(--radius-md); padding: 12px 16px; color: #ffffff; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.2);">
+          <div class="flex-between" style="flex-wrap: wrap; gap: 8px;">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 26px;">📈</span>
+              <div>
+                <div style="font-weight: 800; font-size: 14.5px;">Quadro di Sintesi &amp; Statistiche Manutenzioni</div>
+                <div style="font-size: 12px; opacity: 0.9;">Report globale ticket, categorie, ditte incaricate e tempi di intervento</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm" onclick="switchTab('sintesi-manutenzioni')" style="background: #ffffff; color: #1e3a8a; font-weight: 800; border: none; padding: 6px 14px; border-radius: 6px; cursor: pointer;">
+              Apri Sintesi ↗
+            </button>
+          </div>
+        </div>
+
         <div class="card">
           <h2 class="card-title">Segnalazioni di Residenza</h2>
           <p class="card-desc">Invia una segnalazione per problemi di manutenzione tecnica o per i servizi della Residenza.</p>
@@ -972,6 +1010,12 @@
       </section>
       <section class="view-container" id="view-accoglienza">
         <div id="accoglienza-container"></div>
+      </section>
+      <section class="view-container" id="view-statistiche-mensa">
+        <div id="statistiche-mensa-container"></div>
+      </section>
+      <section class="view-container" id="view-sintesi-manutenzioni">
+        <div id="sintesi-manutenzioni-container"></div>
       </section>
     </main>
 
@@ -1306,6 +1350,20 @@
               <span style="font-weight: 600;">Pannello Master &amp; Amministrazione</span>
             </div>
             <span style="font-size: 12px; color: var(--accent); font-weight: 600;">Gestione ↗</span>
+          </button>
+          <button type="button" id="settings-btn-statistiche-mensa" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); switchTab('statistiche-mensa');" style="display: none; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm); border-color: #0284c7;">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 16px;">📊</span>
+              <span style="font-weight: 600;">Statistiche &amp; Dati Mensili Mensa</span>
+            </div>
+            <span style="font-size: 12px; color: #0284c7; font-weight: 600;">Report ↗</span>
+          </button>
+          <button type="button" id="settings-btn-sintesi-manutenzioni" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); switchTab('sintesi-manutenzioni');" style="display: none; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm); border-color: #2563eb;">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 16px;">📈</span>
+              <span style="font-weight: 600;">Sintesi &amp; Statistiche Manutenzioni</span>
+            </div>
+            <span style="font-size: 12px; color: #2563eb; font-weight: 600;">Sintesi ↗</span>
           </button>
         </div>
       </div>
