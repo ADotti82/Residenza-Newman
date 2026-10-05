@@ -2,7 +2,7 @@
  * ============================================================================
  * RESIDENZA CARDINAL NEWMAN - SERVICE WORKER
  * ============================================================================
- * Versione: v9-stable (Safe Network-First + No-Block + Push Support)
+ * Versione: v10-autoreload (Instant Skip-Waiting + No-Cache Network-First + Auto-Claim)
  *
  * REGOLE ARCHITETTURALI FONDAMENTALI:
  * 1. BACKEND GOOGLE APPS SCRIPT: MAI intercettato. Le chiamate a GAS
@@ -12,11 +12,11 @@
  * 3. NO-FALLBACK-HTML PER SCRIPT JS: I file .js NON ricevono MAI un fallback su
  *    index.html (causa principale dell'errore "Unexpected token '<'").
  * 4. CLEAN CACHE IMMEDIATA: Al rilascio di una nuova versione, tutte le cache
- *    precedenti vengono invalidate e il worker prende subito il controllo.
+ *    precedenti vengono invalidate, self.skipWaiting() e clients.claim() attivati subito.
  * ============================================================================
  */
 
-const CACHE_VERSION = 'newman-v9-stable';
+const CACHE_VERSION = 'newman-v10-autoreload';
 
 // Asset minimi per la shell offline (pre-caching sicuro con allSettled)
 const PRECACHE_ASSETS = [
@@ -28,48 +28,49 @@ const PRECACHE_ASSETS = [
 ];
 
 // ---------------------------------------------------------------------------
-// 1. INSTALLAZIONE: Pre-cache minimale e attivazione immediata (skipWaiting)
+// 1. INSTALLAZIONE: Attivazione immediata (skipWaiting) e pre-cache minimale
 // ---------------------------------------------------------------------------
 self.addEventListener('install', (event) => {
-  console.log('[SW v9] Installazione in corso...');
+  console.log('[SW v10] Installazione nuova versione, attivazione immediata (skipWaiting)...');
+  self.skipWaiting();
   event.waitUntil(
     caches.open(CACHE_VERSION)
       .then((cache) => {
         return Promise.allSettled(
           PRECACHE_ASSETS.map((url) =>
             cache.add(url).catch((err) => {
-              console.warn('[SW v9] Pre-cache opzionale non riuscita per:', url, err.message);
+              console.warn('[SW v10] Pre-cache opzionale non riuscita per:', url, err.message);
             })
           )
         );
-      })
-      .then(() => {
-        console.log('[SW v9] Installazione completata, skipWaiting attivo.');
-        return self.skipWaiting();
       })
   );
 });
 
 // ---------------------------------------------------------------------------
-// 2. ATTIVAZIONE: Pulizia immediata di TUTTE le cache precedenti
+// 2. ATTIVAZIONE: Pulizia immediata di TUTTE le cache precedenti e claim
 // ---------------------------------------------------------------------------
 self.addEventListener('activate', (event) => {
-  console.log('[SW v9] Attivazione in corso, pulizia cache obsolete...');
+  console.log('[SW v10] Attivazione in corso, pulizia cache obsolete...');
   event.waitUntil(
     caches.keys()
       .then((keys) => {
         return Promise.all(
           keys.map((key) => {
             if (key !== CACHE_VERSION) {
-              console.log('[SW v9] Rimozione vecchia cache:', key);
+              console.log('[SW v10] Rimozione vecchia cache:', key);
               return caches.delete(key);
             }
           })
         );
       })
+      .then(() => self.clients.claim())
       .then(() => {
-        console.log('[SW v9] Cache pulite, prendo controllo di tutte le schede (clients.claim).');
-        return self.clients.claim();
+        return self.clients.matchAll({ type: 'window' }).then((clients) => {
+          clients.forEach((client) => {
+            client.postMessage({ type: 'SW_ACTIVATED', version: CACHE_VERSION });
+          });
+        });
       })
   );
 });
@@ -115,7 +116,7 @@ self.addEventListener('fetch', (event) => {
 
   if (isNavigation) {
     event.respondWith(
-      fetch(req)
+      fetch(new Request(req, { cache: 'no-cache' }))
         .then((networkRes) => {
           if (networkRes && networkRes.status === 200) {
             const clone = networkRes.clone();
@@ -124,7 +125,7 @@ self.addEventListener('fetch', (event) => {
           return networkRes;
         })
         .catch(async () => {
-          console.warn('[SW v9] Connessione assente, caricamento HTML dalla cache per:', url.pathname);
+          console.warn('[SW v10] Connessione assente, caricamento HTML dalla cache per:', url.pathname);
           const cached = await caches.match(req);
           if (cached) return cached;
           const indexCached = await caches.match('/index.html');
@@ -136,12 +137,12 @@ self.addEventListener('fetch', (event) => {
   }
 
   // STRATEGIA 2: Script JavaScript (.js)
-  // Network-First per avere sempre la versione fresca se online.
+  // Network-First con cache no-cache per avere sempre la versione fresca se online.
   // CRITICO: Non restituire MAI index.html in caso di errore su un file .js!
   const isJavaScript = url.pathname.endsWith('.js');
   if (isJavaScript) {
     event.respondWith(
-      fetch(req)
+      fetch(new Request(req, { cache: 'no-cache' }))
         .then((networkRes) => {
           if (networkRes && networkRes.status === 200) {
             const clone = networkRes.clone();
@@ -208,10 +209,12 @@ self.addEventListener('fetch', (event) => {
 // 4. MESSAGGI INTERNI (Skip waiting su richiesta, pulizia forzata)
 // ---------------------------------------------------------------------------
 self.addEventListener('message', (event) => {
-  if (event.data && event.data.type === 'SKIP_WAITING') {
+  if (event.data === 'SKIP_WAITING' || (event.data && (event.data.type === 'SKIP_WAITING' || event.data.action === 'skipWaiting'))) {
+    console.log('[SW v10] SKIP_WAITING forzato da client.');
     self.skipWaiting();
   }
   if (event.data && event.data.type === 'PURGE_CACHE') {
+    console.log('[SW v10] PURGE_CACHE forzato.');
     caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k))));
   }
 });

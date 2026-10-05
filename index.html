@@ -821,6 +821,10 @@
         <button type="button" class="btn-icon-head" onclick="switchTab('calendario')" id="header-btn-calendario" title="Calendario Globale & Appuntamenti" style="font-size: 14px;">
           📅
         </button>
+        <!-- Scorciatoia Ricarica & Aggiorna App -->
+        <button type="button" class="btn-icon-head" onclick="forzaAggiornamentoApp()" id="header-btn-aggiorna" title="Ricarica e scarica subito la versione aggiornata" style="font-size: 15px;">
+          🔄
+        </button>
         <!-- Pulsante Guida Mobile Popup (Visibile solo ai Master) -->
         <button type="button" class="btn-icon-head" onclick="apriModalGuida()" id="header-btn-guida" title="Guida Master & Istruzioni dell'App" style="font-size: 14px; display: none;">
           📖
@@ -1310,7 +1314,23 @@
         <div id="push-perm-warning" style="display: none; margin-top: 8px; font-size: 11px; color: #dc2626;">
           ⚠️ I permessi di notifica sono bloccati nel tuo browser. Per attivarle, modificali nelle impostazioni del sito.
         </div>
+      <!-- GESTIONE AGGIORNAMENTO APP E CACHE -->
+      <div style="margin-bottom: 16px; background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: var(--radius-md); padding: 12px 14px;">
+        <div class="flex-between" style="margin-bottom: 6px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 20px;">🔄</span>
+            <strong style="font-size: 13.5px; color: #9a3412;">Aggiornamento e Cache App</strong>
+          </div>
+          <span class="badge" style="background: #ffedd5; color: #9a3412; font-size: 10.5px; font-weight: 700;">Mobile PWA</span>
+        </div>
+        <p class="text-xs text-muted" style="margin: 0 0 10px 0; line-height: 1.45; color: #7c2d12;">
+          L'app si aggiorna automaticamente ad ogni riapertura. Se non visualizzi subito le nuove schermate o modifiche sul telefono, tocca il pulsante qui sotto per pulire la cache e ricaricare all'istante l'ultima versione.
+        </p>
+        <button type="button" class="btn btn-sm btn-block" onclick="forzaAggiornamentoApp()" style="background: #ea580c; color: #fff; font-weight: 700; border-color: #ea580c; padding: 8px 12px; font-size: 12.5px;">
+          🔄 Ricarica &amp; Svuota Cache Ora
+        </button>
       </div>
+
       <div style="margin-bottom: 16px;">
         <label style="font-size: 13px; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 8px;">
             Azioni e Navigazione Rapida
@@ -2265,17 +2285,123 @@
 
   <div class="toast-container" id="toast-container"></div>
 
-  <!-- LOGICA PWA E SERVICE WORKER -->
+  <!-- LOGICA PWA, SERVICE WORKER E AUTO-RICARICA AGGIORNAMENTI -->
   <script>
+    let swRegistration = null;
+    let refreshing = false;
+
+    // Ricarica automatica al subentro del nuovo Service Worker
     if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('controllerchange', () => {
+        if (!refreshing) {
+          refreshing = true;
+          console.log('[PWA] Nuovo Service Worker attivo, ricaricamento automatico per applicare le novita...');
+          window.location.reload();
+        }
+      });
+
+      // Ascolto messaggi dal Service Worker
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (event.data && event.data.type === 'SW_ACTIVATED') {
+          console.log('[PWA] SW attivato con versione:', event.data.version);
+        }
+      });
+
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('/sw.js')
           .then((reg) => {
-            reg.update().catch(() => {});
+            swRegistration = reg;
+            window.newmanSwRegistration = reg;
+
+            // Se c'e gia un worker in attesa, forzane subito l'attivazione
+            if (reg.waiting) {
+              reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+            }
+
+            reg.addEventListener('updatefound', () => {
+              const newWorker = reg.installing;
+              if (newWorker) {
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    console.log('[PWA] Nuova versione scaricata, passaggio immediato...');
+                    newWorker.postMessage({ type: 'SKIP_WAITING' });
+                  }
+                });
+              }
+            });
+
+            // Controlla aggiornamenti subito dopo l'avvio
+            setTimeout(() => {
+              reg.update().catch(() => {});
+            }, 1000);
           })
           .catch((err) => console.log('SW non registrato:', err));
       });
     }
+
+    // CONTROLLO AUTOMATICO AD OGNI RIAPERTURA DELL'APP SUL TELEFONO
+    // Quando l'utente sblocca lo smartphone o torna sull'app dopo un'altra applicazione
+    let lastResumeCheck = Date.now();
+    function controllaAggiornamentiAlRitorno() {
+      const now = Date.now();
+      // Limita a un controllo ogni 15 secondi per non sovraccaricare
+      if (now - lastResumeCheck > 15000) {
+        lastResumeCheck = now;
+        console.log('[PWA] Riapertura app rilevata: controllo aggiornamenti in corso...');
+        if (swRegistration && typeof swRegistration.update === 'function') {
+          swRegistration.update().catch(() => {});
+        }
+        // Verifica anche se la sessione corrente ha dati freschi
+        if (typeof window.caricaDatiBackend === 'function') {
+          window.caricaDatiBackend().catch(() => {});
+        }
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        controllaAggiornamentiAlRitorno();
+      }
+    });
+
+    window.addEventListener('pageshow', (event) => {
+      if (event.persisted) {
+        controllaAggiornamentiAlRitorno();
+      }
+    });
+
+    window.addEventListener('focus', () => {
+      controllaAggiornamentiAlRitorno();
+    });
+
+    // FUNZIONE DI EMERGENZA / GARANZIA: Ricarica & Svuota Cache
+    window.forzaAggiornamentoApp = async function() {
+      if (typeof window.mostraToast === 'function') {
+        window.mostraToast("🔄 Ricarica e pulizia cache in corso...", "info");
+      }
+      try {
+        if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+          navigator.serviceWorker.controller.postMessage({ type: 'PURGE_CACHE' });
+          navigator.serviceWorker.controller.postMessage({ type: 'SKIP_WAITING' });
+        }
+      } catch (e) {}
+
+      try {
+        if ('caches' in window) {
+          const keys = await caches.keys();
+          await Promise.all(keys.map(k => caches.delete(k)));
+        }
+      } catch (e) {}
+
+      if (swRegistration && typeof swRegistration.update === 'function') {
+        try { await swRegistration.update(); } catch (e) {}
+      }
+
+      // Ricarica forzata con timestamp unico per bypassare ogni cache HTTP del browser mobile
+      const sep = window.location.pathname.includes('?') ? '&' : '?';
+      const cleanPath = window.location.origin + window.location.pathname + sep + 'r=' + Date.now();
+      window.location.replace(cleanPath);
+    };
 
     let deferredPrompt;
     const btnInstall = document.getElementById('btn-install-pwa');

@@ -965,6 +965,7 @@ function mockBackendExecution(action, params) {
 // ----------------------------------------------------------------------------
 
 async function caricaDatiBackend() {
+  window.caricaDatiBackend = caricaDatiBackend;
   renderBachecaView();
   renderResidenzaView();
   renderMensaView();
