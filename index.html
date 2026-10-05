@@ -1464,6 +1464,228 @@
     </div>
   </div>
 
+  <!-- MODAL CONSULTA MENU 14 GIORNI -->
+  <div class="modal-overlay" id="modal-consulta-menu" style="display: none;">
+    <div class="modal-card" style="max-width: 740px; max-height: 92vh; display: flex; flex-direction: column;">
+      <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
+        <div class="flex-align" style="gap: 8px;">
+          <span style="font-size: 26px;">📖</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 18px; color: #0f172a;">Menù Ciclico delle 2 Settimane</h3>
+            <span class="text-xs text-muted">Consulta la programmazione completa di pranzi e cene</span>
+          </div>
+        </div>
+        <div style="display: flex; align-items: center; gap: 8px;">
+          <button type="button" class="btn btn-outline btn-sm no-print" onclick="window.print()" style="font-weight: 700;">🖨️ Stampa</button>
+          <button type="button" class="btn-icon-head" onclick="chiudiModalConsultaMenu()" style="color:#0f172a;">✕</button>
+        </div>
+      </div>
+
+      <div style="display: flex; gap: 6px; margin-bottom: 12px; flex-shrink: 0;">
+        <button type="button" id="tab-btn-consulta-sett1" class="btn btn-sm btn-primary" onclick="selezionaSettimanaConsultaMenu('settimana1')" style="flex: 1; font-weight: 700;">
+          Settimana 1
+        </button>
+        <button type="button" id="tab-btn-consulta-sett2" class="btn btn-sm btn-outline" onclick="selezionaSettimanaConsultaMenu('settimana2')" style="flex: 1; font-weight: 700;">
+          Settimana 2
+        </button>
+      </div>
+
+      <div id="consulta-menu-content" style="overflow-y: auto; flex: 1; padding-right: 4px; display: flex; flex-direction: column; gap: 10px;">
+        <!-- Contenuto dinamico renderizzato da renderContenutoConsultaMenu() -->
+      </div>
+
+      <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; flex-wrap: wrap; gap: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="chiudiModalConsultaMenu()">Chiudi</button>
+        <div style="display: flex; gap: 6px;" id="consulta-menu-master-actions">
+          <button type="button" class="btn btn-sm" onclick="chiudiModalConsultaMenu(); apriModalModificaMenu();" style="background: #ea580c; color: #fff; font-weight: 700; border-color: #ea580c;">
+            ✏️ Modifica Menù (Master)
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL MODIFICA MENU 2 SETTIMANE -->
+  <div class="modal-overlay" id="modal-modifica-menu" style="display: none;">
+    <div class="modal-card" style="max-width: 740px; max-height: 92vh; display: flex; flex-direction: column;">
+      <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0; border-bottom: 1px solid #fed7aa; padding-bottom: 10px;">
+        <div class="flex-align" style="gap: 8px;">
+          <span style="font-size: 26px;">✏️</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 18px; color: #9a3412;">Modifica Menù delle 2 Settimane</h3>
+            <span class="text-xs text-muted">Gestione piatti e ricette per la cucina della Residenza</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalModificaMenu()" style="color:#0f172a;">✕</button>
+      </div>
+
+      <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
+        <!-- Selettore Settimana -->
+        <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+          <button type="button" id="mod-menu-btn-sett1" class="btn btn-sm btn-primary" onclick="cambiaSettimanaModificaMenu('settimana1')" style="flex: 1; font-weight: 700;">
+            Settimana 1
+          </button>
+          <button type="button" id="mod-menu-btn-sett2" class="btn btn-sm btn-outline" onclick="cambiaSettimanaModificaMenu('settimana2')" style="flex: 1; font-weight: 700;">
+            Settimana 2
+          </button>
+        </div>
+
+        <!-- Selettore Giorno della Settimana -->
+        <div style="display: flex; gap: 4px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 12px;" id="mod-menu-giorni-tabs">
+          <!-- Bottoni Lun, Mar, Mer, Gio, Ven, Sab, Dom -->
+        </div>
+
+        <form id="form-modifica-menu-giorno" onsubmit="handleSalvaModificaMenuGiorno(event)">
+          <!-- Box Pranzo -->
+          <div style="background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
+            <div class="flex-between" style="margin-bottom: 10px;">
+              <strong style="color: #c2410c; font-size: 15px; display: flex; align-items: center; gap: 6px;">
+                <span>☀️ Pranzo</span>
+              </strong>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 700; color: #9a3412; cursor: pointer;">
+                <input type="checkbox" id="mod-pranzo-busta" style="width: 16px; height: 16px; accent-color: #ea580c;">
+                <span>Opzione Busta (Asporto)</span>
+              </label>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 12px; font-weight: 700; color: #7c2d12;">Primo:</label>
+                <input type="text" id="mod-pranzo-primo" class="input-text" placeholder="es. Tortellini alla Boscaiola" required>
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 12px; font-weight: 700; color: #7c2d12;">Secondo:</label>
+                <input type="text" id="mod-pranzo-secondo" class="input-text" placeholder="es. Cotolette di Pollo" required>
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 12px; font-weight: 700; color: #7c2d12;">Contorno 1:</label>
+                <input type="text" id="mod-pranzo-contorno" class="input-text" placeholder="es. Finocchi Julienne al Forno">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 12px; font-weight: 700; color: #7c2d12;">Contorno 2:</label>
+                <input type="text" id="mod-pranzo-contorno2" class="input-text" placeholder="es. Insalata mista">
+              </div>
+              <div class="form-group" style="margin: 0; grid-column: 1 / -1;">
+                <label style="font-size: 12px; font-weight: 700; color: #7c2d12;">Dessert / Frutta:</label>
+                <input type="text" id="mod-pranzo-dessert" class="input-text" placeholder="es. Frutta fresca">
+              </div>
+            </div>
+          </div>
+
+          <!-- Box Cena -->
+          <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
+            <strong style="color: #1d4ed8; font-size: 15px; display: block; margin-bottom: 10px;">
+              🌙 Cena
+            </strong>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px;">
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 12px; font-weight: 700; color: #1e40af;">Primo:</label>
+                <input type="text" id="mod-cena-primo" class="input-text" placeholder="es. Linguine al profumo di mare" required>
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 12px; font-weight: 700; color: #1e40af;">Secondo:</label>
+                <input type="text" id="mod-cena-secondo" class="input-text" placeholder="es. Salmone al Forno" required>
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 12px; font-weight: 700; color: #1e40af;">Contorno 1:</label>
+                <input type="text" id="mod-cena-contorno" class="input-text" placeholder="es. Piselli all'olio">
+              </div>
+              <div class="form-group" style="margin: 0;">
+                <label style="font-size: 12px; font-weight: 700; color: #1e40af;">Contorno 2:</label>
+                <input type="text" id="mod-cena-contorno2" class="input-text" placeholder="es. Insalata mista">
+              </div>
+              <div class="form-group" style="margin: 0; grid-column: 1 / -1;">
+                <label style="font-size: 12px; font-weight: 700; color: #1e40af;">Dessert / Frutta:</label>
+                <input type="text" id="mod-cena-dessert" class="input-text" placeholder="es. Frutta fresca">
+              </div>
+            </div>
+          </div>
+
+          <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button type="submit" id="btn-submit-mod-menu" class="btn btn-primary" style="flex: 1; background: #ea580c; border-color: #ea580c; font-weight: 700;">
+              💾 Salva Modifiche di questo Giorno
+            </button>
+            <button type="button" class="btn btn-outline" onclick="ripristinaGiornoOriginaleMenu()" style="font-weight: 700; color: #475569;">
+              🔄 Ripristina Default Giorno
+            </button>
+          </div>
+        </form>
+
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="ripristinaTuttoMenuPredefinito()" style="color: #991b1b; border-color: #fca5a5; font-size: 11.5px;">
+            ⚠️ Ripristina l'intero Menù 14 Giorni di Fabbrica
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="esportaMenuJSON()" style="font-size: 11.5px;">
+            📥 Esporta Menù JSON
+          </button>
+        </div>
+      </div>
+
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: flex; justify-content: flex-end; flex-shrink: 0;">
+        <button type="button" class="btn btn-secondary" onclick="chiudiModalModificaMenu()">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL GESTIONE BUSTE MASTER -->
+  <div class="modal-overlay" id="modal-gestione-buste-master" style="display: none;">
+    <div class="modal-card" style="max-width: 700px; max-height: 92vh; display: flex; flex-direction: column;">
+      <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0; border-bottom: 1px solid #fed7aa; padding-bottom: 10px;">
+        <div class="flex-align" style="gap: 8px;">
+          <span style="font-size: 26px;">🥪</span>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 18px; color: #9a3412;">Gestione Buste Master Mensa</h3>
+            <span class="text-xs text-muted">Assegna o revoca buste per residenti (Override Scadenze)</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalGestioneBusteMaster()" style="color:#0f172a;">✕</button>
+      </div>
+
+      <div style="overflow-y: auto; flex: 1; padding-right: 4px;">
+        <!-- Selettore Data e Promemoria Scadenze -->
+        <div style="background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+          <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+              <button type="button" class="btn btn-sm btn-outline" onclick="selezionaProssimoGiornoBuste('martedi')" style="font-weight: 700; color: #c2410c; border-color: #fdba74;">
+                Prossimo Martedì
+              </button>
+              <button type="button" class="btn btn-sm btn-outline" onclick="selezionaProssimoGiornoBuste('giovedi')" style="font-weight: 700; color: #c2410c; border-color: #fdba74;">
+                Prossimo Giovedì
+              </button>
+            </div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <span style="font-size: 12px; font-weight: 700; color: #7c2d12;">Data:</span>
+              <input type="date" id="gestione-buste-data-sel" class="input-date" style="padding: 4px 8px; font-size: 12px; font-weight: 700;" onchange="renderContenutoGestioneBusteMaster()">
+            </div>
+          </div>
+          <div id="gestione-buste-info-scadenza" style="font-size: 12px; color: #78350f; line-height: 1.4; padding: 6px 8px; background: #ffffff; border-radius: 6px; border: 1px solid #fde68a;">
+            <!-- Informazioni scadenza calcolate dinamicamente -->
+          </div>
+        </div>
+
+        <!-- Filtro Ricerca Residenti -->
+        <div style="display: flex; gap: 8px; margin-bottom: 10px; align-items: center;">
+          <input type="text" id="gestione-buste-search" class="input-text" placeholder="Cerca residente per nome o email..." oninput="renderContenutoGestioneBusteMaster()" style="font-size: 13px;">
+          <select id="gestione-buste-filtro-stato" class="input-select" onchange="renderContenutoGestioneBusteMaster()" style="font-size: 12px; width: 160px;">
+            <option value="tutti">Tutti</option>
+            <option value="con_busta">Solo con Busta 🥪</option>
+            <option value="senza_busta">Senza Busta</option>
+            <option value="assenti">Solo Assenti ❌</option>
+          </select>
+        </div>
+
+        <!-- Elenco Residenti con Azione Rapida Busta -->
+        <div id="gestione-buste-elenco-residenti" style="display: flex; flex-direction: column; gap: 6px;">
+          <!-- Generato da renderContenutoGestioneBusteMaster() -->
+        </div>
+      </div>
+
+      <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0;">
+        <span id="gestione-buste-totali-badge" class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 12px;">Totale Buste: 0</span>
+        <button type="button" class="btn btn-secondary" onclick="chiudiModalGestioneBusteMaster()">Chiudi</button>
+      </div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modal-bacheca" style="display: none;">
     <div class="modal-card">
       <div class="flex-between" style="margin-bottom: 14px;">

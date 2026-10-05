@@ -148,6 +148,22 @@ const DEFAULT_MENU_14_GIORNI = {
 // Istanza attiva del Menu 14 giorni
 let MENU_14_GIORNI = JSON.parse(JSON.stringify(DEFAULT_MENU_14_GIORNI));
 
+function caricaMenu14GiorniDaStorage() {
+  try {
+    const raw = localStorage.getItem("newman_menu_14_giorni");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && parsed.settimana1 && parsed.settimana2) {
+        MENU_14_GIORNI = parsed;
+        console.log("Menù 14 giorni caricato da storage locale");
+      }
+    }
+  } catch (e) {
+    console.warn("Impossibile caricare menù da localStorage:", e);
+  }
+}
+caricaMenu14GiorniDaStorage();
+
 /**
  * Applica i dati del menu base provenienti dal foglio Google "Menu_Base".
  */
@@ -720,6 +736,16 @@ function mockBackendExecution(action, params) {
       return { success: true, aggiunti, message: `${aggiunti} utenti aggiunti ed abilitati con successo!` };
     }
 
+    case "salvaMenuBase": {
+      if (params.menu && typeof params.menu === "object") {
+        db.menu_base = params.menu;
+        localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        localStorage.setItem("newman_menu_14_giorni", JSON.stringify(params.menu));
+        return { success: true, message: "Menù salvato con successo!" };
+      }
+      return { success: false, error: "Dati menù non validi" };
+    }
+
     case "cancellaPrenotazioneSpazio": {
       const { id, risorsa, data, slot_orario, email } = params;
       const initialLen = db.prenotazioni_spazi.length;
@@ -882,7 +908,7 @@ function mockBackendExecution(action, params) {
         prenotazioniMensa: db.mensa,
         bacheca: db.bacheca || [],
         accoglienza: db.accoglienza || [],
-        menuBase: null
+        menuBase: db.menu_base || null
       };
 
     case "getMasterData":
@@ -2062,14 +2088,92 @@ function isCenaBloccata(dataSelezionata) {
   return (adesso.getHours() > limiteOre) || (adesso.getHours() === limiteOre && adesso.getMinutes() >= limiteMin);
 }
 
-function isBustaBloccata(dataSelezionata) {
-  if (appState.bypassTimeLock) return false;
+function getDettaglioRegolaBusta(dataSelezionata, isMasterOverride = false) {
+  const d = new Date(dataSelezionata);
+  d.setHours(12, 0, 0, 0);
+  const giornoSett = d.getDay(); // 0: Dom, 1: Lun, 2: Mar, 3: Mer, 4: Gio, 5: Ven, 6: Sab
+  const isTuesday = (giornoSett === 2);
+  const isThursday = (giornoSett === 4);
+  const isTuesdayOrThursday = isTuesday || isThursday;
+
   const adesso = new Date();
-  const dataScelta = new Date(dataSelezionata.getFullYear(), dataSelezionata.getMonth(), dataSelezionata.getDate());
+  const dataScelta = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  const dataOggi = new Date(adesso.getFullYear(), adesso.getMonth(), adesso.getDate());
+
+  if (isMasterOverride || appState.bypassTimeLock) {
+    return {
+      isTuesdayOrThursday,
+      bloccata: false,
+      isMasterOverride: true,
+      scadenzaTesto: isTuesday ? "Domenica ore 18:00" : (isThursday ? "Martedì ore 18:00" : "Termine standard"),
+      regolaTesto: isTuesday ? "La busta del martedì può essere scelta solo entro domenica pomeriggio." : (isThursday ? "La busta del giovedì può essere scelta solo entro martedì pomeriggio." : "")
+    };
+  }
+
+  // Se il giorno del pasto è già trascorso
+  if (dataScelta < dataOggi) {
+    return {
+      isTuesdayOrThursday,
+      bloccata: true,
+      motivo: "Data passata",
+      scadenzaTesto: "Termine trascorso",
+      regolaTesto: "Il giorno del pasto è già trascorso."
+    };
+  }
+
+  if (isTuesday) {
+    // Scadenza la Domenica pomeriggio precedente (dataScelta - 2 giorni)
+    const scadenzaDom = new Date(dataScelta);
+    scadenzaDom.setDate(dataScelta.getDate() - 2);
+    const limiteStr = appState.cachedConfig?.Orario_Limite_Busta_Martedi || "18:00";
+    const { ore, minuti } = parseTimeHHMM(limiteStr, 18, 0);
+    scadenzaDom.setHours(ore, minuti, 0, 0);
+    const bloccata = adesso > scadenzaDom;
+    return {
+      isTuesdayOrThursday: true,
+      tipo: "martedi",
+      bloccata,
+      scadenzaDate: scadenzaDom,
+      scadenzaTesto: `Domenica entro le ${String(ore).padStart(2, '0')}:${String(minuti).padStart(2, '0')}`,
+      regolaTesto: `La busta del martedì può essere scelta solo entro la domenica pomeriggio (ore ${String(ore).padStart(2, '0')}:${String(minuti).padStart(2, '0')}).`
+    };
+  }
+
+  if (isThursday) {
+    // Scadenza il Martedì pomeriggio precedente (dataScelta - 2 giorni)
+    const scadenzaMar = new Date(dataScelta);
+    scadenzaMar.setDate(dataScelta.getDate() - 2);
+    const limiteStr = appState.cachedConfig?.Orario_Limite_Busta_Giovedi || "18:00";
+    const { ore, minuti } = parseTimeHHMM(limiteStr, 18, 0);
+    scadenzaMar.setHours(ore, minuti, 0, 0);
+    const bloccata = adesso > scadenzaMar;
+    return {
+      isTuesdayOrThursday: true,
+      tipo: "giovedi",
+      bloccata,
+      scadenzaDate: scadenzaMar,
+      scadenzaTesto: `Martedì entro le ${String(ore).padStart(2, '0')}:${String(minuti).padStart(2, '0')}`,
+      regolaTesto: `La busta del giovedì può essere scelta solo entro il martedì pomeriggio (ore ${String(ore).padStart(2, '0')}:${String(minuti).padStart(2, '0')}).`
+    };
+  }
+
+  // Altri giorni generici (se per caso hanno opzione busta)
   const { limiteBusta } = getOrariLimitePasti();
   const { ore: limiteOre, minuti: limiteMin } = parseTimeHHMM(limiteBusta, 14, 0);
   const deadlineBusta = new Date(dataScelta.getFullYear(), dataScelta.getMonth(), dataScelta.getDate() - 1, limiteOre, limiteMin, 0);
-  return adesso > deadlineBusta;
+  const bloccata = adesso > deadlineBusta;
+  return {
+    isTuesdayOrThursday: false,
+    bloccata,
+    scadenzaDate: deadlineBusta,
+    scadenzaTesto: `Giorno prima entro le ${String(limiteOre).padStart(2, '0')}:${String(limiteMin).padStart(2, '0')}`,
+    regolaTesto: "Prenotazione busta entro le 14:00 del giorno precedente."
+  };
+}
+
+function isBustaBloccata(dataSelezionata, isMasterOverride = false) {
+  const info = getDettaglioRegolaBusta(dataSelezionata, isMasterOverride);
+  return info.bloccata;
 }
 
 function getLunediDellaSettimana(d) {
@@ -2211,6 +2315,8 @@ function renderWeeklyScrollView(lunediDate) {
     const isMaster = haPermessiMaster() || (appState.user && appState.user.perm_mensa);
     const pranzoLocked = isPranzoBloccato(d);
     const cenaLocked = isCenaBloccata(d);
+    const infoBusta = getDettaglioRegolaBusta(d, isMaster);
+    const bustaLocked = isTuesdayOrThursday ? infoBusta.bloccata : pranzoLocked;
     const emailUtente = appState.user ? appState.user.email.toLowerCase() : "";
 
     const statoPranzo = getStatoPresenzaUtente(dStr, "pranzo", emailUtente);
@@ -2241,7 +2347,7 @@ function renderWeeklyScrollView(lunediDate) {
               `)}
               ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">👥 Pasti: <span class="count-num">${countPranzoInfo.totale}</span></span>` : ''}
             </div>
-            <span class="badge ${pranzoLocked ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${pranzoLocked ? 'Chiuso' : 'Aperto'}</span>
+            <span class="badge ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'Chiuso' : 'Aperto'}</span>
           </div>
           <div class="weekly-meal-dishes">
             ${isTuesdayOrThursday ? `
@@ -2257,16 +2363,25 @@ function renderWeeklyScrollView(lunediDate) {
           </div>
           <div class="booking-inline-controls">
             ${isTuesdayOrThursday ? `
+              ${infoBusta.bloccata && !isMaster ? `
+                <div style="font-size: 11px; color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 4px 8px; margin-bottom: 6px; line-height: 1.35; width: 100%;">
+                  🔒 <strong>Busta chiusa:</strong> andava scelta entro ${escapeHtml(infoBusta.scadenzaTesto)}. Rivolgiti al Master Mensa per variazioni.
+                </div>
+              ` : (isMaster && infoBusta.bloccata ? `
+                <div style="font-size: 10.5px; font-weight: 700; color: #92400e; background: #fef3c7; border: 1px solid #fde68a; border-radius: 6px; padding: 2px 6px; margin-bottom: 6px; width: 100%;">
+                  👑 <strong>Override Master attivo:</strong> puoi segnare o modificare la busta oltre la scadenza.
+                </div>
+              ` : '')}
               ${statoPranzo.isAssente ? `
                 <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
-                <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Rimuovi Assenza</button>
+                <button type="button" class="btn-quick-cancel" ${bustaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Rimuovi Assenza</button>
               ` : (statoPranzo.isPresente ? `
                 <span class="presence-summary-badge">🥪 Busta Richiesta ${statoPranzo.ospiti > 0 ? `(+${statoPranzo.ospiti})` : ''}</span>
-                <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-weight: 700;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
-                <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Annulla Busta</button>
+                <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-weight: 700;" ${bustaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
+                <button type="button" class="btn-quick-cancel" ${bustaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Annulla Busta</button>
               ` : `
-                <button type="button" class="btn-quick-book" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, false)">🥪 Richiedi Busta</button>
-                <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px; font-weight: 700;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
+                <button type="button" class="btn-quick-book" ${bustaLocked ? 'disabled' : ''} onclick="quickSegnaPresenza('${dStr}', 'pranzo', true, false)">🥪 Richiedi Busta</button>
+                <button type="button" class="btn-quick-cancel" style="color: #dc2626; border-color: #fca5a5; font-size: 11px; font-weight: 700;" ${bustaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">❌ Assente</button>
               `)}
             ` : `
               ${statoPranzo.isAssente ? `
@@ -2344,6 +2459,8 @@ function renderDailyDetailedView(dataSel) {
   const isMaster = haPermessiMaster() || (appState.user && appState.user.perm_mensa);
   const pranzoLocked = isPranzoBloccato(dataSel);
   const cenaLocked = isCenaBloccata(dataSel);
+  const infoBusta = getDettaglioRegolaBusta(dataSel, isMaster);
+  const bustaLocked = isTuesdayOrThursday ? infoBusta.bloccata : pranzoLocked;
   const maxOspiti = parseInt(appState.cachedConfig?.Max_Ospiti_Mensa || 5, 10);
   const nomeGiornoFormat = capitalize(giornoKey);
   const dataFormattata = formattaDataItaliana(dataSel);
@@ -2362,13 +2479,13 @@ function renderDailyDetailedView(dataSel) {
       </div>
     </div>
 
-    <div class="card meal-card ${pranzoLocked ? 'card-disabled' : ''}">
+    <div class="card meal-card ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'card-disabled' : ''}">
       <div class="flex-between">
         <div class="flex-align">
           <span class="meal-icon">☀️</span>
           <div>
             <h3 class="meal-title">Pranzo delle 14:30</h3>
-            <span class="meal-sub">${pranzoLocked ? '🔒 Chiuso' : '🟢 Prenotazioni aperte'}</span>
+            <span class="meal-sub">${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? '🔒 Chiuso' : '🟢 Prenotazioni aperte'}</span>
           </div>
         </div>
         ${statoPranzo.isAssente ? `
@@ -2379,7 +2496,7 @@ function renderDailyDetailedView(dataSel) {
           <span class="meal-status-pill not-booked">Non prenotata</span>
         `)}
         ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">👥 Pasti: <span class="count-num">${countPranzoInfo.totale}</span></span>` : ''}
-        <span class="badge ${pranzoLocked ? 'badge-danger' : 'badge-success'}">${pranzoLocked ? 'Chiuso' : 'Aperto'}</span>
+        <span class="badge ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'badge-danger' : 'badge-success'}">${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'Chiuso' : 'Aperto'}</span>
       </div>
 
       <div class="meal-menu-body">
@@ -2401,6 +2518,21 @@ function renderDailyDetailedView(dataSel) {
               </div>
             </div>
           </div>
+          ${infoBusta.bloccata && !isMaster ? `
+            <div style="margin-top: 10px; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 8px; padding: 10px 14px;">
+              <div style="font-weight: 800; color: #991b1b; font-size: 13.5px;">🔒 Termine Prenotazione Busta Scaduto</div>
+              <div style="font-size: 12.5px; color: #7f1d1d; margin-top: 3px; line-height: 1.45;">
+                ${escapeHtml(infoBusta.regolaTesto)} Se hai un'esigenza straordinaria, contatta il <strong>Master della Mensa</strong> per fartela inserire manualmente.
+              </div>
+            </div>
+          ` : (isMaster ? `
+            <div style="margin-top: 10px; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 8px; padding: 8px 12px;">
+              <div style="font-weight: 800; color: #92400e; font-size: 12.5px;">👑 Autorizzazione Master Mensa Attiva</div>
+              <div style="font-size: 11.5px; color: #78350f;">
+                In qualità di Master puoi segnare, revocare o modificare la busta del ${nomeGiornoFormat} anche oltre la scadenza prevista (${infoBusta.scadenzaTesto}).
+              </div>
+            </div>
+          ` : '')}
         `}
         ${variazionePranzo ? `<div class="cuoca-var-box has-var" style="margin-top: 10px;"><div class="flex-between"><div class="flex-align"><span style="font-size: 18px;">👩‍🍳</span><strong style="color: #92400e; font-size: 13px;">Variazione Pranzo:</strong></div>${isMaster ? `<button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">Modifica</button>` : ''}</div><p style="margin: 6px 0 0 0; font-size: 13px; color: #78350f; line-height: 1.4;">${escapeHtml(variazionePranzo)}</p></div>` : (isMaster ? `<div style="margin-top: 8px; text-align: right;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">👩‍🍳 + Variazione Pranzo</button></div>` : '')}
       </div>
@@ -2409,7 +2541,7 @@ function renderDailyDetailedView(dataSel) {
         <div class="checkbox-group">
           ${isTuesdayOrThursday ? `
             <label class="custom-checkbox"><input type="checkbox" id="pranzo-busta" checked disabled><span><strong>Pranzo al sacco: Busta</strong></span></label>
-            <label class="custom-checkbox"><input type="checkbox" id="pranzo-ritardo" ${statoPranzo.isRitardo ? 'checked' : ''} ${pranzoLocked ? 'disabled' : ''}><span>Ritiro posticipato</span></label>
+            <label class="custom-checkbox"><input type="checkbox" id="pranzo-ritardo" ${statoPranzo.isRitardo ? 'checked' : ''} ${bustaLocked ? 'disabled' : ''}><span>Ritiro posticipato</span></label>
           ` : `
             <label class="custom-checkbox"><input type="checkbox" id="pranzo-ritardo" ${statoPranzo.isRitardo ? 'checked' : ''} ${pranzoLocked ? 'disabled' : ''}><span>Arrivo in Ritardo</span></label>
           `}
@@ -2421,24 +2553,24 @@ function renderDailyDetailedView(dataSel) {
               <span class="text-xs text-muted">Max ${maxOspiti} persone</span>
             </div>
             <div class="guest-counter-stepper">
-              <button type="button" class="guest-stepper-btn" ${pranzoLocked ? 'disabled' : ''} onclick="const inp=document.getElementById('pranzo-ospiti'); if(inp){inp.value=Math.max(0, (parseInt(inp.value,10)||0)-1);}">-</button>
-              <input type="number" id="pranzo-ospiti" class="guest-stepper-input" min="0" max="${maxOspiti}" value="${statoPranzo.ospiti}" ${pranzoLocked ? 'disabled' : ''}>
-              <button type="button" class="guest-stepper-btn" ${pranzoLocked ? 'disabled' : ''} onclick="const inp=document.getElementById('pranzo-ospiti'); if(inp){inp.value=Math.min(${maxOspiti}, (parseInt(inp.value,10)||0)+1);}">+</button>
+              <button type="button" class="guest-stepper-btn" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''} onclick="const inp=document.getElementById('pranzo-ospiti'); if(inp){inp.value=Math.max(0, (parseInt(inp.value,10)||0)-1);}">-</button>
+              <input type="number" id="pranzo-ospiti" class="guest-stepper-input" min="0" max="${maxOspiti}" value="${statoPranzo.ospiti}" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''}>
+              <button type="button" class="guest-stepper-btn" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''} onclick="const inp=document.getElementById('pranzo-ospiti'); if(inp){inp.value=Math.min(${maxOspiti}, (parseInt(inp.value,10)||0)+1);}">+</button>
             </div>
           </div>
         </div>
         <div class="form-group" style="margin-top: 10px;">
-          <input type="text" id="pranzo-note" class="input-text" placeholder="Note per la cucina..." value="${escapeHtml(statoPranzo.note)}" ${pranzoLocked ? 'disabled' : ''}>
+          <input type="text" id="pranzo-note" class="input-text" placeholder="Note per la cucina..." value="${escapeHtml(statoPranzo.note)}" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''}>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
-          <button type="submit" class="btn btn-primary" style="flex: 1;" ${pranzoLocked ? 'disabled' : ''}>
+          <button type="submit" class="btn btn-primary" style="flex: 1;" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''}>
             ${statoPranzo.isPresente && !statoPranzo.isDefault ? 'Aggiorna Preferenze' : (isTuesdayOrThursday ? 'Prenota Busta' : 'Conferma Presenza')}
           </button>
-          <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-weight: 700; font-size: 12px;" ${pranzoLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">
+          <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-weight: 700; font-size: 12px;" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">
             ❌ Assente
           </button>
           ${!statoPranzo.isDefault ? `
-            <button type="button" class="btn-quick-cancel" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Ripristina Default</button>
+            <button type="button" class="btn-quick-cancel" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Ripristina Default</button>
           ` : ''}
         </div>
       </form>
@@ -2548,6 +2680,13 @@ window.selezionaGiornoMensa = function(ymd) {
 
 window.quickSegnaPresenza = async function(dataStr, tipoPasto, busta, ritardo) {
   if (!appState.user) { mostraModalAuth(true); return; }
+  const isMaster = haPermessiMaster() || (appState.user && appState.user.perm_mensa);
+  const targetDate = new Date(dataStr + "T12:00:00");
+  const infoBusta = getDettaglioRegolaBusta(targetDate, isMaster);
+  if (busta && infoBusta.bloccata) {
+    mostraToast(`Prenotazione non consentita: ${infoBusta.regolaTesto} Rivolgiti al Master Mensa.`, "warning");
+    return;
+  }
   const payload = { data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: Boolean(busta), ritardo: Boolean(ritardo), ospiti: 0, stato_presenza: "presente", note: "" };
   try {
     const res = await callApi("prenotaMensa", payload);
@@ -2596,9 +2735,18 @@ window.quickCancelPresenza = async function(dataStr, tipoPasto) {
 window.handlePrenotazioneMensa = async function(event, tipoPasto) {
   event.preventDefault();
   if (!appState.user) { mostraModalAuth(true); return; }
+  const isMaster = haPermessiMaster() || (appState.user && appState.user.perm_mensa);
   const dataStr = formatYMD(appState.selectedDateMensa || new Date());
   const giornoKey = getNomeGiorno(appState.selectedDateMensa || new Date());
   const isTuesdayOrThursday = (giornoKey === "martedi" || giornoKey === "giovedi");
+  const targetDate = appState.selectedDateMensa || new Date();
+  const infoBusta = getDettaglioRegolaBusta(targetDate, isMaster);
+
+  if (isTuesdayOrThursday && tipoPasto === "pranzo" && infoBusta.bloccata) {
+    mostraToast(`Prenotazione non consentita: ${infoBusta.regolaTesto} Rivolgiti al Master Mensa.`, "warning");
+    return;
+  }
+
   const busta = (isTuesdayOrThursday && tipoPasto === "pranzo") ? true : (document.getElementById(`${tipoPasto}-busta`)?.checked || false);
   const ritardo = document.getElementById(`${tipoPasto}-ritardo`)?.checked || false;
   const note = document.getElementById(`${tipoPasto}-note`)?.value || "";
@@ -4631,6 +4779,9 @@ function renderMasterSection() {
           <div class="flex-align"><span class="master-tag">MENSA</span><h3 class="card-title" style="margin: 0;">Presenze & Cucina</h3></div>
           <div class="flex-align" style="gap: 6px; flex-wrap: wrap;">
             <button type="button" class="btn btn-sm btn-primary" onclick="switchTab('cucina')" style="background: #ea580c; border-color: #ea580c; font-weight: 700; font-size: 11.5px;">👩‍🍳 Vista Cuoca</button>
+            <button type="button" class="btn btn-sm" onclick="apriModalGestioneBusteMaster('${dataFiltroYMD}')" style="background: #d97706; color: #fff; border-color: #d97706; font-weight: 700; font-size: 11.5px;">🥪 Gestione Buste</button>
+            <button type="button" class="btn btn-sm" onclick="apriModalConsultaMenu()" style="background: #0369a1; color: #fff; border-color: #0369a1; font-weight: 700; font-size: 11.5px;">📖 Menù 14 Giorni</button>
+            <button type="button" class="btn btn-sm" onclick="apriModalModificaMenu()" style="background: #7c3aed; color: #fff; border-color: #7c3aed; font-weight: 700; font-size: 11.5px;">✏️ Modifica Menù</button>
             <button type="button" class="btn btn-sm" onclick="switchTab('statistiche-mensa')" style="background: #0284c7; color: #fff; border-color: #0284c7; font-weight: 700; font-size: 11.5px;">📊 Statistiche Mensili</button>
             <input type="date" class="input-date" style="padding: 3px 8px; font-size: 12px;" value="${dataFiltroYMD}" onchange="cambiaDataMasterMensa(this.value)">
           </div>
@@ -4638,20 +4789,37 @@ function renderMasterSection() {
         <div class="metrics-grid">
           <div class="metric-card" style="border-top: 3px solid var(--primary); cursor: pointer;" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'pranzo')"><span class="metric-val" style="color: var(--primary);">${countPranzo} 🔍</span><span class="metric-lbl">Pranzo (14:30)</span></div>
           <div class="metric-card" style="border-top: 3px solid #2563eb; cursor: pointer;" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'cena')"><span class="metric-val" style="color: #2563eb;">${countCena} 🔍</span><span class="metric-lbl">Cena (19:30)</span></div>
-          <div class="metric-card" style="border-top: 3px solid #d97706;"><span class="metric-val" style="color: #d97706;">${countBuste}</span><span class="metric-lbl">Buste</span></div>
+          <div class="metric-card" style="border-top: 3px solid #d97706; cursor: pointer;" onclick="apriModalGestioneBusteMaster('${dataFiltroYMD}')"><span class="metric-val" style="color: #d97706;">${countBuste} 🔍</span><span class="metric-lbl">Buste</span></div>
           <div class="metric-card" style="border-top: 3px solid #475569;"><span class="metric-val" style="color: #475569;">${countRitardi}</span><span class="metric-lbl">Ritardi</span></div>
         </div>
 
+        <!-- BOX INFORMATIVO GESTIONE BUSTE MASTER -->
+        <div class="sub-section" style="margin-top: 14px; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 8px; padding: 12px 14px;">
+          <div class="flex-between" style="flex-wrap: wrap; gap: 8px;">
+            <div>
+              <h4 style="margin: 0 0 4px 0; color: #92400e; font-size: 14px;">🥪 Gestione Buste Martedì &amp; Giovedì (Override Scadenze)</h4>
+              <div style="font-size: 12.5px; color: #78350f; line-height: 1.4;">
+                La busta del <strong>martedì</strong> va scelta entro <strong>domenica pomeriggio (ore ${escapeHtml(appState.cachedConfig.Orario_Limite_Busta_Martedi || '18:00')})</strong> e quella del <strong>giovedì</strong> entro <strong>martedì pomeriggio (ore ${escapeHtml(appState.cachedConfig.Orario_Limite_Busta_Giovedi || '18:00')})</strong>. Come Master hai la possibilità di segnare, confermare o annullare la busta per qualsiasi residente anche a termine scaduto.
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm" onclick="apriModalGestioneBusteMaster('${dataFiltroYMD}')" style="background: #ea580c; border-color: #ea580c; color: #fff; font-weight: 700; padding: 6px 14px;">
+              🥪 Apri Gestione Buste Residenti
+            </button>
+          </div>
+        </div>
+
         <div class="sub-section" style="margin-top: 18px; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 14px;">
-          <h4 style="margin: 0 0 10px 0; color: #9a3412; font-size: 14px;">⏰ Orari Limite & Notifiche</h4>
+          <h4 style="margin: 0 0 10px 0; color: #9a3412; font-size: 14px;">⏰ Orari Limite &amp; Notifiche</h4>
           <form onsubmit="handleSalvaOrariLimite(event)">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-bottom: 12px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 12px;">
               <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">☀️ Limite Pranzo</label><input type="text" id="cfg-limite-pranzo" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Pranzo || '09:00')}" required style="font-weight: 700; font-size: 13px;"></div>
               <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">🌙 Limite Cena</label><input type="text" id="cfg-limite-cena" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Cena || '14:30')}" required style="font-weight: 700; font-size: 13px;"></div>
-              <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">🥪 Limite Busta</label><input type="text" id="cfg-limite-busta" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Busta || '14:00')}" required style="font-weight: 700; font-size: 13px;"></div>
+              <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">🥪 Limite Busta Martedì</label><input type="text" id="cfg-limite-busta-martedi" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Busta_Martedi || '18:00')}" placeholder="Dom ore 18:00" required style="font-weight: 700; font-size: 13px;"></div>
+              <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">🥪 Limite Busta Giovedì</label><input type="text" id="cfg-limite-busta-giovedi" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Busta_Giovedi || '18:00')}" placeholder="Mar ore 18:00" required style="font-weight: 700; font-size: 13px;"></div>
+              <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">🥪 Limite Busta Standard</label><input type="text" id="cfg-limite-busta" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Busta || '14:00')}" required style="font-weight: 700; font-size: 13px;"></div>
             </div>
             <div class="form-group" style="margin-bottom: 12px;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">📧 Email Notifiche</label><input type="text" id="cfg-email-notifiche-master" class="input-text" value="${escapeHtml(appState.cachedConfig.Email_Notifiche_Master || 'donandreadotti@gmail.com')}" style="font-size: 13px;"></div>
-            <button type="submit" id="btn-salva-orari-cfg" class="btn btn-primary btn-block" style="background: #c2410c; border-color: #c2410c; font-weight: 700;">💾 Salva</button>
+            <button type="submit" id="btn-salva-orari-cfg" class="btn btn-primary btn-block" style="background: #c2410c; border-color: #c2410c; font-weight: 700;">💾 Salva Orari Limite</button>
           </form>
         </div>
 
@@ -5011,23 +5179,35 @@ window.handleSalvaOrariLimite = async function(e) {
   const limitePranzo = document.getElementById("cfg-limite-pranzo")?.value?.trim() || "09:00";
   const limiteCena = document.getElementById("cfg-limite-cena")?.value?.trim() || "14:30";
   const limiteBusta = document.getElementById("cfg-limite-busta")?.value?.trim() || "14:00";
+  const limiteBustaMartedi = document.getElementById("cfg-limite-busta-martedi")?.value?.trim() || "18:00";
+  const limiteBustaGiovedi = document.getElementById("cfg-limite-busta-giovedi")?.value?.trim() || "18:00";
   const emailNotifiche = document.getElementById("cfg-email-notifiche-master")?.value?.trim() || "donandreadotti@gmail.com";
   const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
   if (!timeRegex.test(limitePranzo)) { mostraToast("Orario pranzo non valido", "warning"); return; }
   if (!timeRegex.test(limiteCena)) { mostraToast("Orario cena non valido", "warning"); return; }
   if (!timeRegex.test(limiteBusta)) { mostraToast("Orario busta non valido", "warning"); return; }
+  if (!timeRegex.test(limiteBustaMartedi)) { mostraToast("Orario limite busta martedì non valido (es. 18:00)", "warning"); return; }
+  if (!timeRegex.test(limiteBustaGiovedi)) { mostraToast("Orario limite busta giovedì non valido (es. 18:00)", "warning"); return; }
   const btn = document.getElementById("btn-salva-orari-cfg");
   if (btn) { btn.disabled = true; btn.textContent = "Salvataggio..."; }
   try {
-    const res = await callApi("aggiornaConfig", { Orario_Limite_Pranzo: limitePranzo, Orario_Limite_Cena: limiteCena, Orario_Limite_Busta: limiteBusta, Email_Notifiche_Master: emailNotifiche });
+    const payload = {
+      Orario_Limite_Pranzo: limitePranzo,
+      Orario_Limite_Cena: limiteCena,
+      Orario_Limite_Busta: limiteBusta,
+      Orario_Limite_Busta_Martedi: limiteBustaMartedi,
+      Orario_Limite_Busta_Giovedi: limiteBustaGiovedi,
+      Email_Notifiche_Master: emailNotifiche
+    };
+    const res = await callApi("aggiornaConfig", payload);
     if (res && res.success) {
-      Object.assign(appState.cachedConfig, { Orario_Limite_Pranzo: limitePranzo, Orario_Limite_Cena: limiteCena, Orario_Limite_Busta: limiteBusta, Email_Notifiche_Master: emailNotifiche });
-      mostraToast("✅ Orari salvati!", "success");
+      Object.assign(appState.cachedConfig, payload);
+      mostraToast("✅ Orari limite salvati!", "success");
       if (document.getElementById("mensa-container")) renderMensaView();
       renderMasterSection();
     } else mostraToast("Errore: " + (res?.error || "Errore"), "error");
   } catch (err) { mostraToast("Errore di rete", "error"); }
-  finally { if (btn) { btn.disabled = false; btn.textContent = "💾 Salva Orari Limite & Email Notifiche Master"; } }
+  finally { if (btn) { btn.disabled = false; btn.textContent = "💾 Salva Orari Limite"; } }
 };
 
 window.salvaModificheSegnalazione = async function(id) {
@@ -6383,6 +6563,14 @@ window.renderCucinaView = function() {
   const listaPranzo = statsPranzo.dettagliPresenti || [];
   const listaCena = statsCena.dettagliPresenti || [];
 
+  const cicloSettimana = getSettimanaMenu(dataObj);
+  const giornoKey = getNomeGiorno(dataObj);
+  const menuGiorno = (MENU_14_GIORNI[cicloSettimana] && MENU_14_GIORNI[cicloSettimana][giornoKey]) ? MENU_14_GIORNI[cicloSettimana][giornoKey] : {};
+  const isTuesdayOrThursday = (giornoKey === "martedi" || giornoKey === "giovedi");
+  const variazionePranzo = getVariazioneCuocaPerData(dataFiltroYMD, "pranzo");
+  const variazioneCena = getVariazioneCuocaPerData(dataFiltroYMD, "cena");
+  const infoBusta = getDettaglioRegolaBusta(dataObj, true);
+
   const dataVar = appState.cachedConfig.Data_Variazione_Menu;
   const testoVar = appState.cachedConfig.Testo_Variazione;
   const pastoVar = (appState.cachedConfig.Pasto_Variazione || "entrambi").toLowerCase();
@@ -6431,14 +6619,17 @@ window.renderCucinaView = function() {
               <span style="font-size: 26px;">👩‍🍳</span>
               <div>
                 <h2 style="margin: 0; font-size: 19px; color: #9a3412; font-weight: 800;">Registro Cucina</h2>
-                <div style="font-size: 12.5px; color: #7c2d12;">Presenze, piatti e buste</div>
+                <div style="font-size: 12.5px; color: #7c2d12;">Presenze in sala, pietanze del menù e buste da asporto</div>
               </div>
             </div>
           </div>
           <div style="display: flex; gap: 6px; flex-wrap: wrap;" class="no-print">
             <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('mensa')" style="font-weight: 700;">← Mensa</button>
-            <button type="button" class="btn btn-sm" onclick="window.print()" style="background: #0f172a; color: #fff; font-weight: 700; padding: 6px 12px;">🖨️ Stampa</button>
-            <button type="button" class="btn btn-sm" onclick="apriModalVariazioneCuoca('${dataFiltroYMD}', 'pranzo')" style="background: #ea580c; color: #fff; font-weight: 700; padding: 6px 12px;">📢 Variazione</button>
+            <button type="button" class="btn btn-sm" onclick="apriModalConsultaMenu('${cicloSettimana}')" style="background: #0369a1; color: #fff; border-color: #0369a1; font-weight: 700; padding: 6px 12px; font-size: 11.5px;">📖 Menù 14 Giorni</button>
+            <button type="button" class="btn btn-sm" onclick="apriModalModificaMenu('${cicloSettimana}', '${giornoKey}')" style="background: #7c3aed; color: #fff; border-color: #7c3aed; font-weight: 700; padding: 6px 12px; font-size: 11.5px;">✏️ Modifica Menù</button>
+            <button type="button" class="btn btn-sm" onclick="apriModalGestioneBusteMaster('${dataFiltroYMD}')" style="background: #d97706; color: #fff; border-color: #d97706; font-weight: 700; padding: 6px 12px; font-size: 11.5px;">🥪 Gestione Buste</button>
+            <button type="button" class="btn btn-sm" onclick="apriModalVariazioneCuoca('${dataFiltroYMD}', 'pranzo')" style="background: #ea580c; color: #fff; border-color: #ea580c; font-weight: 700; padding: 6px 12px; font-size: 11.5px;">📢 Variazione</button>
+            <button type="button" class="btn btn-sm" onclick="window.print()" style="background: #0f172a; color: #fff; font-weight: 700; padding: 6px 12px; font-size: 11.5px;">🖨️ Stampa</button>
           </div>
         </div>
 
@@ -6455,6 +6646,87 @@ window.renderCucinaView = function() {
         </div>
 
         ${haVariazioneOggi ? `<div style="margin-top: 12px; background: #fffbeb; border: 2px dashed #f59e0b; border-radius: 8px; padding: 10px 14px;"><span style="font-weight: 800; color: #b45309; font-size: 13px;">📢 Variazione (${pastoVar.toUpperCase()}):</span><div style="font-size: 14px; font-weight: 700; color: #78350f; margin-top: 2px;">"${escapeHtml(testoVar)}"</div></div>` : ''}
+      </div>
+
+      <!-- SCHEDA MENÙ DEL GIORNO PER LA CUOCA / MASTER -->
+      <div class="card" style="padding: 14px 16px; margin-bottom: 14px; background: #ffffff; border: 1.5px solid #fed7aa; border-radius: 10px; box-shadow: 0 1px 4px rgba(0,0,0,0.04);">
+        <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid #ffedd5; padding-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 22px;">🍽️</span>
+            <div>
+              <h3 style="margin: 0; font-size: 16.5px; color: #9a3412; font-weight: 800;">
+                Menù del Giorno: ${giornoSettimanaCapitalized}
+              </h3>
+              <span class="text-xs text-muted">Ciclo: <strong>${cicloSettimana === 'settimana1' ? 'Settimana 1' : 'Settimana 2'}</strong> • Programmazione 14 Giorni</span>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px;" class="no-print">
+            <button type="button" class="btn btn-outline btn-sm" onclick="apriModalConsultaMenu('${cicloSettimana}')" style="font-weight: 700; font-size: 11.5px; color: #0369a1; border-color: #bae6fd;">
+              📖 Consulta Menù 14 Giorni
+            </button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="apriModalModificaMenu('${cicloSettimana}', '${giornoKey}')" style="color: #7c3aed; border-color: #ddd6fe; font-weight: 700; font-size: 11.5px;">
+              ✏️ Modifica questo Menù
+            </button>
+          </div>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+          <!-- Colonna Pranzo -->
+          <div style="background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 12px 14px;">
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <strong style="color: #c2410c; font-size: 14.5px; display: flex; align-items: center; gap: 6px;">
+                <span>☀️ Pranzo (14:30)</span>
+                ${isTuesdayOrThursday ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-size: 10.5px;">🥪 Pranzo al Sacco</span>' : ''}
+              </strong>
+              ${!isTuesdayOrThursday ? `<button type="button" class="btn-link-cuoca no-print" onclick="apriModalModificaMenu('${cicloSettimana}', '${giornoKey}')" style="font-size: 11px;">✏️ Modifica</button>` : ''}
+            </div>
+
+            ${isTuesdayOrThursday ? `
+              <div style="background: #ffffff; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 10px; margin-bottom: 6px;">
+                <div style="font-weight: 700; color: #9a3412; font-size: 12.5px;">🥪 Busta da Asporto programmata per ${giornoKey === 'martedi' ? 'Martedì' : 'Giovedì'}</div>
+                <div style="font-size: 11.5px; color: #78350f; margin-top: 2px;">Include: primo/secondo freddo o al sacco, frutta, snack dolce, acqua e succo.</div>
+                <div style="margin-top: 6px; font-size: 11px; color: #92400e; background: #fef3c7; padding: 4px 6px; border-radius: 4px;">
+                  ⏰ <strong>Scadenza residenti:</strong> ${giornoKey === 'martedi' ? 'entro domenica ore ' + (appState.cachedConfig.Orario_Limite_Busta_Martedi || '18:00') : 'entro martedì ore ' + (appState.cachedConfig.Orario_Limite_Busta_Giovedi || '18:00')}.
+                </div>
+              </div>
+            ` : `
+              <div style="font-size: 13px; line-height: 1.55; color: #334155;">
+                <div><strong style="color: #9a3412;">1° Primo:</strong> ${escapeHtml(menuGiorno.pranzo?.primo || '—')}</div>
+                <div><strong style="color: #9a3412;">2° Secondo:</strong> ${escapeHtml(menuGiorno.pranzo?.secondo || '—')}</div>
+                <div><strong style="color: #9a3412;">Contorno:</strong> ${escapeHtml(menuGiorno.pranzo?.contorno || '—')}${menuGiorno.pranzo?.contorno2 ? ' • ' + escapeHtml(menuGiorno.pranzo.contorno2) : ''}</div>
+                <div><strong style="color: #9a3412;">Dessert / Frutta:</strong> ${escapeHtml(menuGiorno.pranzo?.dessert || '—')}</div>
+              </div>
+            `}
+
+            ${variazionePranzo ? `<div style="margin-top: 8px; background: #fffbeb; border: 1px dashed #f59e0b; border-radius: 6px; padding: 6px 8px; font-size: 12px; color: #92400e;"><strong>👩‍🍳 Variazione registrata:</strong> ${escapeHtml(variazionePranzo)}</div>` : ''}
+          </div>
+
+          <!-- Colonna Cena -->
+          <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 8px; padding: 12px 14px;">
+            <div class="flex-between" style="margin-bottom: 8px;">
+              <strong style="color: #1d4ed8; font-size: 14.5px;">🌙 Cena (19:30)</strong>
+              <button type="button" class="btn-link-cuoca no-print" onclick="apriModalModificaMenu('${cicloSettimana}', '${giornoKey}')" style="font-size: 11px;">✏️ Modifica</button>
+            </div>
+            <div style="font-size: 13px; line-height: 1.55; color: #334155;">
+              <div><strong style="color: #1e40af;">1° Primo:</strong> ${escapeHtml(menuGiorno.cena?.primo || '—')}</div>
+              <div><strong style="color: #1e40af;">2° Secondo:</strong> ${escapeHtml(menuGiorno.cena?.secondo || '—')}</div>
+              <div><strong style="color: #1e40af;">Contorno:</strong> ${escapeHtml(menuGiorno.cena?.contorno || '—')}${menuGiorno.cena?.contorno2 ? ' • ' + escapeHtml(menuGiorno.cena.contorno2) : ''}</div>
+              <div><strong style="color: #1e40af;">Dessert / Frutta:</strong> ${escapeHtml(menuGiorno.cena?.dessert || '—')}</div>
+            </div>
+            ${variazioneCena ? `<div style="margin-top: 8px; background: #fffbeb; border: 1px dashed #f59e0b; border-radius: 6px; padding: 6px 8px; font-size: 12px; color: #92400e;"><strong>👩‍🍳 Variazione registrata:</strong> ${escapeHtml(variazioneCena)}</div>` : ''}
+          </div>
+        </div>
+
+        ${isTuesdayOrThursday ? `
+          <div style="margin-top: 10px; background: #fffbeb; border: 1.5px solid #fed7aa; border-radius: 6px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+            <div style="font-size: 12px; color: #78350f;">
+              🥪 <strong>Buste Asporto Richieste:</strong> Totale: <strong>${countBustePranzo}</strong> buste. Come Master puoi assegnare o rimuovere la busta per ciascun residente (anche oltre la scadenza).
+            </div>
+            <button type="button" class="btn btn-sm" onclick="apriModalGestioneBusteMaster('${dataFiltroYMD}')" style="background: #ea580c; color: #fff; font-weight: 700; border-color: #ea580c; font-size: 11.5px; padding: 4px 10px;">
+              🥪 Gestisci Buste Master
+            </button>
+          </div>
+        ` : ''}
       </div>
 
       <div class="card no-print" style="padding: 12px 14px; margin-bottom: 14px; background: #f8fafc; border: 1px solid #e2e8f0;">
@@ -6508,9 +6780,12 @@ window.renderCucinaView = function() {
                         ${p.note ? `<div style="margin-top: 3px; font-size: 12px; font-weight: 700; color: #c2410c;">💬 ${escapeHtml(p.note)}</div>` : ''}
                       </div>
                     </div>
-                    <div style="display: flex; gap: 4px;">
-                      ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11px;">🥪</span>' : ''}
+                    <div style="display: flex; align-items: center; gap: 4px;">
+                      ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11px;">🥪 Busta</span>' : ''}
                       ${p.ritardo ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 800; font-size: 11px;">⏰</span>' : ''}
+                      <button type="button" class="btn btn-outline btn-sm no-print" onclick="masterToggleBustaResidente('${escapeHtml(p.email)}', '${dataFiltroYMD}', ${!p.busta})" style="padding: 2px 7px; font-size: 11px; font-weight: 700; ${p.busta ? 'color: #c2410c; border-color: #fed7aa; background: #fff7ed;' : 'color: #475569;'}" title="${p.busta ? 'Revoca busta (riporta in sala)' : 'Assegna busta da asporto'}">
+                        ${p.busta ? '✕ Busta' : '+ Busta 🥪'}
+                      </button>
                     </div>
                   </div>`;
                 }).join("")}
@@ -6724,6 +6999,731 @@ window.copiaTestoElencoCucinaModal = function() {
 };
 
 window.stampaElencoCucinaModal = function() { window.print(); };
+
+// ----------------------------------------------------------------------------
+// TOGGLE RAPIDO BUSTA DA REGISTRO CUCINA (MASTER)
+// ----------------------------------------------------------------------------
+
+window.masterToggleBustaResidente = async function(email, dataStr, nuovaBusta) {
+  if (!haPermessiMasterMensa()) {
+    mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
+    return;
+  }
+  if (!email || !dataStr) return;
+  try {
+    const payload = {
+      data: dataStr,
+      email: email,
+      tipo_pasto: "pranzo",
+      busta: Boolean(nuovaBusta),
+      ritardo: false,
+      ospiti: 0,
+      stato_presenza: "presente",
+      note: nuovaBusta ? "Busta assegnata da Master Mensa" : ""
+    };
+    const res = await callApi("prenotaMensa", payload);
+    if (res && res.success) {
+      const existIdx = appState.mensaBookings.findIndex(m => String(m.data).split("T")[0] === dataStr && m.tipo_pasto === "pranzo" && m.email.toLowerCase() === email.toLowerCase());
+      const entry = { id: res.id || ("M_" + Date.now()), ...payload };
+      if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
+      else appState.mensaBookings.push(entry);
+      mostraToast(nuovaBusta ? `🥪 Busta assegnata a ${email}` : `🍽️ Busta rimossa per ${email} (assegnato in sala)`, "success");
+      if (typeof renderCucinaView === "function") renderCucinaView();
+      if (typeof renderContenutoGestioneBusteMaster === "function") renderContenutoGestioneBusteMaster();
+      if (typeof renderMensaView === "function") renderMensaView();
+      if (haPermessiMaster()) caricaDatiMaster();
+    } else {
+      mostraToast("Errore: " + (res?.error || "Operazione non riuscita"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete", "error");
+  }
+};
+
+// ----------------------------------------------------------------------------
+// MODAL CONSULTA MENU CICLICO 14 GIORNI
+// ----------------------------------------------------------------------------
+
+appState.consultaMenuState = {
+  settimana: "settimana1"
+};
+
+window.apriModalConsultaMenu = function(settimanaPredefinita) {
+  const modal = document.getElementById("modal-consulta-menu");
+  if (!modal) return;
+  if (settimanaPredefinita && (settimanaPredefinita === "settimana1" || settimanaPredefinita === "settimana2")) {
+    appState.consultaMenuState.settimana = settimanaPredefinita;
+  } else {
+    // Rileva ciclo corrente dalla data odierna
+    appState.consultaMenuState.settimana = getSettimanaMenu(new Date());
+  }
+  modal.style.display = "flex";
+  selezionaSettimanaConsultaMenu(appState.consultaMenuState.settimana);
+};
+
+window.chiudiModalConsultaMenu = function() {
+  const modal = document.getElementById("modal-consulta-menu");
+  if (modal) modal.style.display = "none";
+};
+
+window.selezionaSettimanaConsultaMenu = function(settKey) {
+  appState.consultaMenuState.settimana = settKey;
+  const btn1 = document.getElementById("tab-btn-consulta-sett1");
+  const btn2 = document.getElementById("tab-btn-consulta-sett2");
+  if (btn1 && btn2) {
+    if (settKey === "settimana1") {
+      btn1.className = "btn btn-sm btn-primary";
+      btn2.className = "btn btn-sm btn-outline";
+    } else {
+      btn1.className = "btn btn-sm btn-outline";
+      btn2.className = "btn btn-sm btn-primary";
+    }
+  }
+  renderContenutoConsultaMenu();
+};
+
+window.renderContenutoConsultaMenu = function() {
+  const container = document.getElementById("consulta-menu-content");
+  if (!container) return;
+  const settKey = appState.consultaMenuState.settimana || "settimana1";
+  const menuSett = MENU_14_GIORNI[settKey] || {};
+  const giorniOrdine = [
+    { key: "lunedi", label: "Lunedì" },
+    { key: "martedi", label: "Martedì" },
+    { key: "mercoledi", label: "Mercoledì" },
+    { key: "giovedi", label: "Giovedì" },
+    { key: "venerdi", label: "Venerdì" },
+    { key: "sabato", label: "Sabato" },
+    { key: "domenica", label: "Domenica" }
+  ];
+
+  const isMaster = haPermessiMasterMensa();
+
+  let html = giorniOrdine.map(g => {
+    const mg = menuSett[g.key] || {};
+    const isTuesdayOrThursday = (g.key === "martedi" || g.key === "giovedi");
+    const p = mg.pranzo || {};
+    const c = mg.cena || {};
+
+    return `
+      <div class="card-inner" style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+        <div class="flex-between" style="border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; margin-bottom: 8px;">
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <strong style="color: #0f172a; font-size: 15px;">${g.label}</strong>
+            <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 10.5px;">${settKey === 'settimana1' ? 'Settimana 1' : 'Settimana 2'}</span>
+            ${isTuesdayOrThursday ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-size: 10.5px;">🥪 Pranzo al Sacco</span>' : ''}
+          </div>
+          ${isMaster ? `
+            <button type="button" class="btn btn-outline btn-sm no-print" onclick="chiudiModalConsultaMenu(); apriModalModificaMenu('${settKey}', '${g.key}');" style="padding: 2px 8px; font-size: 11px; color: #7c3aed; border-color: #ddd6fe; font-weight: 700;">
+              ✏️ Modifica
+            </button>
+          ` : ''}
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px;">
+          <!-- Pranzo -->
+          <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 6px; padding: 8px 10px;">
+            <div class="flex-between" style="margin-bottom: 4px;">
+              <span style="font-weight: 800; font-size: 12.5px; color: #c2410c;">☀️ Pranzo (14:30)</span>
+              ${isTuesdayOrThursday ? '<span style="font-size: 10.5px; color: #9a3412; font-weight: 700;">(Busta Asporto)</span>' : ''}
+            </div>
+            ${isTuesdayOrThursday ? `
+              <div style="font-size: 11.5px; color: #7c2d12; line-height: 1.4;">
+                <div>🥪 <strong>Busta al sacco:</strong> primo/secondo freddo, frutta, snack dolce, acqua e succo.</div>
+                <div style="margin-top: 3px; font-size: 10.5px; color: #92400e; font-style: italic;">
+                  Disponibile anche alternativa tradizionale se concordata con la cucina.
+                </div>
+              </div>
+            ` : `
+              <div style="font-size: 12px; line-height: 1.45; color: #334155;">
+                <div><strong>1°:</strong> ${escapeHtml(p.primo || '—')}</div>
+                <div><strong>2°:</strong> ${escapeHtml(p.secondo || '—')}</div>
+                <div><strong>Contorno:</strong> ${escapeHtml(p.contorno || '—')}${p.contorno2 ? ' • ' + escapeHtml(p.contorno2) : ''}</div>
+                <div><strong>Dessert:</strong> ${escapeHtml(p.dessert || '—')}</div>
+              </div>
+            `}
+          </div>
+
+          <!-- Cena -->
+          <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 8px 10px;">
+            <div class="flex-between" style="margin-bottom: 4px;">
+              <span style="font-weight: 800; font-size: 12.5px; color: #1d4ed8;">🌙 Cena (19:30)</span>
+            </div>
+            <div style="font-size: 12px; line-height: 1.45; color: #334155;">
+              <div><strong>1°:</strong> ${escapeHtml(c.primo || '—')}</div>
+              <div><strong>2°:</strong> ${escapeHtml(c.secondo || '—')}</div>
+              <div><strong>Contorno:</strong> ${escapeHtml(c.contorno || '—')}${c.contorno2 ? ' • ' + escapeHtml(c.contorno2) : ''}</div>
+              <div><strong>Dessert:</strong> ${escapeHtml(c.dessert || '—')}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join("");
+
+  container.innerHTML = html;
+};
+
+// ----------------------------------------------------------------------------
+// MODAL MODIFICA MENU DELLE 2 SETTIMANE (RISERVATO MASTER / CUOCA)
+// ----------------------------------------------------------------------------
+
+appState.modificaMenuState = {
+  settimana: "settimana1",
+  giorno: "lunedi"
+};
+
+window.apriModalModificaMenu = function(settimana, giorno) {
+  if (!haPermessiMasterMensa()) {
+    mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
+    return;
+  }
+  const modal = document.getElementById("modal-modifica-menu");
+  if (!modal) return;
+  if (settimana && (settimana === "settimana1" || settimana === "settimana2")) {
+    appState.modificaMenuState.settimana = settimana;
+  }
+  if (giorno) {
+    appState.modificaMenuState.giorno = giorno;
+  }
+  modal.style.display = "flex";
+  cambiaSettimanaModificaMenu(appState.modificaMenuState.settimana);
+};
+
+window.chiudiModalModificaMenu = function() {
+  const modal = document.getElementById("modal-modifica-menu");
+  if (modal) modal.style.display = "none";
+};
+
+window.cambiaSettimanaModificaMenu = function(settKey) {
+  appState.modificaMenuState.settimana = settKey;
+  const btn1 = document.getElementById("mod-menu-btn-sett1");
+  const btn2 = document.getElementById("mod-menu-btn-sett2");
+  if (btn1 && btn2) {
+    if (settKey === "settimana1") {
+      btn1.className = "btn btn-sm btn-primary";
+      btn2.className = "btn btn-sm btn-outline";
+    } else {
+      btn1.className = "btn btn-sm btn-outline";
+      btn2.className = "btn btn-sm btn-primary";
+    }
+  }
+  renderTabsGiorniModificaMenu();
+  popolaFormModificaMenu();
+};
+
+window.renderTabsGiorniModificaMenu = function() {
+  const container = document.getElementById("mod-menu-giorni-tabs");
+  if (!container) return;
+  const giorni = [
+    { key: "lunedi", label: "Lun" },
+    { key: "martedi", label: "Mar 🥪" },
+    { key: "mercoledi", label: "Mer" },
+    { key: "giovedi", label: "Gio 🥪" },
+    { key: "venerdi", label: "Ven" },
+    { key: "sabato", label: "Sab" },
+    { key: "domenica", label: "Dom" }
+  ];
+  const curGiorno = appState.modificaMenuState.giorno || "lunedi";
+
+  container.innerHTML = giorni.map(g => {
+    const isSel = g.key === curGiorno;
+    return `
+      <button type="button" class="btn btn-sm ${isSel ? 'btn-primary' : 'btn-outline'}" onclick="selezionaGiornoModificaMenu('${g.key}')" style="padding: 5px 10px; font-size: 12px; font-weight: 700; white-space: nowrap; ${isSel ? 'background: #ea580c; border-color: #ea580c;' : ''}">
+        ${g.label}
+      </button>
+    `;
+  }).join("");
+};
+
+window.selezionaGiornoModificaMenu = function(giornoKey) {
+  appState.modificaMenuState.giorno = giornoKey;
+  renderTabsGiorniModificaMenu();
+  popolaFormModificaMenu();
+};
+
+window.popolaFormModificaMenu = function() {
+  const settKey = appState.modificaMenuState.settimana || "settimana1";
+  const giornoKey = appState.modificaMenuState.giorno || "lunedi";
+  const menuGiorno = (MENU_14_GIORNI[settKey] && MENU_14_GIORNI[settKey][giornoKey]) ? MENU_14_GIORNI[settKey][giornoKey] : {};
+  const p = menuGiorno.pranzo || {};
+  const c = menuGiorno.cena || {};
+
+  const chkBusta = document.getElementById("mod-pranzo-busta");
+  if (chkBusta) chkBusta.checked = Boolean(p.opzioneBustaDisponibile || (giornoKey === "martedi" || giornoKey === "giovedi"));
+
+  const setVal = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.value = val || "";
+  };
+
+  setVal("mod-pranzo-primo", p.primo);
+  setVal("mod-pranzo-secondo", p.secondo);
+  setVal("mod-pranzo-contorno", p.contorno);
+  setVal("mod-pranzo-contorno2", p.contorno2);
+  setVal("mod-pranzo-dessert", p.dessert);
+
+  setVal("mod-cena-primo", c.primo);
+  setVal("mod-cena-secondo", c.secondo);
+  setVal("mod-cena-contorno", c.contorno);
+  setVal("mod-cena-contorno2", c.contorno2);
+  setVal("mod-cena-dessert", c.dessert);
+};
+
+window.handleSalvaModificaMenuGiorno = async function(event) {
+  if (event) event.preventDefault();
+  if (!haPermessiMasterMensa()) {
+    mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
+    return;
+  }
+
+  const settKey = appState.modificaMenuState.settimana || "settimana1";
+  const giornoKey = appState.modificaMenuState.giorno || "lunedi";
+
+  const getVal = id => (document.getElementById(id)?.value || "").trim();
+  const chkBusta = document.getElementById("mod-pranzo-busta")?.checked || false;
+
+  const nuovoPranzo = {
+    primo: getVal("mod-pranzo-primo"),
+    secondo: getVal("mod-pranzo-secondo"),
+    contorno: getVal("mod-pranzo-contorno"),
+    contorno2: getVal("mod-pranzo-contorno2"),
+    dessert: getVal("mod-pranzo-dessert"),
+    opzioneBustaDisponibile: chkBusta || (giornoKey === "martedi" || giornoKey === "giovedi")
+  };
+
+  const nuovaCena = {
+    primo: getVal("mod-cena-primo"),
+    secondo: getVal("mod-cena-secondo"),
+    contorno: getVal("mod-cena-contorno"),
+    contorno2: getVal("mod-cena-contorno2"),
+    dessert: getVal("mod-cena-dessert")
+  };
+
+  if (!nuovoPranzo.primo || !nuovoPranzo.secondo || !nuovaCena.primo || !nuovaCena.secondo) {
+    mostraToast("Inserisci almeno Primo e Secondo per Pranzo e Cena", "warning");
+    return;
+  }
+
+  if (!MENU_14_GIORNI[settKey]) MENU_14_GIORNI[settKey] = {};
+  MENU_14_GIORNI[settKey][giornoKey] = {
+    pranzo: nuovoPranzo,
+    cena: nuovaCena
+  };
+
+  // Salva in localStorage persistente
+  try {
+    localStorage.setItem("newman_menu_14_giorni", JSON.stringify(MENU_14_GIORNI));
+  } catch (err) {
+    console.warn("Impossibile salvare menu in localStorage:", err);
+  }
+
+  const btnSubmit = document.getElementById("btn-submit-mod-menu");
+  if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.innerText = "Salvataggio in corso..."; }
+
+  try {
+    const res = await callApi("salvaMenuBase", { menu: MENU_14_GIORNI });
+    if (res && res.success) {
+      mostraToast(`✅ Menù di ${giornoKey} (${settKey}) salvato con successo!`, "success");
+    } else {
+      mostraToast("Menù salvato localmente (offline o simulazione)", "info");
+    }
+  } catch (e) {
+    mostraToast("Menù salvato localmente nel dispositivo", "info");
+  } finally {
+    if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerText = "💾 Salva Modifiche di questo Giorno"; }
+  }
+
+  // Aggiorna viste attive
+  if (typeof renderMensaView === "function" && document.getElementById("mensa-container")) renderMensaView();
+  if (typeof renderCucinaView === "function" && document.getElementById("cucina-container")) renderCucinaView();
+  if (typeof renderContenutoConsultaMenu === "function") renderContenutoConsultaMenu();
+};
+
+window.ripristinaGiornoOriginaleMenu = function() {
+  const settKey = appState.modificaMenuState.settimana || "settimana1";
+  const giornoKey = appState.modificaMenuState.giorno || "lunedi";
+  const def = (DEFAULT_MENU_14_GIORNI[settKey] && DEFAULT_MENU_14_GIORNI[settKey][giornoKey]) ? DEFAULT_MENU_14_GIORNI[settKey][giornoKey] : null;
+  if (!def) return;
+  if (!confirm(`Vuoi ripristinare il menù originale di fabbrica per ${giornoKey.toUpperCase()} (${settKey})?`)) return;
+
+  MENU_14_GIORNI[settKey][giornoKey] = JSON.parse(JSON.stringify(def));
+  try {
+    localStorage.setItem("newman_menu_14_giorni", JSON.stringify(MENU_14_GIORNI));
+  } catch (e) {}
+  popolaFormModificaMenu();
+  mostraToast(`Ripristinato il menù originale per ${giornoKey}`, "info");
+  if (typeof renderMensaView === "function") renderMensaView();
+  if (typeof renderCucinaView === "function") renderCucinaView();
+};
+
+window.ripristinaTuttoMenuPredefinito = async function() {
+  if (!confirm("⚠️ SEI SICURO? Questa azione cancellerà tutte le personalizzazioni e ripristinerà il Menù ciclico standard di fabbrica di entrambe le due settimane.")) return;
+  MENU_14_GIORNI = JSON.parse(JSON.stringify(DEFAULT_MENU_14_GIORNI));
+  try {
+    localStorage.removeItem("newman_menu_14_giorni");
+  } catch (e) {}
+  try {
+    await callApi("salvaMenuBase", { menu: MENU_14_GIORNI });
+  } catch (e) {}
+  popolaFormModificaMenu();
+  mostraToast("Menù 14 Giorni ripristinato ai valori predefiniti!", "success");
+  if (typeof renderMensaView === "function") renderMensaView();
+  if (typeof renderCucinaView === "function") renderCucinaView();
+  if (typeof renderContenutoConsultaMenu === "function") renderContenutoConsultaMenu();
+};
+
+window.esportaMenuJSON = function() {
+  const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(MENU_14_GIORNI, null, 2));
+  const downloadAnchor = document.createElement("a");
+  downloadAnchor.setAttribute("href", dataStr);
+  downloadAnchor.setAttribute("download", `menu_14_giorni_newman_${formatYMD(new Date())}.json`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  downloadAnchor.remove();
+  mostraToast("📥 File menù scaricato in JSON", "success");
+};
+
+// ----------------------------------------------------------------------------
+// MODAL GESTIONE BUSTE MASTER (MARTEDÌ & GIOVEDÌ & OVERRIDE SCADENZE)
+// ----------------------------------------------------------------------------
+
+appState.gestioneBusteMasterState = {
+  dataYMD: formatYMD(new Date()),
+  search: "",
+  filtro: "tutti"
+};
+
+window.apriModalGestioneBusteMaster = function(dataYMD) {
+  if (!haPermessiMasterMensa()) {
+    mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
+    return;
+  }
+  const modal = document.getElementById("modal-gestione-buste-master");
+  if (!modal) return;
+  let targetDate = dataYMD || appState.cucinaSelectedDate || formatYMD(new Date());
+
+  // Se la data scelta non è un martedì o un giovedì, proponi automaticamente il prossimo martedì
+  const dObj = new Date(targetDate + "T12:00:00");
+  const giornoSett = dObj.getDay();
+  if (giornoSett !== 2 && giornoSett !== 4) {
+    // Calcola il prossimo martedì
+    const daysToTue = (2 - giornoSett + 7) % 7 || 7;
+    const proxTue = new Date(dObj);
+    proxTue.setDate(dObj.getDate() + daysToTue);
+    targetDate = formatYMD(proxTue);
+  }
+
+  appState.gestioneBusteMasterState.dataYMD = targetDate;
+  const inputDate = document.getElementById("gestione-buste-data-sel");
+  if (inputDate) inputDate.value = targetDate;
+
+  const searchInput = document.getElementById("gestione-buste-search");
+  if (searchInput) searchInput.value = "";
+  const filterSelect = document.getElementById("gestione-buste-filtro-stato");
+  if (filterSelect) filterSelect.value = "tutti";
+
+  modal.style.display = "flex";
+  renderContenutoGestioneBusteMaster();
+};
+
+window.chiudiModalGestioneBusteMaster = function() {
+  const modal = document.getElementById("modal-gestione-buste-master");
+  if (modal) modal.style.display = "none";
+};
+
+window.selezionaProssimoGiornoBuste = function(giornoTipo) {
+  const oggi = new Date();
+  const targetDay = (giornoTipo === "martedi") ? 2 : 4;
+  const curDay = oggi.getDay();
+  let diff = (targetDay - curDay + 7) % 7;
+  if (diff === 0) diff = 7; // Se oggi è quel giorno, prendi la prossima settimana
+  const prox = new Date(oggi);
+  prox.setDate(oggi.getDate() + diff);
+  const ymd = formatYMD(prox);
+  appState.gestioneBusteMasterState.dataYMD = ymd;
+  const inputDate = document.getElementById("gestione-buste-data-sel");
+  if (inputDate) inputDate.value = ymd;
+  renderContenutoGestioneBusteMaster();
+};
+
+window.renderContenutoGestioneBusteMaster = function() {
+  const inputDate = document.getElementById("gestione-buste-data-sel");
+  const dataYMD = inputDate ? inputDate.value : appState.gestioneBusteMasterState.dataYMD;
+  appState.gestioneBusteMasterState.dataYMD = dataYMD;
+
+  const searchInput = document.getElementById("gestione-buste-search");
+  const search = (searchInput ? searchInput.value : "").trim().toLowerCase();
+
+  const filterSelect = document.getElementById("gestione-buste-filtro-stato");
+  const filtro = filterSelect ? filterSelect.value : "tutti";
+
+  const infoScadenzaEl = document.getElementById("gestione-buste-info-scadenza");
+  const elencoEl = document.getElementById("gestione-buste-elenco-residenti");
+  if (!elencoEl) return;
+
+  const targetDateObj = new Date(dataYMD + "T12:00:00");
+  const opzioniData = { weekday: "long", day: "numeric", month: "long", year: "numeric" };
+  const dataEstesa = targetDateObj.toLocaleDateString("it-IT", opzioniData);
+  const giornoCapitalized = dataEstesa.charAt(0).toUpperCase() + dataEstesa.slice(1);
+  const giornoSett = targetDateObj.getDay();
+  const isTuesday = (giornoSett === 2);
+  const isThursday = (giornoSett === 4);
+
+  const infoBusta = getDettaglioRegolaBusta(targetDateObj, false); // false per conoscere lo stato dei residenti standard
+
+  if (infoScadenzaEl) {
+    if (isTuesday) {
+      infoScadenzaEl.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+          <div>
+            <strong>📅 ${giornoCapitalized}</strong>
+            <div style="margin-top: 2px;">
+              ⏰ <strong>Regola Busta Martedì:</strong> Può essere scelta dai residenti <strong>solo entro la domenica pomeriggio</strong> (ore ${escapeHtml(appState.cachedConfig.Orario_Limite_Busta_Martedi || '18:00')}).
+            </div>
+          </div>
+          <span class="badge" style="background: ${infoBusta.bloccata ? '#fee2e2' : '#dcfce7'}; color: ${infoBusta.bloccata ? '#991b1b' : '#166534'}; font-weight: 800;">
+            ${infoBusta.bloccata ? 'Scadenza Residenti Trascorse 🔒' : 'Aperta per i Residenti 🟢'}
+          </span>
+        </div>
+      `;
+    } else if (isThursday) {
+      infoScadenzaEl.innerHTML = `
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+          <div>
+            <strong>📅 ${giornoCapitalized}</strong>
+            <div style="margin-top: 2px;">
+              ⏰ <strong>Regola Busta Giovedì:</strong> Può essere scelta dai residenti <strong>solo entro il martedì pomeriggio</strong> (ore ${escapeHtml(appState.cachedConfig.Orario_Limite_Busta_Giovedi || '18:00')}).
+            </div>
+          </div>
+          <span class="badge" style="background: ${infoBusta.bloccata ? '#fee2e2' : '#dcfce7'}; color: ${infoBusta.bloccata ? '#991b1b' : '#166534'}; font-weight: 800;">
+            ${infoBusta.bloccata ? 'Scadenza Residenti Trascorse 🔒' : 'Aperta per i Residenti 🟢'}
+          </span>
+        </div>
+      `;
+    } else {
+      infoScadenzaEl.innerHTML = `
+        <div>
+          <strong>📅 ${giornoCapitalized}</strong> (Giorno standard non programmato per il pranzo al sacco istituzionale del Mar/Gio)
+        </div>
+      `;
+    }
+  }
+
+  // Prendi tutti gli utenti abilitati della residenza
+  const tuttiUtenti = (appState.tuttiUtenti && appState.tuttiUtenti.length > 0)
+    ? appState.tuttiUtenti.filter(u => u.stato === "abilitato" || u.stato === "attivo" || !u.stato)
+    : [];
+
+  // Mappa le presenze per la data selezionata a pranzo
+  const dbMensa = appState.mensaBookings || [];
+  const prenotazioniData = dbMensa.filter(m => String(m.data).split("T")[0] === dataYMD && m.tipo_pasto === "pranzo");
+
+  // Calcola contatori
+  let countBuste = 0;
+  let countInSala = 0;
+  let countAssenti = 0;
+
+  const residentiRighe = tuttiUtenti.map(u => {
+    const email = u.email.toLowerCase();
+    const nome = u.nome || email.split("@")[0].replace(/\./g, " ");
+    const prenotazione = prenotazioniData.find(m => m.email.toLowerCase() === email);
+
+    let stato = "presente_default"; // se non ha prenotazione, a Newman il default è presente
+    let haBusta = false;
+    let isAssente = false;
+
+    if (prenotazione) {
+      if (prenotazione.stato_presenza === "assente") {
+        stato = "assente";
+        isAssente = true;
+      } else {
+        haBusta = Boolean(prenotazione.busta);
+        stato = haBusta ? "con_busta" : "in_sala";
+      }
+    } else {
+      // Default: se martedì o giovedì, a Newman il pranzo istituzionale può essere busta o in sala
+      stato = "in_sala";
+    }
+
+    if (isAssente) countAssenti++;
+    else if (haBusta) countBuste++;
+    else countInSala++;
+
+    return {
+      email,
+      nome,
+      camera: u.camera || "",
+      stato,
+      haBusta,
+      isAssente,
+      note: prenotazione?.note || ""
+    };
+  });
+
+  // Filtra
+  let filtrati = residentiRighe;
+  if (filtro === "con_busta") filtrati = filtrati.filter(r => r.haBusta);
+  if (filtro === "senza_busta") filtrati = filtrati.filter(r => !r.haBusta && !r.isAssente);
+  if (filtro === "assenti") filtrati = filtrati.filter(r => r.isAssente);
+  if (search) filtrati = filtrati.filter(r => r.nome.toLowerCase().includes(search) || r.email.toLowerCase().includes(search));
+
+  // Azioni massive in alto
+  const toolbarHtml = `
+    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px; margin-bottom: 10px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+      <div style="font-size: 12.5px; color: #334155;">
+        Riepilogo: <strong style="color: #ea580c;">${countBuste}</strong> buste • <strong>${countInSala}</strong> sala • <strong style="color: #dc2626;">${countAssenti}</strong> assenti
+      </div>
+      <div style="display: flex; gap: 6px;">
+        <button type="button" class="btn btn-outline btn-sm" onclick="masterSegnaTuttiBusta(true)" style="font-weight: 700; font-size: 11px; color: #ea580c; border-color: #fdba74;">
+          🥪 Assegna Busta a Tutti i Presenti
+        </button>
+        <button type="button" class="btn btn-outline btn-sm" onclick="masterSegnaTuttiBusta(false)" style="font-weight: 700; font-size: 11px; color: #475569;">
+          🍽️ Riporta Tutti in Sala
+        </button>
+      </div>
+    </div>
+  `;
+
+  if (filtrati.length === 0) {
+    elencoEl.innerHTML = toolbarHtml + `<div style="text-align: center; padding: 32px 14px; color: #94a3b8;"><span style="font-size: 32px; display: block;">🔍</span>Nessun residente trovato con i filtri correnti.</div>`;
+    return;
+  }
+
+  elencoEl.innerHTML = toolbarHtml + filtrati.map((r, idx) => {
+    return `
+      <div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: ${r.haBusta ? '#fffbeb' : (r.isAssente ? '#fef2f2' : '#ffffff')}; border: 1px solid ${r.haBusta ? '#fde68a' : (r.isAssente ? '#fecaca' : '#e2e8f0')}; border-radius: 6px;">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1;">
+          <span style="font-size: 11px; font-weight: 700; color: #94a3b8; width: 22px;">${idx + 1}.</span>
+          <div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <strong style="font-size: 13.5px; color: #0f172a;">${escapeHtml(r.nome)}</strong>
+              ${r.camera ? `<span class="badge" style="background: #f1f5f9; color: #475569; font-size: 10.5px;">St. ${escapeHtml(r.camera)}</span>` : ''}
+              ${r.haBusta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 10.5px;">🥪 BUSTA</span>' : ''}
+              ${r.isAssente ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 800; font-size: 10.5px;">❌ ASSENTE</span>' : ''}
+            </div>
+            <span class="text-xs text-muted">${escapeHtml(r.email)}</span>
+            ${r.note ? `<div style="font-size: 11.5px; color: #c2410c; margin-top: 2px;">💬 ${escapeHtml(r.note)}</div>` : ''}
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 6px; align-items: center;">
+          ${r.haBusta ? `
+            <button type="button" class="btn btn-outline btn-sm" onclick="masterAssegnaBustaResidente('${escapeHtml(r.email)}', false)" style="font-size: 11.5px; font-weight: 700; color: #475569;" title="Rimuovi busta e riporta a pasto in sala">
+              🍽️ Riporta in Sala
+            </button>
+          ` : `
+            <button type="button" class="btn btn-sm" onclick="masterAssegnaBustaResidente('${escapeHtml(r.email)}', true)" style="background: #ea580c; border-color: #ea580c; color: #fff; font-size: 11.5px; font-weight: 700;" title="Assegna busta da asporto per questa data">
+              🥪 Assegna Busta
+            </button>
+          `}
+          ${r.isAssente ? `
+            <button type="button" class="btn btn-outline btn-sm" onclick="masterRipristinaPresenzaResidente('${escapeHtml(r.email)}')" style="font-size: 11px; font-weight: 700; color: #16a34a; border-color: #86efac;">
+              ✓ Rimuovi Assenza
+            </button>
+          ` : `
+            <button type="button" class="btn btn-outline btn-sm" onclick="masterSegnaAssenteResidente('${escapeHtml(r.email)}')" style="font-size: 11px; font-weight: 700; color: #dc2626; border-color: #fca5a5;">
+              ❌ Assente
+            </button>
+          `}
+        </div>
+      </div>
+    `;
+  }).join("");
+};
+
+window.masterAssegnaBustaResidente = async function(email, impostaBusta) {
+  const dataYMD = appState.gestioneBusteMasterState.dataYMD || formatYMD(new Date());
+  await masterToggleBustaResidente(email, dataYMD, impostaBusta);
+  renderContenutoGestioneBusteMaster();
+};
+
+window.masterSegnaAssenteResidente = async function(email) {
+  const dataYMD = appState.gestioneBusteMasterState.dataYMD || formatYMD(new Date());
+  try {
+    const payload = {
+      data: dataYMD,
+      email: email,
+      tipo_pasto: "pranzo",
+      stato_presenza: "assente",
+      busta: false,
+      ritardo: false,
+      ospiti: 0,
+      note: "Segnato assente da Master Mensa"
+    };
+    const res = await callApi("prenotaMensa", payload);
+    if (res && res.success) {
+      const existIdx = appState.mensaBookings.findIndex(m => String(m.data).split("T")[0] === dataYMD && m.tipo_pasto === "pranzo" && m.email.toLowerCase() === email.toLowerCase());
+      const entry = { id: res.id || ("M_" + Date.now()), ...payload };
+      if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
+      else appState.mensaBookings.push(entry);
+      mostraToast(`❌ ${email} segnato assente`, "info");
+      renderContenutoGestioneBusteMaster();
+      if (typeof renderCucinaView === "function") renderCucinaView();
+      if (haPermessiMaster()) caricaDatiMaster();
+    }
+  } catch (e) {
+    mostraToast("Errore di rete", "error");
+  }
+};
+
+window.masterRipristinaPresenzaResidente = async function(email) {
+  const dataYMD = appState.gestioneBusteMasterState.dataYMD || formatYMD(new Date());
+  try {
+    const res = await callApi("cancellaPrenotazioneMensa", { data: dataYMD, email: email, tipo_pasto: "pranzo" });
+    if (res && res.success) {
+      appState.mensaBookings = appState.mensaBookings.filter(m => !(String(m.data).split("T")[0] === dataYMD && m.tipo_pasto === "pranzo" && m.email.toLowerCase() === email.toLowerCase()));
+      mostraToast(`Presenza di ${email} ripristinata in sala`, "success");
+      renderContenutoGestioneBusteMaster();
+      if (typeof renderCucinaView === "function") renderCucinaView();
+      if (haPermessiMaster()) caricaDatiMaster();
+    }
+  } catch (e) {
+    mostraToast("Errore di rete", "error");
+  }
+};
+
+window.masterSegnaTuttiBusta = async function(impostaBusta) {
+  const dataYMD = appState.gestioneBusteMasterState.dataYMD || formatYMD(new Date());
+  const tuttiUtenti = (appState.tuttiUtenti || []).filter(u => u.stato === "abilitato" || u.stato === "attivo" || !u.stato);
+  if (tuttiUtenti.length === 0) return;
+
+  const msg = impostaBusta
+    ? `Vuoi impostare la Busta da Asporto per TUTTI i residenti abilitati per il giorno ${dataYMD}?`
+    : `Vuoi riportare a Pranzo in Sala TUTTI i residenti per il giorno ${dataYMD}?`;
+
+  if (!confirm(msg)) return;
+
+  let salvati = 0;
+  for (const u of tuttiUtenti) {
+    try {
+      const payload = {
+        data: dataYMD,
+        email: u.email,
+        tipo_pasto: "pranzo",
+        busta: Boolean(impostaBusta),
+        ritardo: false,
+        ospiti: 0,
+        stato_presenza: "presente",
+        note: impostaBusta ? "Busta assegnata a tutti da Master" : ""
+      };
+      const res = await callApi("prenotaMensa", payload);
+      if (res && res.success) {
+        const existIdx = appState.mensaBookings.findIndex(m => String(m.data).split("T")[0] === dataYMD && m.tipo_pasto === "pranzo" && m.email.toLowerCase() === u.email.toLowerCase());
+        const entry = { id: res.id || ("M_" + Date.now()), ...payload };
+        if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
+        else appState.mensaBookings.push(entry);
+        salvati++;
+      }
+    } catch (e) {}
+  }
+
+  mostraToast(`Aggiornate ${salvati} presenze per il giorno ${dataYMD}!`, "success");
+  renderContenutoGestioneBusteMaster();
+  if (typeof renderCucinaView === "function") renderCucinaView();
+  if (typeof renderMensaView === "function") renderMensaView();
+  if (haPermessiMaster()) caricaDatiMaster();
+};
 
 // ============================================================================
 // SISTEMA NOTIFICHE PUSH (OPZIONALI PER UTENTE)
