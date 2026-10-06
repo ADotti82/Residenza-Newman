@@ -5925,6 +5925,8 @@ window.aggiornaPulsantiTema = aggiornaPulsantiTema;
 function apriModalSettings() {
   const modal = document.getElementById("modal-settings");
   if (!modal) return;
+  const scrollBody = document.getElementById("settings-scroll-body");
+  if (scrollBody) scrollBody.scrollTop = 0;
   const nameEl = document.getElementById("settings-name");
   const emailEl = document.getElementById("settings-email");
   const roleEl = document.getElementById("settings-role-badge");
