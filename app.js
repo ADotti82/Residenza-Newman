@@ -244,6 +244,9 @@ const INITIAL_MOCK_DB = {
   ],
   configurazione: {
     Messaggio_Supermaster: "Cari sacerdoti e residenti, benvenuti nella nostra Residenza. Ricordo a tutti che gli orari di mensa vanno rispettati per agevolare il servizio della cuoca. Per qualsiasi esigenza pastorale o accademica la porta della Direzione è sempre aperta.",
+    Messaggio_Supermaster_Titolo: "Comunicazione della Direzione",
+    Messaggio_Supermaster_Data_Pubblicazione: "2026-10-01",
+    Messaggio_Supermaster_Data_Scadenza: "",
     Data_Variazione_Menu: "2026-09-16",
     Testo_Variazione: "Oggi a pranzo dessert sostituito con Gelato artigianale offerto dalla Direzione per la festa della Residenza!",
     Pasto_Variazione: "pranzo",
@@ -1216,7 +1219,106 @@ function renderBachecaView() {
 
   const isMasterOrAdmin = haPermessiMaster();
 
-  let html = `
+  // COMUNICAZIONE UFFICIALE DELLA DIREZIONE (FISSATA IN CIMA ALLA BACHECA)
+  const rawMsg = appState.cachedConfig?.Messaggio_Supermaster;
+  const msgSupermaster = (rawMsg && typeof rawMsg === "string" && rawMsg.trim().length > 0) ? rawMsg.trim() : "";
+  const rawTitolo = appState.cachedConfig?.Messaggio_Supermaster_Titolo;
+  const titoloMsg = (rawTitolo && typeof rawTitolo === "string" && rawTitolo.trim().length > 0) ? rawTitolo.trim() : "Comunicazione della Direzione";
+  const dataPub = appState.cachedConfig?.Messaggio_Supermaster_Data_Pubblicazione || "";
+  const dataScad = appState.cachedConfig?.Messaggio_Supermaster_Data_Scadenza || "";
+
+  let isScaduto = false;
+  if (dataScad) {
+    const scadTime = new Date(dataScad.includes("T") ? dataScad : dataScad + "T23:59:59").getTime();
+    if (!isNaN(scadTime) && scadTime < Date.now()) {
+      isScaduto = true;
+    }
+  }
+
+  function formattaDataOraItaHelper(str) {
+    if (!str) return "";
+    try {
+      const d = new Date(str.includes("T") ? str : str + "T00:00:00");
+      if (isNaN(d.getTime())) return str;
+      const gg = String(d.getDate()).padStart(2, '0');
+      const mm = String(d.getMonth() + 1).padStart(2, '0');
+      const aaaa = d.getFullYear();
+      if (str.includes("T")) {
+        const hh = String(d.getHours()).padStart(2, '0');
+        const min = String(d.getMinutes()).padStart(2, '0');
+        return `${gg}/${mm}/${aaaa} ${hh}:${min}`;
+      }
+      return `${gg}/${mm}/${aaaa}`;
+    } catch (e) {
+      return str;
+    }
+  }
+
+  const pubStrIta = formattaDataOraItaHelper(dataPub);
+  const scadStrIta = formattaDataOraItaHelper(dataScad);
+
+  let masterCardHtml = "";
+  if (msgSupermaster && (!isScaduto || isMasterOrAdmin)) {
+    masterCardHtml = `
+      <div class="card bacheca-master-alert-card" style="border-left: 4px solid #f59e0b; background: linear-gradient(135deg, rgba(254, 243, 199, 0.45) 0%, rgba(255, 251, 235, 0.95) 100%); margin-bottom: 14px; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.12); border-radius: var(--radius-md); padding: 16px 18px; border-top: 1px solid rgba(245, 158, 11, 0.25); border-right: 1px solid rgba(245, 158, 11, 0.25); border-bottom: 1px solid rgba(245, 158, 11, 0.25);">
+        <div class="flex-between" style="align-items: flex-start; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;">
+          <div class="flex-align" style="gap: 10px;">
+            <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.45); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">👑</div>
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: #b45309;">Comunicazione Ufficiale</span>
+                <span style="font-size: 11px; color: #d97706;">·</span>
+                <span style="font-size: 11.5px; font-weight: 600; color: #92400e;">Direzione</span>
+                ${isScaduto ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 10.5px; padding: 1px 7px;">⚠️ Scaduto (visibile solo ai Master)</span>' : '<span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; font-size: 10.5px; padding: 1px 7px;">⭐ In Evidenza</span>'}
+              </div>
+              <h3 style="margin: 3px 0 0 0; font-size: 16px; font-weight: 800; color: #78350f; line-height: 1.3;">
+                ${escapeHtml(titoloMsg)}
+              </h3>
+            </div>
+          </div>
+          ${isMasterOrAdmin ? `
+            <div style="display: flex; gap: 6px; align-items: center; flex-shrink: 0;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="apriModalMessaggioSupermaster()" style="font-size: 11.5px; padding: 4px 10px; font-weight: 700; border-color: #f59e0b; color: #92400e; background: #ffffff;">
+                ✏️ Modifica
+              </button>
+              <button type="button" class="btn btn-outline btn-sm" onclick="rimuoviMessaggioSupermasterConferma()" style="font-size: 11.5px; padding: 4px 8px; color: #dc2626; border-color: #fca5a5; background: #ffffff;" title="Rimuovi avviso">
+                🗑️
+              </button>
+            </div>
+          ` : ''}
+        </div>
+
+        <div style="font-size: 13.5px; line-height: 1.6; color: #451a03; margin: 10px 0; white-space: pre-line; word-break: break-word; background: rgba(255, 255, 255, 0.75); padding: 12px 14px; border-radius: 8px; border: 1px solid rgba(245, 158, 11, 0.2);">
+          ${escapeHtml(msgSupermaster)}
+        </div>
+
+        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 11.5px; color: #92400e; margin-top: 6px; padding-top: 6px; border-top: 1px solid rgba(245, 158, 11, 0.2);">
+          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+            ${pubStrIta ? `<span>📅 Pubblicato: <strong>${escapeHtml(pubStrIta)}</strong></span>` : '<span>📅 Comunicazione attiva</span>'}
+            ${scadStrIta ? `<span>·</span><span>⏳ Valido fino al: <strong>${escapeHtml(scadStrIta)}</strong></span>` : ''}
+          </div>
+          <span style="font-style: italic; color: #b45309; font-size: 11px;">Residenza Cardinal Newman</span>
+        </div>
+      </div>
+    `;
+  } else if (!msgSupermaster && isMasterOrAdmin) {
+    masterCardHtml = `
+      <div class="card" style="border: 1.5px dashed #f59e0b; background: rgba(254, 243, 199, 0.3); padding: 12px 16px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-radius: var(--radius-md); flex-wrap: wrap;">
+        <div class="flex-align" style="gap: 10px;">
+          <span style="font-size: 22px;">👑</span>
+          <div>
+            <div style="font-weight: 700; font-size: 13px; color: #92400e;">Comunicazione della Direzione</div>
+            <div style="font-size: 11.5px; color: #b45309;">Nessun avviso ufficiale fissato in cima alla Bacheca.</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="apriModalMessaggioSupermaster()" style="background: #f59e0b; border-color: #d97706; color: #000; font-weight: 700; font-size: 11.5px; padding: 6px 12px;">
+          ➕ Inserisci Avviso Direzione
+        </button>
+      </div>
+    `;
+  }
+
+  let html = masterCardHtml + `
     <div class="card roman-calendar-card">
       <div class="roman-header-clean">
         <div class="roman-italian-date-large" style="font-size: 19px; font-weight: 800; color: #ffffff; letter-spacing: 0.2px;">${escapeHtml(cal.dataItaliana)}</div>
@@ -1399,20 +1501,26 @@ function renderResidenzaView() {
       </div>
     </div>
 
-    <div class="card" style="border-left: 4px solid #f59e0b;">
+    <div class="card" style="border-left: 4px solid #f59e0b; background: linear-gradient(135deg, rgba(254, 243, 199, 0.35) 0%, rgba(255, 251, 235, 0.9) 100%);">
       <div class="flex-between" style="margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
         <div class="flex-align" style="gap: 8px;">
           <span style="font-size: 22px;">👑</span>
           <div>
-            <h2 class="card-title" style="margin: 0;">Comunicazione della Direzione</h2>
-            <span class="text-xs text-muted">Messaggio ufficiale della Direzione</span>
+            <h2 class="card-title" style="margin: 0; color: #78350f;">${escapeHtml(appState.cachedConfig?.Messaggio_Supermaster_Titolo || "Comunicazione della Direzione")}</h2>
+            <span class="text-xs text-muted">Messaggio ufficiale della Direzione (visibile anche in Bacheca)</span>
           </div>
         </div>
-        ${haPermessiMaster() ? `<button type="button" class="btn btn-secondary btn-sm" onclick="apriModalMessaggioSupermaster()">✏️ Modifica</button>` : ''}
+        ${haPermessiMaster() ? `<button type="button" class="btn btn-secondary btn-sm" onclick="apriModalMessaggioSupermaster()" style="border-color: #f59e0b; color: #92400e; font-weight: 700;">✏️ Modifica</button>` : ''}
       </div>
-      <div class="residenza-text-box" style="background: #fffbeb; border-color: #fde68a; color: #78350f; font-size: 13.5px; line-height: 1.5;">
-        ${escapeHtml(msgSupermaster)}
+      <div class="residenza-text-box" style="background: #ffffff; border-color: #fde68a; color: #451a03; font-size: 13.5px; line-height: 1.55; white-space: pre-line;">
+        ${escapeHtml(msgSupermaster || 'Nessuna comunicazione ufficiale attiva.')}
       </div>
+      ${(appState.cachedConfig?.Messaggio_Supermaster_Data_Pubblicazione || appState.cachedConfig?.Messaggio_Supermaster_Data_Scadenza) ? `
+        <div style="font-size: 11.5px; color: #92400e; margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+          ${appState.cachedConfig?.Messaggio_Supermaster_Data_Pubblicazione ? `<span>📅 Pubblicazione: ${escapeHtml(appState.cachedConfig.Messaggio_Supermaster_Data_Pubblicazione.replace('T', ' '))}</span>` : ''}
+          ${appState.cachedConfig?.Messaggio_Supermaster_Data_Scadenza ? `<span>·</span><span>⏳ Scadenza: ${escapeHtml(appState.cachedConfig.Messaggio_Supermaster_Data_Scadenza.replace('T', ' '))}</span>` : ''}
+        </div>
+      ` : ''}
     </div>
 
     <div class="card">
@@ -1444,11 +1552,12 @@ function renderResidenzaView() {
 }
 
 // ----------------------------------------------------------------------------
-// MODAL MESSAGGIO SUPERMASTER
+// MODAL MESSAGGIO SUPERMASTER / COMUNICAZIONE DIREZIONE
 // ----------------------------------------------------------------------------
 
 window.apriModalMessaggioSupermaster = function() {
-  const currentMsg = appState.cachedConfig.Messaggio_Supermaster || "Cari residenti, benvenuti nel portale digitale della Residenza Newman.";
+  const currentTitolo = appState.cachedConfig.Messaggio_Supermaster_Titolo || "Comunicazione della Direzione";
+  const currentMsg = appState.cachedConfig.Messaggio_Supermaster || "";
   const currentPub = appState.cachedConfig.Messaggio_Supermaster_Data_Pubblicazione || "";
   const currentScad = appState.cachedConfig.Messaggio_Supermaster_Data_Scadenza || "";
 
@@ -1457,49 +1566,66 @@ window.apriModalMessaggioSupermaster = function() {
     modal = document.createElement("div");
     modal.id = "modal-messaggio-supermaster";
     modal.className = "modal-overlay";
-    modal.innerHTML = `
-      <div class="modal-card" style="max-width: 540px;">
-        <div class="modal-header">
-          <div style="font-size: 32px; margin-bottom: 6px;">👑</div>
-          <h3 class="modal-title" style="margin: 0;">Comunicazione della Direzione</h3>
-          <p class="modal-subtitle">Aggiorna la comunicazione ufficiale visibile a tutti i residenti.</p>
-        </div>
-        <form onsubmit="salvaMessaggioSupermaster(event)">
-          <div class="form-group" style="margin-bottom: 12px;">
-            <label for="textarea-messaggio-supermaster" style="font-weight: 700;">Testo del Messaggio:</label>
-            <textarea id="textarea-messaggio-supermaster" class="input-textarea" rows="5" style="font-size: 13.5px; line-height: 1.5;" required></textarea>
-          </div>
-          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-            <div style="font-size: 12px; font-weight: 700; color: #475569; margin-bottom: 8px;">⏱️ Programmazione Pubblicazione & Scadenza:</div>
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px;">
-              <div>
-                <label for="supermaster-pubblicazione" style="font-size: 11.5px; font-weight: 600; display: block; margin-bottom: 4px;">Inizio:</label>
-                <input type="datetime-local" id="supermaster-pubblicazione" class="input-text" style="font-size: 12px; padding: 6px 8px;">
-              </div>
-              <div>
-                <label for="supermaster-scadenza" style="font-size: 11.5px; font-weight: 600; display: block; margin-bottom: 4px;">Scadenza:</label>
-                <input type="datetime-local" id="supermaster-scadenza" class="input-text" style="font-size: 12px; padding: 6px 8px;">
-              </div>
-            </div>
-            <div style="display: flex; gap: 6px; flex-wrap: wrap;">
-              <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="impostaPresetScadenzaSupermaster(0)">Nessuna Scadenza</button>
-              <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="impostaPresetScadenzaSupermaster(3)">+3 Giorni</button>
-              <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="impostaPresetScadenzaSupermaster(7)">+7 Giorni</button>
-              <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 2px 8px;" onclick="impostaPresetScadenzaSupermaster(30)">+1 Mese</button>
-            </div>
-          </div>
-          <div style="display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;">
-            <button type="button" class="btn btn-secondary" onclick="chiudiModalMessaggioSupermaster()">Annulla</button>
-            <button type="submit" class="btn btn-primary" style="background: #f59e0b; border-color: #d97706; color: #000; font-weight: 700;">💾 Salva & Pubblica</button>
-          </div>
-        </form>
-      </div>
-    `;
     document.body.appendChild(modal);
   }
 
-  const textarea = document.getElementById("textarea-messaggio-supermaster");
-  if (textarea) textarea.value = currentMsg;
+  modal.innerHTML = `
+    <div class="modal-card" style="max-width: 520px; width: 100%; max-height: 90vh; overflow-y: auto;">
+      <div class="flex-between" style="margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
+        <div class="flex-align" style="gap: 10px;">
+          <div style="font-size: 26px;">👑</div>
+          <div>
+            <h3 class="modal-title" style="margin: 0; font-size: 16px;">Comunicazione della Direzione</h3>
+            <span class="text-xs text-muted">Avviso prioritario fissato in cima alla Bacheca</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalMessaggioSupermaster()" title="Chiudi">✕</button>
+      </div>
+
+      <form onsubmit="salvaMessaggioSupermaster(event)">
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="supermaster-titolo" style="font-size: 12.5px; font-weight: 700; display: block; margin-bottom: 4px;">Titolo Avviso:</label>
+          <input type="text" id="supermaster-titolo" class="input-text" style="font-size: 13.5px; font-weight: 700; padding: 7px 10px;" value="${escapeHtml(currentTitolo)}" placeholder="Es. Comunicazione della Direzione" required>
+        </div>
+
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="textarea-messaggio-supermaster" style="font-size: 12.5px; font-weight: 700; display: block; margin-bottom: 4px;">Testo del Messaggio:</label>
+          <textarea id="textarea-messaggio-supermaster" class="input-textarea" rows="4" style="font-size: 13px; line-height: 1.5;" placeholder="Scrivi il messaggio rivolto a tutti i sacerdoti e residenti..." required>${escapeHtml(currentMsg)}</textarea>
+        </div>
+
+        <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 12px; margin-bottom: 14px;">
+          <div style="font-size: 12px; font-weight: 700; color: #78350f; margin-bottom: 8px;">⏱️ Periodo di Validità in Bacheca:</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label for="supermaster-pubblicazione" style="font-size: 11px; font-weight: 600; color: #78350f; display: block; margin-bottom: 2px;">Data Inizio:</label>
+              <input type="datetime-local" id="supermaster-pubblicazione" class="input-text" style="font-size: 11.5px; padding: 5px 8px;">
+            </div>
+            <div>
+              <label for="supermaster-scadenza" style="font-size: 11px; font-weight: 600; color: #78350f; display: block; margin-bottom: 2px;">Data Scadenza (opzionale):</label>
+              <input type="datetime-local" id="supermaster-scadenza" class="input-text" style="font-size: 11.5px; padding: 5px 8px;">
+            </div>
+          </div>
+          <div style="display: flex; gap: 5px; flex-wrap: wrap;">
+            <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 3px 8px; background: #fff;" onclick="impostaPresetScadenzaSupermaster(0)">Nessuna</button>
+            <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 3px 8px; background: #fff;" onclick="impostaPresetScadenzaSupermaster(3)">+3 Giorni</button>
+            <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 3px 8px; background: #fff;" onclick="impostaPresetScadenzaSupermaster(7)">+7 Giorni</button>
+            <button type="button" class="btn btn-outline btn-sm" style="font-size: 11px; padding: 3px 8px; background: #fff;" onclick="impostaPresetScadenzaSupermaster(30)">+1 Mese</button>
+          </div>
+        </div>
+
+        <div class="flex-between" style="gap: 8px; margin-top: 14px; flex-wrap: wrap;">
+          <div>
+            ${currentMsg ? `<button type="button" class="btn btn-outline btn-sm" onclick="rimuoviMessaggioSupermasterConferma()" style="color: #dc2626; border-color: #fca5a5; font-size: 11.5px; padding: 6px 10px;">🗑️ Rimuovi Avviso</button>` : ''}
+          </div>
+          <div style="display: flex; gap: 6px;">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="chiudiModalMessaggioSupermaster()">Annulla</button>
+            <button type="submit" class="btn btn-primary btn-sm" style="background: #f59e0b; border-color: #d97706; color: #000; font-weight: 700;">💾 Salva &amp; Pubblica</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  `;
+
   const pubInput = document.getElementById("supermaster-pubblicazione");
   if (pubInput) {
     if (currentPub) pubInput.value = currentPub;
@@ -1525,6 +1651,31 @@ window.chiudiModalMessaggioSupermaster = function() {
   if (modal) modal.style.display = "none";
 };
 
+window.rimuoviMessaggioSupermasterConferma = async function() {
+  if (!confirm("Sei sicuro di voler rimuovere la Comunicazione della Direzione dalla Bacheca?")) return;
+  try {
+    const payload = {
+      Messaggio_Supermaster: "",
+      Messaggio_Supermaster_Titolo: "",
+      Messaggio_Supermaster_Data_Pubblicazione: "",
+      Messaggio_Supermaster_Data_Scadenza: ""
+    };
+    const res = await callApi("aggiornaConfig", payload);
+    if (res.success) {
+      Object.assign(appState.cachedConfig, payload);
+      mostraToast("Comunicazione rimossa dalla Bacheca", "info");
+      chiudiModalMessaggioSupermaster();
+      renderBachecaView();
+      renderResidenzaView();
+      if (document.getElementById("master-dynamic-content")) renderMasterSection();
+    } else {
+      mostraToast("Errore durante la rimozione: " + (res.error || "Errore"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete durante la rimozione", "error");
+  }
+};
+
 window.salvaMessaggioSupermaster = async function(event) {
   if (event) event.preventDefault();
   const textarea = document.getElementById("textarea-messaggio-supermaster");
@@ -1532,21 +1683,23 @@ window.salvaMessaggioSupermaster = async function(event) {
   const nuovoTesto = textarea.value.trim();
   if (!nuovoTesto) { mostraToast("Il testo non può essere vuoto", "warning"); return; }
 
+  const titolo = document.getElementById("supermaster-titolo")?.value?.trim() || "Comunicazione della Direzione";
   const dataPub = document.getElementById("supermaster-pubblicazione")?.value || "";
   const dataScad = document.getElementById("supermaster-scadenza")?.value || "";
 
   try {
-    const res = await callApi("aggiornaConfig", {
+    const payload = {
       Messaggio_Supermaster: nuovoTesto,
+      Messaggio_Supermaster_Titolo: titolo,
       Messaggio_Supermaster_Data_Pubblicazione: dataPub,
       Messaggio_Supermaster_Data_Scadenza: dataScad
-    });
+    };
+    const res = await callApi("aggiornaConfig", payload);
     if (res.success) {
-      appState.cachedConfig.Messaggio_Supermaster = nuovoTesto;
-      appState.cachedConfig.Messaggio_Supermaster_Data_Pubblicazione = dataPub;
-      appState.cachedConfig.Messaggio_Supermaster_Data_Scadenza = dataScad;
-      mostraToast("✅ Comunicazione aggiornata!", "success");
+      Object.assign(appState.cachedConfig, payload);
+      mostraToast("✅ Comunicazione aggiornata e pubblicata in Bacheca!", "success");
       chiudiModalMessaggioSupermaster();
+      renderBachecaView();
       renderResidenzaView();
       if (document.getElementById("master-dynamic-content")) renderMasterSection();
     } else mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
@@ -4517,12 +4670,48 @@ function renderMasterSection() {
         </div>
 
         <div class="sub-section" style="margin-top: 24px; border-top: 1px dashed #e2e8f0; padding-top: 16px;">
-          <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700;">👑 Messaggio della Direzione</h4>
-          <form onsubmit="handleSalvaMessaggioSupermasterRapido(event)">
-            <div class="form-group" style="margin-bottom: 10px;">
-              <textarea id="admin-messaggio-supermaster" class="input-textarea" rows="3" style="font-size: 13px;">${escapeHtml(appState.cachedConfig.Messaggio_Supermaster || '')}</textarea>
+          <div class="flex-between" style="margin-bottom: 10px; flex-wrap: wrap; gap: 8px;">
+            <div class="flex-align" style="gap: 8px;">
+              <span style="font-size: 22px;">👑</span>
+              <div>
+                <h4 style="margin: 0; font-size: 14.5px; font-weight: 700; color: #78350f;">Comunicazione della Direzione (Fissata in Bacheca)</h4>
+                <span class="text-xs text-muted">Avviso prioritario ufficiale visibile a tutti i residenti in cima alla Bacheca</span>
+              </div>
             </div>
-            <button type="submit" class="btn btn-primary btn-sm" style="background: #f59e0b; border-color: #d97706; color: #000; font-weight: 700;">💾 Salva</button>
+            <button type="button" class="btn btn-outline btn-sm" onclick="apriModalMessaggioSupermaster()" style="font-size: 11.5px; font-weight: 700; border-color: #f59e0b; color: #92400e; background: #fff;">
+              ✏️ Modale Completa
+            </button>
+          </div>
+
+          <form onsubmit="handleSalvaMessaggioSupermasterRapido(event)" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px;">
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label for="admin-titolo-supermaster" style="font-size: 12px; font-weight: 700; color: #78350f; display: block; margin-bottom: 4px;">Titolo della Comunicazione:</label>
+              <input type="text" id="admin-titolo-supermaster" class="input-text" style="font-size: 13px; font-weight: 700; padding: 7px 10px;" value="${escapeHtml(appState.cachedConfig.Messaggio_Supermaster_Titolo || 'Comunicazione della Direzione')}" placeholder="Es. Comunicazione della Direzione">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 10px;">
+              <label for="admin-messaggio-supermaster" style="font-size: 12px; font-weight: 700; color: #78350f; display: block; margin-bottom: 4px;">Testo del Messaggio:</label>
+              <textarea id="admin-messaggio-supermaster" class="input-textarea" rows="3" style="font-size: 13px; line-height: 1.5;" placeholder="Inserisci il testo visibile a tutti i residenti...">${escapeHtml(appState.cachedConfig.Messaggio_Supermaster || '')}</textarea>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 12px;">
+              <div>
+                <label for="admin-pub-supermaster" style="font-size: 11.5px; font-weight: 600; color: #78350f; display: block; margin-bottom: 4px;">Data Pubblicazione:</label>
+                <input type="datetime-local" id="admin-pub-supermaster" class="input-text" style="font-size: 12px; padding: 6px 8px;" value="${appState.cachedConfig.Messaggio_Supermaster_Data_Pubblicazione || ''}">
+              </div>
+              <div>
+                <label for="admin-scad-supermaster" style="font-size: 11.5px; font-weight: 600; color: #78350f; display: block; margin-bottom: 4px;">Data Scadenza (opzionale):</label>
+                <input type="datetime-local" id="admin-scad-supermaster" class="input-text" style="font-size: 12px; padding: 6px 8px;" value="${appState.cachedConfig.Messaggio_Supermaster_Data_Scadenza || ''}">
+              </div>
+            </div>
+
+            <div class="flex-between" style="flex-wrap: wrap; gap: 8px; pt-2; border-top: 1px solid rgba(245, 158, 11, 0.25); padding-top: 8px;">
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                <button type="submit" class="btn btn-primary btn-sm" style="background: #f59e0b; border-color: #d97706; color: #000; font-weight: 700; font-size: 12px; padding: 6px 14px;">💾 Salva &amp; Pubblica in Bacheca</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="switchTab('info')" style="font-size: 12px;">👁️ Vedi in Bacheca</button>
+              </div>
+              ${appState.cachedConfig.Messaggio_Supermaster ? `<button type="button" class="btn btn-outline btn-sm" onclick="rimuoviMessaggioSupermasterConferma()" style="color: #dc2626; border-color: #fca5a5; font-size: 11.5px; padding: 5px 10px; background: #fff;">🗑️ Rimuovi</button>` : ''}
+            </div>
           </form>
         </div>
 
@@ -5164,14 +5353,25 @@ window.handleSalvaMessaggioSupermasterRapido = async function(e) {
   const textarea = document.getElementById("admin-messaggio-supermaster");
   if (!textarea) return;
   const nuovoTesto = textarea.value.trim();
-  if (!nuovoTesto) { mostraToast("Inserisci un testo", "warning"); return; }
+  const titolo = document.getElementById("admin-titolo-supermaster")?.value?.trim() || "Comunicazione della Direzione";
+  const dataPub = document.getElementById("admin-pub-supermaster")?.value || "";
+  const dataScad = document.getElementById("admin-scad-supermaster")?.value || "";
+
   try {
-    const res = await callApi("aggiornaConfig", { Messaggio_Supermaster: nuovoTesto });
+    const payload = {
+      Messaggio_Supermaster: nuovoTesto,
+      Messaggio_Supermaster_Titolo: titolo,
+      Messaggio_Supermaster_Data_Pubblicazione: dataPub,
+      Messaggio_Supermaster_Data_Scadenza: dataScad
+    };
+    const res = await callApi("aggiornaConfig", payload);
     if (res.success) {
-      appState.cachedConfig.Messaggio_Supermaster = nuovoTesto;
-      mostraToast("✅ Salvato!", "success");
+      Object.assign(appState.cachedConfig, payload);
+      mostraToast("✅ Comunicazione salvata e pubblicata in Bacheca!", "success");
+      renderBachecaView();
+      renderResidenzaView();
       renderMasterSection();
-    } else mostraToast("Errore", "error");
+    } else mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
   } catch (err) { mostraToast("Errore di rete", "error"); }
 };
 
