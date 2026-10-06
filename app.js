@@ -220,12 +220,23 @@ const INITIAL_MOCK_DB = {
       stato: "Confermata", auth1_email: "donandreadotti@gmail.com", auth1_data: "2026-09-21T09:00:00Z",
       auth2_email: "donandreadotti@gmail.com", auth2_data: "2026-09-22T08:30:00Z",
       note: "Docente in visita accademica"
+    },
+    {
+      id: "ACC_002", data_richiesta: new Date().toISOString(),
+      richiedente_email: "donrocco@newman.it", richiedente_nome: "Don Rocco",
+      nome_ospite: "Mons. Giovanni Bianchi", data_checkin: "2026-10-10", data_checkout: "2026-10-12",
+      numero_ospiti: 1, camera_preferita: "Camera 2", camera_assegnata: "",
+      stato: "In Attesa 1a Autorizzazione", auth1_email: "", auth1_data: "",
+      auth2_email: "", auth2_data: "",
+      note: "Predicatore per il ritiro diocesano dei residenti"
     }
   ],
   prenotazioni_spazi: [
     { id: "S_001", risorsa: "Chiesa", data: "2026-09-16", slot_orario: "07:00 - 07:30", email: "donrocco@newman.it", timestamp: "2026-09-15T20:00:00Z", stato: "Approvata" },
     { id: "S_002", risorsa: "Sala TV", data: "2026-09-16", slot_orario: "20:30 - 21:00", email: "donsergio@newman.it", timestamp: "2026-09-15T21:00:00Z", stato: "Approvata" },
-    { id: "S_003", risorsa: "Chiesa", data: "2026-09-16", slot_orario: "18:00 - 18:30", email: "donandreadotti@gmail.com", timestamp: "2026-09-16T08:00:00Z", stato: "Approvata" }
+    { id: "S_003", risorsa: "Chiesa", data: "2026-09-16", slot_orario: "18:00 - 18:30", email: "donandreadotti@gmail.com", timestamp: "2026-09-16T08:00:00Z", stato: "Approvata" },
+    { id: "S_004", risorsa: "Chiesa", data: "2026-10-07", slot_orario: "08:30 - 09:00", email: "donrocco@newman.it", timestamp: new Date().toISOString(), stato: "In Attesa", approvato_da: "", note: "S. Messa con familiari in visita" },
+    { id: "S_005", risorsa: "Sala TV", data: "2026-10-08", slot_orario: "21:30 - 22:00", email: "francesco.studente@newman.it", timestamp: new Date().toISOString(), stato: "In Attesa", approvato_da: "", note: "Gruppo di studio per esame universitario" }
   ],
   bacheca: [
     { id: "B_001", tipo: "compleanno", data: "2026-09-16", titolo: "Buon Compleanno Don Andrea Dotti!", descrizione: "La comunità della Residenza si unisce in preghiera e festa per il compleanno del nostro Padre Direttore!", autore: "Direzione", priorita: "alta", timestamp: "2026-09-16T06:00:00Z" },
@@ -366,10 +377,18 @@ function initStorage() {
       }
       if (parsed.prenotazioni_spazi) {
         const valid = parsed.prenotazioni_spazi.filter(p => p.risorsa === "Chiesa" || p.risorsa === "Sala TV");
-        if (valid.length !== parsed.prenotazioni_spazi.length) {
+        const hasPendingSpazi = valid.some(p => p.stato === "In Attesa");
+        if (!hasPendingSpazi) {
+          INITIAL_MOCK_DB.prenotazioni_spazi.filter(p => p.stato === "In Attesa").forEach(p => valid.push(p));
+          needsSave = true;
+        }
+        if (valid.length !== parsed.prenotazioni_spazi.length || needsSave) {
           parsed.prenotazioni_spazi = valid;
           needsSave = true;
         }
+      } else {
+        parsed.prenotazioni_spazi = INITIAL_MOCK_DB.prenotazioni_spazi;
+        needsSave = true;
       }
       if (parsed.utenti) {
         parsed.utenti.forEach(u => {
@@ -384,6 +403,12 @@ function initStorage() {
       if (!parsed.accoglienza || parsed.accoglienza.length === 0) {
         parsed.accoglienza = INITIAL_MOCK_DB.accoglienza;
         needsSave = true;
+      } else {
+        const hasPendingAcc = parsed.accoglienza.some(a => (a.stato || "").includes("In Attesa"));
+        if (!hasPendingAcc) {
+          INITIAL_MOCK_DB.accoglienza.filter(a => (a.stato || "").includes("In Attesa")).forEach(a => parsed.accoglienza.push(a));
+          needsSave = true;
+        }
       }
       if (!parsed.configurazione) {
         parsed.configurazione = INITIAL_MOCK_DB.configurazione;
@@ -1013,6 +1038,9 @@ async function caricaDatiBackend() {
       if (typeof window.pianificaCheckNotificheOre7 === "function") {
         window.pianificaCheckNotificheOre7();
       }
+      if (typeof window.verificaENotificaNovitaMaster === "function") {
+        window.verificaENotificaNovitaMaster();
+      }
     }
 
     if (haPermessiMaster()) {
@@ -1202,8 +1230,298 @@ function calcolaCalendarioRomano(date) {
 }
 
 // ----------------------------------------------------------------------------
-// LOGICA SEZIONE 1: BACHECA & CALENDARIO ROMANO
+// LOGICA SEZIONE 1: BACHECA & CALENDARIO ROMANO + DASHBOARD MASTER PENDENTI
 // ----------------------------------------------------------------------------
+
+window.cambiaMasterHomeSubTab = function(subTab) {
+  appState.masterHomeSubTab = subTab;
+  if (appState.currentTab === "info") renderBachecaView();
+  if (appState.currentTab === "master") renderMasterSection();
+};
+
+function generaMasterDashboardHtml(context = "home") {
+  if (typeof haPermessiMaster !== "function" || !haPermessiMaster()) return "";
+
+  const perm_admin = Boolean(appState.user && appState.user.perm_admin);
+  const inAttesaAccoglienza = (appState.accoglienzaList || []).filter(a => a.stato === "In Attesa 1a Autorizzazione" || a.stato === "1a Autorizzazione Concessa");
+  const inAttesaSpazi = (appState.prenotazioniSpazi || []).filter(p => p.stato === "In Attesa");
+  const tutteSegnalazioni = appState.guasti || appState.manutenzioneList || [];
+  const guastiAperti = tutteSegnalazioni.filter(g => g.stato !== "Risolto" && g.stato !== "Archiviata" && g.stato !== "Terminata");
+
+  const totalePendenti = inAttesaAccoglienza.length + inAttesaSpazi.length + guastiAperti.length;
+  const subTab = appState.masterHomeSubTab || "tutti";
+
+  const pushSupportata = ("Notification" in window);
+  const pushPermesso = pushSupportata ? Notification.permission : "unsupported";
+  const pushAttive = pushPermesso === "granted" && Boolean(appState.user?.notif_push);
+
+  let pushBannerHtml = "";
+  if (!pushSupportata) {
+    pushBannerHtml = `
+      <div style="background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; font-size: 11.5px; color: #64748b; display: flex; align-items: center; gap: 6px;">
+        <span>ℹ️</span> <span>Notifiche push browser non supportate su questo dispositivo.</span>
+      </div>
+    `;
+  } else if (pushAttive) {
+    pushBannerHtml = `
+      <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 8px 12px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 12px;">
+        <div style="display: flex; align-items: center; gap: 6px; color: #166534; font-weight: 700;">
+          <span>🔔</span> Notifiche Push Novità Master: <span class="badge badge-success" style="font-size: 11px;">Attive ✅</span>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" onclick="inviaNotificaPush('👑 Test Notifica Master', 'Notifiche push attive: riceverai subito avvisi per nuove richieste di alloggio, spazi e guasti!', '/#master')" style="font-size: 11px; padding: 3px 8px; color: #166534; border-color: #86efac; background: #fff;">
+          Invia Test 📲
+        </button>
+      </div>
+    `;
+  } else {
+    pushBannerHtml = `
+      <div class="master-push-banner" style="background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); border: 1.5px solid #93c5fd; border-radius: 10px; padding: 12px 14px; margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+        <div class="flex-align" style="gap: 10px;">
+          <span style="font-size: 26px;">🔔</span>
+          <div>
+            <div style="font-weight: 800; font-size: 13.5px; color: #1e40af;">Attiva Notifiche Push per i Master</div>
+            <div style="font-size: 12px; color: #1e3a8a;">Ricevi avvisi in tempo reale su nuove richieste di accoglienza, prenotazioni ambienti e segnalazioni manutenzione.</div>
+          </div>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" onclick="attivaNotifichePushPerMaster()" style="background: #2563eb; border-color: #1d4ed8; font-weight: 800; font-size: 12px; padding: 8px 14px; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 2px 6px rgba(37,99,235,0.25);">
+          <span>🔔</span> Attiva Notifiche Push Novità
+        </button>
+      </div>
+    `;
+  }
+
+  return `
+    <div class="card master-home-dashboard-card" style="border-left: 5px solid #9d174d; background: #ffffff; margin-bottom: 16px; box-shadow: 0 4px 16px rgba(0,0,0,0.06); border-radius: var(--radius-md); padding: 16px 18px; border-top: 1px solid #f1f5f9; border-right: 1px solid #f1f5f9; border-bottom: 1px solid #f1f5f9;">
+      <div class="flex-between" style="align-items: flex-start; gap: 10px; margin-bottom: 12px; flex-wrap: wrap;">
+        <div class="flex-align" style="gap: 10px;">
+          <div style="width: 40px; height: 40px; border-radius: 10px; background: rgba(157, 23, 77, 0.1); border: 1.5px solid rgba(157, 23, 77, 0.25); display: flex; align-items: center; justify-content: center; font-size: 22px; flex-shrink: 0;">👑</div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: #9d174d;">Dashboard Master</span>
+              <span style="font-size: 11px; color: #cbd5e1;">•</span>
+              <span class="badge" style="${totalePendenti > 0 ? 'background: #fee2e2; color: #991b1b;' : 'background: #dcfce7; color: #166534;'} font-weight: 800; font-size: 11px; padding: 2px 8px;">
+                ${totalePendenti > 0 ? `⚠️ ${totalePendenti} In Attesa di Elaborazione` : '✅ Tutto Aggiornato'}
+              </span>
+            </div>
+            <h3 style="margin: 3px 0 0 0; font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.3;">
+              Attività &amp; Richieste Pendenti Master
+            </h3>
+          </div>
+        </div>
+        <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+          ${context === 'home' ? `
+            <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('master')" style="font-size: 11.5px; font-weight: 700; color: #9d174d; border-color: #fbcfe8;">
+              👑 Apri Pannello Master Completo ↗
+            </button>
+          ` : `
+            <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('info')" style="font-size: 11.5px; font-weight: 700; color: #475569; border-color: #cbd5e1;">
+              👁️ Vedi Bacheca Residenti
+            </button>
+          `}
+        </div>
+      </div>
+
+      ${pushBannerHtml}
+
+      <!-- Barra dei Filtri per Tipologia -->
+      <div style="display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap;">
+        <button type="button" class="btn btn-sm ${subTab === 'tutti' ? 'btn-primary' : 'btn-outline'}" onclick="cambiaMasterHomeSubTab('tutti')" style="font-size: 12px; font-weight: 700; padding: 6px 12px; ${subTab === 'tutti' ? 'background: #0f172a; border-color: #0f172a;' : ''}">
+          📋 Tutte (${totalePendenti})
+        </button>
+        <button type="button" class="btn btn-sm ${subTab === 'accoglienza' ? 'btn-primary' : 'btn-outline'}" onclick="cambiaMasterHomeSubTab('accoglienza')" style="font-size: 12px; font-weight: 700; padding: 6px 12px; ${subTab === 'accoglienza' ? 'background: #166534; border-color: #166534;' : (inAttesaAccoglienza.length > 0 ? 'border-color: #166534; color: #166534;' : '')}">
+          🛏️ Accoglienza (${inAttesaAccoglienza.length})
+        </button>
+        <button type="button" class="btn btn-sm ${subTab === 'spazi' ? 'btn-primary' : 'btn-outline'}" onclick="cambiaMasterHomeSubTab('spazi')" style="font-size: 12px; font-weight: 700; padding: 6px 12px; ${subTab === 'spazi' ? 'background: #9d174d; border-color: #9d174d;' : (inAttesaSpazi.length > 0 ? 'border-color: #9d174d; color: #9d174d;' : '')}">
+          ⛪ Ambienti (${inAttesaSpazi.length})
+        </button>
+        <button type="button" class="btn btn-sm ${subTab === 'manutenzione' ? 'btn-primary' : 'btn-outline'}" onclick="cambiaMasterHomeSubTab('manutenzione')" style="font-size: 12px; font-weight: 700; padding: 6px 12px; ${subTab === 'manutenzione' ? 'background: #2563eb; border-color: #2563eb;' : (guastiAperti.length > 0 ? 'border-color: #2563eb; color: #2563eb;' : '')}">
+          🛠️ Manutenzione (${guastiAperti.length})
+        </button>
+      </div>
+
+      ${totalePendenti === 0 ? `
+        <div style="background: #f0fdf4; border: 1.5px dashed #86efac; border-radius: 8px; padding: 18px; text-align: center;">
+          <div style="font-size: 26px; margin-bottom: 6px;">🎉</div>
+          <strong style="color: #166534; font-size: 14.5px;">Tutto in ordine!</strong>
+          <p style="margin: 4px 0 0 0; font-size: 12.5px; color: #15803d;">
+            Non ci sono richieste pendenti di accoglienza o ambienti e nessuna segnalazione di manutenzione da elaborare.
+          </p>
+        </div>
+      ` : `
+        <div class="master-home-sections-wrap" style="display: flex; flex-direction: column; gap: 14px;">
+          <!-- 1. ACCOGLIENZA -->
+          ${(subTab === 'tutti' || subTab === 'accoglienza') && inAttesaAccoglienza.length > 0 ? `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+              <div class="flex-between" style="margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 18px;">🛏️</span>
+                  <strong style="color: #166534; font-size: 13.5px;">Richieste Accoglienza Ospiti (${inAttesaAccoglienza.length})</strong>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('accoglienza')" style="font-size: 11px; padding: 3px 8px; color: #166534; border-color: #86efac; background: #fff;">
+                  Pannello Ospiti ↗
+                </button>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${inAttesaAccoglienza.map(a => {
+                  const checkin = a.data_checkin || a.checkin;
+                  const checkout = a.data_checkout || a.checkout;
+                  const notti = calcolaNottiSoggiorno(checkin, checkout);
+                  const isAttesa1 = a.stato === "In Attesa 1a Autorizzazione";
+                  return `
+                    <div style="background: #ffffff; border: 1px solid #bbf7d0; border-left: 4px solid #166534; border-radius: 6px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                      <div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                          <strong style="font-size: 13.5px; color: #0f172a;">${escapeHtml(a.nome_ospite || 'Ospite')}</strong>
+                          <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; font-size: 10.5px;">
+                            ${isAttesa1 ? '⏳ Attesa 1ª Auth' : '⏳ Attesa 2ª Auth Definitiva'}
+                          </span>
+                        </div>
+                        <div class="text-xs text-muted" style="margin-top: 3px;">
+                          📅 ${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)} (${notti} ${notti === 1 ? 'notte' : 'notti'}) • 👥 ${a.numero_ospiti || 1} ospite/i
+                          ${a.camera_assegnata ? `• 🚪 Camera: <strong>${escapeHtml(a.camera_assegnata)}</strong>` : (a.camera_preferita ? `• 🏷️ Pref: ${escapeHtml(a.camera_preferita)}` : '')}
+                        </div>
+                        <div class="text-xs text-muted" style="margin-top: 2px;">
+                          Richiedente: <strong>${escapeHtml(a.richiedente_nome || a.richiedente_email || a.email || 'Residente')}</strong>${a.note ? ` • Note: <em>"${escapeHtml(a.note)}"</em>` : ''}
+                        </div>
+                      </div>
+                      <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        ${isAttesa1 ? `
+                          <button type="button" class="btn btn-sm btn-success" onclick="apriModalAutorizza1Accoglienza('${a.id}')" style="font-size: 11.5px; font-weight: 700; padding: 5px 12px; background: #166534; border-color: #166534; color: #fff;">
+                            ✓ Concedi 1ª Auth
+                          </button>
+                        ` : `
+                          <button type="button" class="btn btn-sm btn-success" onclick="handleConfermaAutorizza2('${a.id}')" style="font-size: 11.5px; font-weight: 700; padding: 5px 12px; background: #15803d; border-color: #15803d; color: #fff;">
+                            ✓ Concedi 2ª Auth
+                          </button>
+                        `}
+                        <button type="button" class="btn btn-sm btn-outline" onclick="handleRifiutaAccoglienza('${a.id}')" style="font-size: 11.5px; font-weight: 600; padding: 5px 10px; color: #dc2626; border-color: #fca5a5; background: #fff;">
+                          ✕ Rifiuta
+                        </button>
+                      </div>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- 2. AMBIENTI & SPAZI -->
+          ${(subTab === 'tutti' || subTab === 'spazi') && inAttesaSpazi.length > 0 ? `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+              <div class="flex-between" style="margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 18px;">⛪</span>
+                  <strong style="color: #9d174d; font-size: 13.5px;">Richieste Prenotazione Ambienti (${inAttesaSpazi.length})</strong>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('spazi')" style="font-size: 11px; padding: 3px 8px; color: #9d174d; border-color: #fbcfe8; background: #fff;">
+                  Calendario Ambienti ↗
+                </button>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${inAttesaSpazi.map(p => {
+                  const resIcon = p.risorsa === 'Chiesa' ? '⛪' : '📺';
+                  const nomeRichiedente = trovaNomeUtente(p.email);
+                  return `
+                    <div style="background: #ffffff; border: 1px solid #fde68a; border-left: 4px solid #f59e0b; border-radius: 6px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                      <div>
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                          <strong style="font-size: 13.5px; color: #0f172a;">${resIcon} ${escapeHtml(p.risorsa)}</strong>
+                          <span class="badge" style="background: #f1f5f9; color: #334155; font-weight: 700; font-size: 11px;">⏰ ${escapeHtml(p.slot_orario)}</span>
+                          <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; font-size: 10.5px;">⏳ In Attesa Approvazione</span>
+                        </div>
+                        <div class="text-xs text-muted" style="margin-top: 3px;">
+                          📅 <strong>Data:</strong> ${formattaDataItaliana(p.data)}
+                          • Richiedente: <strong>${escapeHtml(nomeRichiedente)}</strong> (<code style="font-size: 11px;">${escapeHtml(p.email)}</code>)
+                        </div>
+                        ${p.note ? `
+                          <div class="text-xs text-muted" style="margin-top: 2px;">
+                            Motivo/Note: <em style="color: #1e293b; font-weight: 600;">"${escapeHtml(p.note)}"</em>
+                          </div>
+                        ` : ''}
+                      </div>
+                      <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-sm btn-success" onclick="approvaRichiestaSpazio('${p.id}')" style="font-size: 12px; font-weight: 800; padding: 5px 14px; background: #16a34a; border-color: #15803d; color: #fff; display: flex; align-items: center; gap: 4px;">
+                          <span>✅</span> Approva
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline" onclick="rifiutaRichiestaSpazio('${p.id}')" style="font-size: 12px; font-weight: 700; padding: 5px 10px; color: #dc2626; border-color: #fca5a5; background: #fff;">
+                          <span>✕</span> Rifiuta
+                        </button>
+                      </div>
+                    </div>
+                  `;
+                }).join("")}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- 3. MANUTENZIONE & SERVIZI -->
+          ${(subTab === 'tutti' || subTab === 'manutenzione') && guastiAperti.length > 0 ? `
+            <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px;">
+              <div class="flex-between" style="margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
+                <div style="display: flex; align-items: center; gap: 6px;">
+                  <span style="font-size: 18px;">🛠️</span>
+                  <strong style="color: #2563eb; font-size: 13.5px;">Segnalazioni Manutenzione &amp; Servizi Aperte (${guastiAperti.length})</strong>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('manutenzione')" style="font-size: 11px; padding: 3px 8px; color: #2563eb; border-color: #bfdbfe; background: #fff;">
+                  Pannello Manutenzione ↗
+                </button>
+              </div>
+              <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${guastiAperti.slice(0, 10).map(g => {
+                  const isServizi = g.categoria === "servizi";
+                  const isPrioAlta = g.priorita === "Alta" || g.priorita === "Urgente";
+                  return `
+                    <div style="background: #ffffff; border: 1px solid ${isPrioAlta ? '#fca5a5' : '#e2e8f0'}; border-left: 4px solid ${isPrioAlta ? '#dc2626' : '#2563eb'}; border-radius: 6px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                      <div style="flex: 1; min-width: 200px;">
+                        <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                          <strong style="font-size: 13.5px; color: #0f172a;">${escapeHtml(g.luogo || 'Residenza')}</strong>
+                          <span class="badge" style="background:${isServizi ? '#e0f2fe' : '#fef3c7'}; color:${isServizi ? '#0369a1' : '#92400e'}; font-size:10.5px; font-weight:700;">
+                            ${isServizi ? '🧹 Servizi' : '🛠️ Tecnico'}
+                          </span>
+                          <span class="badge" style="${isPrioAlta ? 'background:#fee2e2; color:#991b1b;' : 'background:#f1f5f9; color:#475569;'} font-size:10.5px; font-weight:700;">
+                            ${isPrioAlta ? '⚠️ Priorità Alta' : (g.priorita || 'Media')}
+                          </span>
+                          <span class="badge" style="background: ${g.stato === 'In Lavorazione' ? '#ffedd5' : '#fef3c7'}; color: ${g.stato === 'In Lavorazione' ? '#c2410c' : '#92400e'}; font-weight: 700; font-size: 10.5px;">
+                            ${g.stato === 'In Lavorazione' ? '🟡 In Lavorazione' : '🟠 Aperta'}
+                          </span>
+                        </div>
+                        <div style="font-size: 12.5px; color: #334155; margin: 4px 0; line-height: 1.4;">
+                          ${escapeHtml(g.descrizione || '')}
+                        </div>
+                        <div class="text-xs text-muted">
+                          Segnalato da: <strong>${escapeHtml(trovaNomeUtente(g.email))}</strong> • 📅 ${formattaDataItaliana(g.timestamp)}
+                          ${g.tecnico ? ` • Tecnico: <strong>${escapeHtml(g.tecnico)}</strong>` : ''}
+                        </div>
+                      </div>
+                      <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        ${g.stato !== 'In Lavorazione' ? `
+                          <button type="button" class="btn btn-sm btn-outline" onclick="segnaGuastoInLavorazione('${g.id}')" style="font-size: 11px; font-weight: 700; padding: 5px 10px; color: #c2410c; border-color: #fdba74; background: #fff;">
+                            🟡 In Corso
+                          </button>
+                        ` : ''}
+                        <button type="button" class="btn btn-sm btn-success" onclick="segnaGuastoRisolto('${g.id}')" style="font-size: 11.5px; font-weight: 700; padding: 5px 12px; background: #16a34a; border-color: #15803d; color: #fff;">
+                          ✅ Risolvi
+                        </button>
+                      </div>
+                    </div>
+                  `;
+                }).join("")}
+                ${guastiAperti.length > 10 ? `
+                  <div style="text-align: center; margin-top: 4px;">
+                    <button type="button" class="btn btn-sm btn-link" onclick="switchTab('manutenzione')" style="font-size: 11.5px;">
+                      Vedi altre ${guastiAperti.length - 10} segnalazioni nel pannello manutenzione...
+                    </button>
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
+        </div>
+      `}
+    </div>
+  `;
+}
+window.generaMasterDashboardHtml = generaMasterDashboardHtml;
 
 function renderBachecaView() {
   const container = document.getElementById("bacheca-container");
@@ -1331,7 +1649,9 @@ function renderBachecaView() {
     `;
   }
 
-  let html = masterCardHtml + `
+  const masterDashboardHtml = isMasterOrAdmin ? generaMasterDashboardHtml('home') : "";
+
+  let html = masterCardHtml + masterDashboardHtml + `
     <div class="card roman-calendar-card">
       <div class="roman-header-clean">
         <div class="roman-italian-date-large" style="font-size: 19px; font-weight: 800; color: #ffffff; letter-spacing: 0.2px;">${escapeHtml(cal.dataItaliana)}</div>
@@ -3477,6 +3797,14 @@ window.eseguiPrenotazioneSpazioConfermata = async function() {
         mostraToast(`✅ Prenotazione confermata per ${nomeRisorsa} (${slot})!`, "success");
       } else {
         mostraToast(`📨 Richiesta inviata con successo! In attesa di conferma da un Master per ${slot}.`, "info");
+        if (typeof window.notificaNovitaAiMaster === "function") {
+          window.notificaNovitaAiMaster(
+            "spazio",
+            `⛪ Nuova Richiesta Ambiente (${nomeRisorsa})`,
+            `${nomePrenotante} ha richiesto ${nomeRisorsa} per il ${formattaDataItaliana(data)} (${slot}). In attesa di conferma Master.`,
+            "/#spazi"
+          );
+        }
       }
 
       appState.selectedSpazioRisorsa = risorsa;
@@ -3485,6 +3813,7 @@ window.eseguiPrenotazioneSpazioConfermata = async function() {
       renderSlotSpazi();
       renderMiePrenotazioniSpazi();
       if (document.getElementById("master-dynamic-content") && haPermessiMaster()) renderMasterSection();
+      if (appState.currentTab === "info" && haPermessiMaster()) renderBachecaView();
     } else {
       mostraToast("Errore: " + (res.error || "Slot non disponibile"), "error");
     }
@@ -3562,10 +3891,19 @@ window.eseguiPrenotazioneSpazioRapidaInline = async function() {
       } catch (e) {}
 
       mostraToast(`📨 Richiesta per ${nomeRisorsa} (${slot}) inviata con successo! In attesa di conferma del Master.`, "info");
+      if (typeof window.notificaNovitaAiMaster === "function") {
+        window.notificaNovitaAiMaster(
+          "spazio",
+          `⛪ Nuova Richiesta Ambiente (${nomeRisorsa})`,
+          `${appState.user?.nome || 'Un residente'} ha richiesto ${nomeRisorsa} per il ${formattaDataItaliana(data)} (${slot}). In attesa di conferma Master.`,
+          "/#spazi"
+        );
+      }
       renderSpaziView();
       renderSlotSpazi();
       renderMiePrenotazioniSpazi();
       if (document.getElementById("master-dynamic-content") && haPermessiMaster()) renderMasterSection();
+      if (appState.currentTab === "info" && haPermessiMaster()) renderBachecaView();
     } else {
       mostraToast("Errore: " + (res.error || "Slot non disponibile"), "error");
     }
@@ -3924,6 +4262,15 @@ async function handleInviaRichiestaAccoglienza(event) {
       appState.accoglienzaList.unshift(nuovaRichiesta);
       renderAccoglienzaView();
       if (document.getElementById("master-dynamic-content")) renderMasterSection();
+      if (appState.currentTab === "info" && haPermessiMaster()) renderBachecaView();
+      if (typeof window.notificaNovitaAiMaster === "function") {
+        window.notificaNovitaAiMaster(
+          "accoglienza",
+          `🛏️ Nuova Richiesta Accoglienza (${nomeOspite})`,
+          `${appState.user?.nome || 'Un residente'} ha richiesto un alloggio per ${nomeOspite} (${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)}). In attesa di approvazione Master.`,
+          "/#accoglienza"
+        );
+      }
     } else mostraToast("Errore: " + (res.error || "Impossibile inviare"), "error");
   } catch (err) { mostraToast("Errore di rete", "error"); }
   finally { if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.innerText = "📨 Invia Richiesta"; } }
@@ -4163,6 +4510,15 @@ function setupManutenzioneHandlers() {
           if (previewBox) previewBox.style.display = "none";
           if (haPermessiMaster()) caricaDatiMaster();
           caricaGuastiRecenti();
+          if (appState.currentTab === "info" && haPermessiMaster()) renderBachecaView();
+          if (typeof window.notificaNovitaAiMaster === "function") {
+            window.notificaNovitaAiMaster(
+              "manutenzione",
+              categoria === "servizi" ? "🧹 Nuova Segnalazione Servizi" : "🛠️ Nuova Segnalazione Manutenzione",
+              `[${luogo || 'Residenza'}] ${descrizione}`,
+              "/#manutenzione"
+            );
+          }
         } else mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
       } catch (err) { mostraToast("Errore di rete", "error"); }
       finally { if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = "Invia Segnalazione"; } }
@@ -4842,8 +5198,21 @@ async function caricaDatiMaster() {
       if (res.bacheca) appState.bacheca = res.bacheca;
       if (res.prenotazioniSpazi) appState.prenotazioniSpazi = res.prenotazioniSpazi;
       if (res.accoglienza) appState.accoglienzaList = res.accoglienza;
+
+      // Auto-abilita notif_push se il browser ha già il permesso concesso per i Master
+      if ("Notification" in window && Notification.permission === "granted" && appState.user && !appState.user.notif_push) {
+        appState.user.notif_push = true;
+        localStorage.setItem("newman_notif_push_" + appState.user.email, "true");
+        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+        callApi("salvaPreferenzaPush", { email: appState.user.email, notif_push: true }).catch(() => {});
+      }
+
+      if (typeof window.verificaENotificaNovitaMaster === "function") {
+        window.verificaENotificaNovitaMaster();
+      }
     }
     renderMasterSection();
+    if (appState.currentTab === "info") renderBachecaView();
   } catch (err) { console.error("Errore Master Data:", err); renderMasterSection(); }
 }
 
@@ -4923,6 +5292,7 @@ function renderMasterSection() {
   const isVistaTutto = Boolean(appState.masterVistaTutto);
   const activeTab = appState.masterActiveTab;
   const currentTabIndex = tabsDisponibili.findIndex(t => t.id === activeTab);
+  const masterDashboardHtml = generaMasterDashboardHtml('master');
 
   let html = `
     <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #fff; margin-bottom: 14px; border: 1px solid rgba(255,255,255,0.12); padding: 16px 18px; border-radius: 10px;">
@@ -4938,6 +5308,8 @@ function renderMasterSection() {
         </div>
       </div>
     </div>
+
+    ${masterDashboardHtml}
 
     <div class="master-bottoniera-deck" style="background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px; margin-bottom: 18px;">
       <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; flex-wrap: wrap;">
@@ -6207,11 +6579,69 @@ window.handleCancellaVariazioneCuocaModal = async function() {
 };
 
 window.segnaGuastoRisolto = async function(id) {
+  if (!id) return;
   try {
     const res = await callApi("risolviGuasto", { id });
-    if (res.success) { mostraToast("Guasto Risolto!", "success"); caricaDatiMaster(); caricaGuastiRecenti(); }
-    else mostraToast("Errore: " + res.error, "error");
-  } catch (err) { mostraToast("Errore di rete", "error"); }
+    if (res.success) {
+      mostraToast("✅ Guasto segnato come Risolto!", "success");
+      const list = (appState.guasti && appState.guasti.length > 0) ? appState.guasti : (appState.manutenzioneList || []);
+      const g = list.find(item => String(item.id) === String(id));
+      if (g) {
+        g.stato = "Risolto";
+        g.data_chiusura = new Date().toISOString();
+      }
+      try {
+        const rawLocal = localStorage.getItem(STORAGE_KEYS.LOCAL_DB);
+        if (rawLocal) {
+          const db = JSON.parse(rawLocal);
+          const gL = (db.manutenzione || []).find(item => String(item.id) === String(id));
+          if (gL) {
+            gL.stato = "Risolto";
+            gL.data_chiusura = new Date().toISOString();
+          }
+          localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        }
+      } catch (e) {}
+      if (appState.currentTab === "info") renderBachecaView();
+      if (appState.currentTab === "master") renderMasterSection();
+      if (typeof caricaDatiMaster === "function") caricaDatiMaster();
+      if (typeof caricaGuastiRecenti === "function") caricaGuastiRecenti();
+    } else {
+      mostraToast("Errore: " + res.error, "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete", "error");
+  }
+};
+
+window.segnaGuastoInLavorazione = async function(id) {
+  if (!id) return;
+  try {
+    const res = await callApi("aggiornaSegnalazione", { id, stato: "In Lavorazione" });
+    if (res && res.success) {
+      mostraToast("🟡 Segnalazione presa in carico (In Lavorazione)", "info");
+      const list = (appState.guasti && appState.guasti.length > 0) ? appState.guasti : (appState.manutenzioneList || []);
+      const g = list.find(item => String(item.id) === String(id));
+      if (g) g.stato = "In Lavorazione";
+      try {
+        const rawLocal = localStorage.getItem(STORAGE_KEYS.LOCAL_DB);
+        if (rawLocal) {
+          const db = JSON.parse(rawLocal);
+          const gL = (db.manutenzione || []).find(item => String(item.id) === String(id));
+          if (gL) gL.stato = "In Lavorazione";
+          localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        }
+      } catch (e) {}
+      if (appState.currentTab === "info") renderBachecaView();
+      if (appState.currentTab === "master") renderMasterSection();
+      if (typeof caricaDatiMaster === "function") caricaDatiMaster();
+      if (typeof caricaGuastiRecenti === "function") caricaGuastiRecenti();
+    } else {
+      mostraToast("Errore: " + (res?.error || "Impossibile aggiornare"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di rete", "error");
+  }
 };
 
 // ----------------------------------------------------------------------------
@@ -8876,6 +9306,145 @@ window.verificaENotificaAccoglienzaConfermata = function(accList) {
 window.testaNotificheOre7Manuale = function() {
   controllaENotificaEventiOre7(true);
 };
+
+// ----------------------------------------------------------------------------
+// NOTIFICHE PUSH PER I MASTER (NOVITÀ: AMBIENTI, ACCOGLIENZA, MANUTENZIONE)
+// ----------------------------------------------------------------------------
+
+window.attivaNotifichePushPerMaster = async function() {
+  if (!("Notification" in window)) {
+    mostraToast("⚠️ Il tuo browser non supporta le notifiche push", "warning");
+    return;
+  }
+  try {
+    let perm = Notification.permission;
+    if (perm !== "granted") {
+      perm = await Notification.requestPermission();
+    }
+    if (perm !== "granted") {
+      mostraToast("⚠️ Permesso notifiche non concesso nel browser", "warning");
+      if (typeof aggiornaStatoUIPushNotifiche === "function") aggiornaStatoUIPushNotifiche();
+      return;
+    }
+
+    if (appState.user) {
+      appState.user.notif_push = true;
+      localStorage.setItem("newman_notif_push_" + appState.user.email, "true");
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+      try {
+        await callApi("salvaPreferenzaPush", { email: appState.user.email, notif_push: true });
+      } catch (e) {}
+    }
+
+    mostraToast("🔔 Notifiche Push Novità Master attivate con successo!", "success");
+    if (typeof aggiornaStatoUIPushNotifiche === "function") aggiornaStatoUIPushNotifiche();
+
+    await inviaNotificaPush(
+      "👑 Notifiche Novità Master Attive!",
+      "Riceverai avvisi immediati per nuove richieste di alloggio, prenotazioni ambienti e segnalazioni manutenzione.",
+      "/#master",
+      "master-push-active"
+    );
+
+    window.verificaENotificaNovitaMaster(true);
+    if (appState.currentTab === "info") renderBachecaView();
+    if (appState.currentTab === "master") renderMasterSection();
+  } catch (err) {
+    console.warn("Errore attivazione push master:", err);
+    mostraToast("Errore durante l'attivazione delle notifiche", "error");
+  }
+};
+
+window.notificaNovitaAiMaster = async function(tipo, titolo, corpo, url = "/") {
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (haPermessiMaster() || Boolean(appState.user?.notif_push)) {
+    await inviaNotificaPush(titolo, corpo, url, `novita-${tipo}-${Date.now()}`);
+  }
+};
+
+window.verificaENotificaNovitaMaster = function(forza = false) {
+  if (!haPermessiMaster()) return;
+  if (!("Notification" in window) || Notification.permission !== "granted") return;
+  if (!Boolean(appState.user?.notif_push) && !forza) return;
+
+  const storageKeyNotified = "newman_notified_master_ids_v2";
+  let seenIds = [];
+  try {
+    seenIds = JSON.parse(localStorage.getItem(storageKeyNotified) || "[]");
+  } catch (e) {
+    seenIds = [];
+  }
+  const seenSet = new Set(seenIds);
+
+  const pendingSpazi = (appState.prenotazioniSpazi || []).filter(p => p.stato === "In Attesa");
+  const pendingAcc = (appState.accoglienzaList || []).filter(a => a.stato === "In Attesa 1a Autorizzazione" || a.stato === "1a Autorizzazione Concessa");
+  const nuoveManut = (appState.guasti || appState.manutenzioneList || []).filter(g => g.stato === "Aperta" || g.stato === "Da fare");
+
+  // Controlla nuovi spazi in attesa
+  pendingSpazi.forEach(p => {
+    const key = "spazio_" + p.id;
+    if (!seenSet.has(key)) {
+      seenSet.add(key);
+      const nomeRichiedente = trovaNomeUtente(p.email);
+      inviaNotificaPush(
+        `⛪ Nuova Richiesta Ambiente (${p.risorsa})`,
+        `${nomeRichiedente} ha richiesto ${p.risorsa} per il ${String(p.data).split('T')[0]} (${p.slot_orario}). In attesa di approvazione Master.`,
+        "/#spazi",
+        key
+      );
+    }
+  });
+
+  // Controlla nuove richieste di accoglienza
+  pendingAcc.forEach(a => {
+    const key = "acc_" + a.id + "_" + (a.stato || "");
+    if (!seenSet.has(key)) {
+      seenSet.add(key);
+      const statoText = a.stato === "1a Autorizzazione Concessa" ? "in attesa di 2ª autorizzazione" : "in attesa di 1ª autorizzazione";
+      inviaNotificaPush(
+        `🛏️ Richiesta Alloggio Ospite (${a.nome_ospite || 'Ospite'})`,
+        `Richiesta per ${a.nome_ospite || 'ospite'} (${formattaDataItaliana(a.data_checkin)} ➜ ${formattaDataItaliana(a.data_checkout)}) ${statoText}.`,
+        "/#accoglienza",
+        key
+      );
+    }
+  });
+
+  // Controlla nuovi guasti
+  nuoveManut.forEach(g => {
+    const key = "guasto_" + g.id;
+    if (!seenSet.has(key)) {
+      seenSet.add(key);
+      const catLabel = g.categoria === "servizi" ? "Servizi" : "Manutenzione";
+      inviaNotificaPush(
+        `🛠️ Nuova Segnalazione ${catLabel}: ${g.luogo || 'Residenza'}`,
+        `${g.descrizione ? g.descrizione.slice(0, 95) : 'Nuovo guasto segnalato'}. Priorità: ${g.priorita || 'Media'}.`,
+        "/#manutenzione",
+        key
+      );
+    }
+  });
+
+  localStorage.setItem(storageKeyNotified, JSON.stringify(Array.from(seenSet).slice(-200)));
+};
+
+if (!window._timerCheckNovitaMaster) {
+  window._timerCheckNovitaMaster = setInterval(() => {
+    if (typeof haPermessiMaster === "function" && haPermessiMaster()) {
+      if (typeof window.verificaENotificaNovitaMaster === "function") {
+        window.verificaENotificaNovitaMaster();
+      }
+    }
+  }, 45000);
+}
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && typeof haPermessiMaster === "function" && haPermessiMaster()) {
+    if (typeof window.verificaENotificaNovitaMaster === "function") {
+      window.verificaENotificaNovitaMaster();
+    }
+  }
+});
 
 // ============================================================================
 // SEZIONE STATISTICHE MENSA MENSILE (RISERVATO MASTER MENSA)
