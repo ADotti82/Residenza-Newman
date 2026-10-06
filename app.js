@@ -195,9 +195,9 @@ function applicaMenuBaseDaGoogleSheets(menuBase) {
 const INITIAL_MOCK_DB = {
   utenti: [
     { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true, notif_manutenzione: true, notif_spazi: true, notif_push: true, password: "newman2026" },
-    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: true, notif_push: false, password: "newman2026" },
-    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: true, perm_admin: false, notif_manutenzione: false, notif_spazi: false, notif_push: false, password: "newman2026" },
-    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false, notif_manutenzione: true, notif_spazi: false, notif_push: true, password: "newman2026" }
+    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: false, perm_admin: false, notif_manutenzione: false, notif_spazi: false, notif_push: false, password: "newman2026" },
+    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: false, perm_admin: false, notif_manutenzione: false, notif_spazi: false, notif_push: false, password: "newman2026" },
+    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: false, perm_admin: false, notif_manutenzione: false, notif_spazi: false, notif_push: false, password: "newman2026" }
   ],
   mensa: [
     { id: "M_001", data: "2026-09-15", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Busta asporto per convegno", timestamp: "2026-09-14T18:00:00Z" },
@@ -373,6 +373,9 @@ function initStorage() {
       }
       if (parsed.utenti) {
         parsed.utenti.forEach(u => {
+          if (!u.email.includes("dotti") && !u.perm_admin && !u.is_master_spazi) {
+            if (u.perm_spazi) { u.perm_spazi = false; needsSave = true; }
+          }
           if (u.notif_manutenzione === undefined) { u.notif_manutenzione = Boolean(u.perm_manutenzione || u.perm_admin); needsSave = true; }
           if (u.notif_spazi === undefined) { u.notif_spazi = Boolean(u.perm_spazi || u.perm_admin); needsSave = true; }
           if (u.is_utente_mensa === undefined) { u.is_utente_mensa = true; needsSave = true; }
@@ -403,6 +406,9 @@ function checkAuthAndLoad() {
   if (savedUser) {
     try {
       appState.user = JSON.parse(savedUser);
+      if (appState.user && !appState.user.perm_admin && !appState.user.email?.includes("dotti") && !appState.user.is_master_spazi) {
+        appState.user.perm_spazi = false;
+      }
       aggiornaUIUtente();
       caricaDatiBackend();
       return;
@@ -585,25 +591,32 @@ function mockBackendExecution(action, params) {
     }
 
     case "prenotaSpazio": {
-      const { risorsa, data, slot_orario, email } = params;
+      const { risorsa, data, slot_orario, email, note, autoApprovaMaster } = params;
       const dataStr = formattaDataConfronto(data);
       const occupied = (db.prenotazioni_spazi || []).some(p => p.risorsa === risorsa && formattaDataConfronto(p.data) === dataStr && p.slot_orario === slot_orario && p.stato !== "Rifiutata");
-      if (occupied) return { success: false, error: "Slot già occupato o con richiesta in attesa" };
+      if (occupied) return { success: false, error: "Questo slot orario è già occupato o ha una richiesta in attesa." };
 
-      const isMasterUser = haPermessiMaster();
-      const stato = isMasterUser ? "Approvata" : "In Attesa";
+      const autoApprova = Boolean(autoApprovaMaster);
+      const stato = autoApprova ? "Approvata" : "In Attesa";
 
       const prenotazione = {
-        id: "S_" + Date.now(), risorsa, data: dataStr, slot_orario, email,
+        id: "S_" + Date.now(),
+        risorsa,
+        data: dataStr,
+        slot_orario,
+        email,
+        note: (note || "").trim(),
         timestamp: new Date().toISOString(),
         stato: stato,
-        approvato_da: isMasterUser ? email : ""
+        approvato_da: (stato === "Approvata" ? (appState.user?.email || email || "Master") : "")
       };
       if (!db.prenotazioni_spazi) db.prenotazioni_spazi = [];
       db.prenotazioni_spazi.push(prenotazione);
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
       return {
-        success: true, id: prenotazione.id, stato: stato,
+        success: true,
+        id: prenotazione.id,
+        stato: stato,
         message: stato === "Approvata" ? "Prenotazione registrata e confermata" : "Richiesta inviata ai Master. In attesa di approvazione."
       };
     }
@@ -2955,10 +2968,75 @@ function renderSpaziView() {
     ribbonHtml += `<div class="date-chip ${isSel ? 'active' : ''}" onclick="cambiaDataSpazio('${dYMD}')"><span class="date-chip-day">${dayName}</span><span class="date-chip-num">${dayNum}</span><span class="date-chip-month">${monthName}</span></div>`;
   }
 
-  container.innerHTML = `
+    const inAttesaSpaziList = (appState.prenotazioniSpazi || []).filter(p => p.stato === "In Attesa");
+    const mieInAttesaList = (appState.prenotazioniSpazi || []).filter(p => appState.user && p.email && p.email.toLowerCase() === appState.user.email.toLowerCase() && p.stato === "In Attesa");
+    const isMasterSpazi = haPermessiMasterSpazi();
+
+    container.innerHTML = `
     <div class="card" style="margin-bottom: 12px;">
-      <h2 class="card-title">Prenotazione Ambienti Comuni</h2>
-      <p class="card-desc">Riserva uno slot per la Chiesa / Cappella o per la Sala TV. Slot da 30 minuti.</p>
+      <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+        <div>
+          <h2 class="card-title" style="margin: 0; display: flex; align-items: center; gap: 8px;">
+            <span>🏛️</span> Prenotazione Ambienti Comuni
+          </h2>
+          <p class="card-desc" style="margin-top: 3px;">
+            Riserva uno slot per la Chiesa / Cappella o per la Sala TV. Ogni richiesta viene inoltrata ai Master per approvazione.
+          </p>
+        </div>
+      </div>
+
+      ${(isMasterSpazi && inAttesaSpaziList.length > 0) ? `
+        <div class="card-inner" style="background: #fffdf5; border: 1.5px solid #fde68a; border-left: 5px solid #f59e0b; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
+          <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+            <div class="flex-align" style="gap: 8px;">
+              <span style="font-size: 24px;">⏳</span>
+              <div>
+                <strong style="color: #92400e; font-size: 14px;">${inAttesaSpaziList.length} Richieste Spazi in Attesa di Tua Approvazione</strong>
+                <div class="text-xs text-muted">I residenti attendono autorizzazione prima di occupare lo slot.</div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-sm btn-primary" onclick="apriMasterSchedaSpazi()" style="background: #f59e0b; border-color: #d97706; color: #000; font-weight: 700; padding: 6px 12px; font-size: 12px;">
+              👑 Gestione Completa Master
+            </button>
+          </div>
+          <!-- Lista rapida di approvazione immediata -->
+          <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
+            ${inAttesaSpaziList.map(p => {
+              const resIcon = p.risorsa === 'Chiesa' ? '⛪' : '📺';
+              const nomeRichiedente = trovaNomeUtente(p.email);
+              return `
+                <div style="background: #ffffff; border: 1px solid #fde68a; border-radius: 6px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                  <div>
+                    <div style="font-size: 13.5px; font-weight: 700; color: #0f172a;">${resIcon} ${escapeHtml(p.risorsa)} · 📅 ${String(p.data).split('T')[0]} · ⏰ ${escapeHtml(p.slot_orario)}</div>
+                    <div class="text-xs text-muted" style="margin-top: 2px;">Richiedente: <strong>${escapeHtml(nomeRichiedente)}</strong> (<code style="font-size: 11px;">${escapeHtml(p.email)}</code>)${p.note ? ` • Motivo: <em style="color: #1e293b;">${escapeHtml(p.note)}</em>` : ''}</div>
+                  </div>
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    <button type="button" class="btn btn-sm btn-success" onclick="approvaRichiestaSpazio('${p.id}')" style="font-size: 12px; font-weight: 700; padding: 5px 12px; background: #16a34a; color: #fff; border: none; border-radius: 4px; display: flex; align-items: center; gap: 4px;">
+                      <span>✅</span> Approva
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline" onclick="rifiutaRichiestaSpazio('${p.id}')" style="font-size: 12px; font-weight: 700; padding: 5px 10px; color: #dc2626; border-color: #fca5a5; background: #fff; border-radius: 4px;">
+                      <span>✕</span> Rifiuta
+                    </button>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+      ` : ''}
+
+      ${(!isMasterSpazi && mieInAttesaList.length > 0) ? `
+        <div class="card-inner" style="background: #eff6ff; border: 1px solid #bfdbfe; border-left: 4px solid #3b82f6; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 20px;">📨</span>
+            <div>
+              <strong style="color: #1e40af; font-size: 13px;">Hai ${mieInAttesaList.length} richiesta/e in attesa di approvazione da un Master</strong>
+              <div class="text-xs text-muted">La tua prenotazione è temporaneamente riservata; riceverai conferma appena autorizzata.</div>
+            </div>
+          </div>
+        </div>
+      ` : ''}
+
       <div class="spazi-resource-selector">
         <button type="button" class="spazi-resource-btn ${risorsaAttiva === 'Chiesa' ? 'active' : ''}" onclick="cambiaRisorsaSpazio('Chiesa')">
           <span class="spazi-res-icon">⛪</span>
@@ -2971,9 +3049,52 @@ function renderSpaziView() {
           <span class="spazi-res-sub">Slot 30 min</span>
         </button>
       </div>
+
+      <!-- Scheda Modulo Rapido Prenotazione visibile direttamente nella pagina -->
+      <div class="card-inner" style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 10px; padding: 14px 16px; margin: 6px 0 14px 0; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
+        <div class="flex-between" style="flex-wrap: wrap; gap: 6px; margin-bottom: 10px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 20px;">📝</span>
+            <div>
+              <strong style="font-size: 13.5px; color: #0f172a;">Richiedi ${risorsaAttiva === 'Chiesa' ? '⛪ Chiesa / Cappella' : '📺 Sala TV'}</strong>
+              <div class="text-xs text-muted">Compila e conferma per inviare all'approvazione del Master</div>
+            </div>
+          </div>
+          <button type="button" class="btn btn-sm btn-outline" onclick="apriModalNuovaRichiestaSpazio('${risorsaAttiva}', '${dataAttiva}')" style="font-size: 11.5px; font-weight: 600; padding: 4px 10px;">
+            Apri Finestra Dialogo ↗
+          </button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+          <div>
+            <label style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Data:</label>
+            <input type="date" id="inline-spazio-data" class="input-text" style="font-size: 12.5px; padding: 6px 8px;" value="${dataAttiva}" min="${oggiYMD}" onchange="cambiaDataSpazio(this.value)">
+          </div>
+          <div>
+            <label style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Slot Orario (30 min):</label>
+            <select id="inline-spazio-slot" class="input-select" style="font-size: 12px; padding: 6px 8px; font-weight: 600;">
+              ${getTuttiSlotOrari30Min().map(s => {
+                const occ = (appState.prenotazioniSpazi || []).some(p => p.risorsa === risorsaAttiva && formattaDataConfronto(p.data) === formattaDataConfronto(dataAttiva) && p.slot_orario === s && p.stato !== "Rifiutata");
+                return occ ? `<option value="${s}" disabled style="color:#94a3b8;">${s} (Occupato)</option>` : `<option value="${s}">${s}</option>`;
+              }).join("")}
+            </select>
+          </div>
+        </div>
+
+        <div style="margin-bottom: 10px;">
+          <label style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Motivo / Note per il Master (opzionale):</label>
+          <input type="text" id="inline-spazio-note" class="input-text" placeholder="Es. Celebrazione S. Messa privata, studio, incontro..." style="font-size: 12.5px; padding: 6px 10px;">
+        </div>
+
+        <button type="button" id="btn-invia-spazio-inline" class="btn btn-primary btn-block" onclick="eseguiPrenotazioneSpazioRapidaInline()" style="background: #9d174d; border-color: #831843; font-weight: 800; font-size: 13.5px; padding: 11px 16px; border-radius: 8px; box-shadow: 0 4px 12px rgba(157, 23, 77, 0.25); display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <span>✅</span>
+          <span>Conferma &amp; Invia Richiesta al Master</span>
+        </button>
+      </div>
+
       ${haPermessiMasterSpazi() ? `
         <div class="card-inner" style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 8px; padding: 10px 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
-          <div><strong style="color: #9d174d; font-size: 13px;">👑 Azioni Master ${risorsaAttiva}</strong><div class="text-xs text-muted">Puoi riservare celebrazioni, bloccare orari e liberare slot.</div></div>
+          <div><strong style="color: #9d174d; font-size: 13px;">👑 Azioni Master ${risorsaAttiva}</strong><div class="text-xs text-muted">Puoi riservare celebrazioni ufficiali, bloccare orari e liberare slot.</div></div>
           <button type="button" class="btn btn-sm btn-primary" onclick="apriModalMasterAppuntamento('${risorsaAttiva}', '${dataAttiva}')" style="background: #9d174d; border-color: #9d174d; font-weight: 600;">➕ Inserisci Appuntamento</button>
         </div>
       ` : ''}
@@ -3082,8 +3203,10 @@ function renderSlotSpazi() {
         html += `<div class="slot-card-v2 slot-master"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">👑 ${escapeHtml(pren.email.split('@')[0])}</span><button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', true)">Libera Slot</button></div>`;
       }
     } else {
-      // Chi non ha autorizzazione ambienti/spazi vede SOLO "Occupato" senza dettagli su chi ha prenotato
-      html += `<div class="slot-card-v2 slot-occupied"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">🔒 Occupato</span></div>`;
+      // Chi non ha autorizzazione ambienti/spazi vede lo stato appropriato
+      const pillLabel = isPending ? '⏳ In Attesa Master' : '🔒 Occupato';
+      const pillBg = isPending ? 'background: #fef3c7; color: #92400e; border: 1px solid #fde68a;' : '';
+      html += `<div class="slot-card-v2 slot-occupied"><div class="slot-time-text">${slot}</div><span class="slot-status-pill" style="${pillBg}">${pillLabel}</span></div>`;
     }
   });
 
@@ -3095,33 +3218,126 @@ function renderSlotSpazi() {
 let slotInPrenotazione = null;
 let slotInCancellazione = null;
 
-window.chiudiModalPrenotaSpazio = function() { const m = document.getElementById("modal-prenota-spazio"); if (m) m.style.display = "none"; slotInPrenotazione = null; };
-window.chiudiModalCancellaSpazio = function() { const m = document.getElementById("modal-cancella-spazio"); if (m) m.style.display = "none"; slotInCancellazione = null; };
+window.chiudiModalPrenotaSpazio = function() {
+  const m = document.getElementById("modal-prenota-spazio");
+  if (m) m.style.display = "none";
+  slotInPrenotazione = null;
+};
+
+window.chiudiModalCancellaSpazio = function() {
+  const m = document.getElementById("modal-cancella-spazio");
+  if (m) m.style.display = "none";
+  slotInCancellazione = null;
+};
+
 window.onSpazioResidentSelectChange = function() {
   const select = document.getElementById("spazio-quick-resident-select");
   const customFields = document.getElementById("spazio-custom-user-fields");
   if (select && customFields) customFields.style.display = (select.value === "custom") ? "flex" : "none";
 };
 
-window.prenotaSlotDiretto = function(slot) {
-  slotInPrenotazione = slot;
-  const risorsa = appState.selectedSpazioRisorsa || "Chiesa";
-  const data = appState.selectedSpazioData || formatYMD(new Date());
+function popolaSelectSlotSpazioModal(risorsa, data, slotPredefinito) {
+  const select = document.getElementById("modal-spazio-select-slot");
+  if (!select) return;
+  const tuttiSlot = getTuttiSlotOrari30Min();
+  const dataConfronto = formattaDataConfronto(data);
+
+  const occupati = (appState.prenotazioniSpazi || []).filter(p => {
+    return p.risorsa === risorsa && formattaDataConfronto(p.data) === dataConfronto && p.stato !== "Rifiutata";
+  });
+  const occupatiMap = {};
+  occupati.forEach(p => { occupatiMap[p.slot_orario] = p; });
+
+  let html = "";
+  let trovatoPredefinito = false;
+  let primoDisponibile = null;
+
+  tuttiSlot.forEach(s => {
+    const isOccupato = Boolean(occupatiMap[s]);
+    const isThisSlot = (s === slotPredefinito);
+    if (isThisSlot) trovatoPredefinito = true;
+    if (!isOccupato && !primoDisponibile) primoDisponibile = s;
+
+    if (isOccupato && !isThisSlot) {
+      html += `<option value="${s}" disabled style="color: #94a3b8;">${s} (Occupato)</option>`;
+    } else {
+      html += `<option value="${s}">${s}${isOccupato ? ' (In rinnovo)' : ''}</option>`;
+    }
+  });
+
+  select.innerHTML = html;
+  if (slotPredefinito && (trovatoPredefinito || true)) {
+    select.value = slotPredefinito;
+    slotInPrenotazione = slotPredefinito;
+  } else if (primoDisponibile) {
+    select.value = primoDisponibile;
+    slotInPrenotazione = primoDisponibile;
+  } else if (tuttiSlot[0]) {
+    select.value = tuttiSlot[0];
+    slotInPrenotazione = tuttiSlot[0];
+  }
+}
+
+window.onModalSpazioRisorsaChange = function(nuovaRisorsa) {
+  const data = document.getElementById("modal-spazio-input-data")?.value || appState.selectedSpazioData || formatYMD(new Date());
+  const icon = nuovaRisorsa === "Chiesa" ? "⛪" : "📺";
+  const nomeRis = nuovaRisorsa === "Chiesa" ? "Chiesa / Cappella" : "Sala TV";
+  const iconEl = document.getElementById("modal-spazio-icon");
+  const titEl = document.getElementById("modal-spazio-titolo");
+  if (iconEl) iconEl.textContent = icon;
+  if (titEl) titEl.textContent = `Richiesta Prenotazione ${nomeRis}`;
+  popolaSelectSlotSpazioModal(nuovaRisorsa, data, slotInPrenotazione);
+};
+
+window.onModalSpazioDataChange = function(nuovaData) {
+  const risorsa = document.querySelector('input[name="modal-spazio-scelta-risorsa"]:checked')?.value || "Chiesa";
+  popolaSelectSlotSpazioModal(risorsa, nuovaData, slotInPrenotazione);
+};
+
+window.onModalSpazioSlotChange = function(nuovoSlot) {
+  slotInPrenotazione = nuovoSlot;
+};
+
+window.apriModalNuovaRichiestaSpazio = function(risorsaDefault, dataDefault, slotDefault) {
+  const risorsa = risorsaDefault || appState.selectedSpazioRisorsa || "Chiesa";
+  const data = dataDefault || appState.selectedSpazioData || formatYMD(new Date());
   const nomeRisorsa = risorsa === "Chiesa" ? "Chiesa / Cappella" : "Sala TV";
   const icon = risorsa === "Chiesa" ? "⛪" : "📺";
 
   const modal = document.getElementById("modal-prenota-spazio");
   if (!modal) return;
-  document.getElementById("modal-spazio-icon").textContent = icon;
-  document.getElementById("modal-spazio-titolo").textContent = `Prenota ${nomeRisorsa}`;
-  document.getElementById("modal-spazio-dettaglio-risorsa").textContent = nomeRisorsa;
-  document.getElementById("modal-spazio-dettaglio-data").textContent = data;
-  document.getElementById("modal-spazio-dettaglio-slot").textContent = slot;
+
+  const iconEl = document.getElementById("modal-spazio-icon");
+  const titEl = document.getElementById("modal-spazio-titolo");
+  if (iconEl) iconEl.textContent = icon;
+  if (titEl) titEl.textContent = `Richiesta Prenotazione ${nomeRisorsa}`;
+
+  const radCh = document.getElementById("modal-radio-chiesa");
+  const radTv = document.getElementById("modal-radio-salatv");
+  if (radCh) radCh.checked = (risorsa === "Chiesa");
+  if (radTv) radTv.checked = (risorsa === "Sala TV");
+
+  const dataInp = document.getElementById("modal-spazio-input-data");
+  if (dataInp) {
+    dataInp.value = data;
+    dataInp.min = formatYMD(new Date());
+  }
+
+  const noteInp = document.getElementById("modal-spazio-input-note");
+  if (noteInp) noteInp.value = "";
+
+  popolaSelectSlotSpazioModal(risorsa, data, slotDefault);
 
   const userBlock = document.getElementById("modal-spazio-utente-blocco");
   if (userBlock) {
     if (appState.user) {
-      userBlock.innerHTML = `<div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 12px; font-size: 13px;"><div style="color: #166534; font-weight: 600; margin-bottom: 2px;">Prenotazione a nome di:</div><div style="font-size: 15px; font-weight: 700; color: #0f172a;">${escapeHtml(appState.user.nome || appState.user.email)}</div><div style="font-size: 12px; color: #64748b;">${escapeHtml(appState.user.email)}</div></div>`;
+      userBlock.innerHTML = `
+        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px; font-size: 13px;">
+          <div style="color: #166534; font-weight: 600; font-size: 11.5px;">Richiedente:</div>
+          <div style="font-size: 14.5px; font-weight: 700; color: #0f172a;">${escapeHtml(appState.user.nome || appState.user.email)}</div>
+          <div style="font-size: 11.5px; color: #64748b;">${escapeHtml(appState.user.email)}</div>
+        </div>
+      `;
     } else {
       const utentiList = (appState.tuttiUtenti || INITIAL_MOCK_DB.utenti || []).filter(u => u.stato === "Approvato");
       userBlock.innerHTML = `
@@ -3139,12 +3355,45 @@ window.prenotaSlotDiretto = function(slot) {
       `;
     }
   }
+
+  const isMasterSpazi = haPermessiMasterSpazi();
+  const overrideBlock = document.getElementById("modal-spazio-blocco-master-override");
+  if (overrideBlock) {
+    overrideBlock.style.display = isMasterSpazi ? "block" : "none";
+    const checkAuto = document.getElementById("modal-spazio-check-auto-approva");
+    if (checkAuto) checkAuto.checked = false; // Default: sempre In Attesa per approvazione
+  }
+
+  const btns = document.querySelectorAll("#btn-conferma-spazio-azione, .btn-conferma-spazio-inline");
+  btns.forEach(b => {
+    b.disabled = false;
+    b.innerHTML = `✅ Conferma &amp; Invia Richiesta al Master`;
+  });
+
   modal.style.display = "flex";
+  // Assicura che l'area scorrevole parta dall'inizio
+  const scrollBody = document.getElementById("spazio-modal-scroll-body");
+  if (scrollBody) scrollBody.scrollTop = 0;
+};
+
+window.prenotaSlotDiretto = function(slot) {
+  const inlineSlot = document.getElementById("inline-spazio-slot");
+  if (inlineSlot) inlineSlot.value = slot;
+  apriModalNuovaRichiestaSpazio(appState.selectedSpazioRisorsa, appState.selectedSpazioData, slot);
 };
 
 window.eseguiPrenotazioneSpazioConfermata = async function() {
-  const slot = slotInPrenotazione;
-  if (!slot) return;
+  const risorsa = document.querySelector('input[name="modal-spazio-scelta-risorsa"]:checked')?.value || appState.selectedSpazioRisorsa || "Chiesa";
+  const data = document.getElementById("modal-spazio-input-data")?.value || appState.selectedSpazioData || formatYMD(new Date());
+  const slotSelect = document.getElementById("modal-spazio-select-slot");
+  const slot = (slotSelect && slotSelect.value) ? slotSelect.value : slotInPrenotazione;
+  const note = document.getElementById("modal-spazio-input-note")?.value?.trim() || "";
+
+  if (!slot) {
+    mostraToast("Seleziona uno slot orario valido", "warning");
+    return;
+  }
+
   let emailPrenotante = "";
   let nomePrenotante = "";
 
@@ -3157,37 +3406,182 @@ window.eseguiPrenotazioneSpazioConfermata = async function() {
       emailPrenotante = sel.value;
       const opt = sel.options[sel.selectedIndex];
       nomePrenotante = opt ? opt.getAttribute("data-nome") : emailPrenotante;
-      appState.user = { email: emailPrenotante, nome: nomePrenotante, stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: emailPrenotante.includes("dotti") };
+      appState.user = { email: emailPrenotante, nome: nomePrenotante, stato: "Approvato", perm_mensa: false, perm_manutenzione: false, perm_spazi: false, perm_admin: emailPrenotante.includes("dotti") };
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
       aggiornaUIUtente();
     } else {
       nomePrenotante = (document.getElementById("spazio-custom-nome")?.value || "").trim();
       emailPrenotante = (document.getElementById("spazio-custom-email")?.value || "").trim().toLowerCase();
-      if (!emailPrenotante || !nomePrenotante) { mostraToast("Inserisci nome ed email", "warning"); return; }
-      appState.user = { email: emailPrenotante, nome: nomePrenotante, stato: "Approvato", perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: false };
+      if (!emailPrenotante || !nomePrenotante) {
+        mostraToast("Inserisci nome ed email per procedere", "warning");
+        return;
+      }
+      appState.user = { email: emailPrenotante, nome: nomePrenotante, stato: "Approvato", perm_mensa: false, perm_manutenzione: false, perm_spazi: false, perm_admin: false };
       localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
       aggiornaUIUtente();
     }
   }
 
-  const risorsa = appState.selectedSpazioRisorsa || "Chiesa";
-  const data = appState.selectedSpazioData || formatYMD(new Date());
   const nomeRisorsa = risorsa === "Chiesa" ? "Chiesa / Cappella" : "Sala TV";
-  const btn = document.getElementById("btn-conferma-spazio-azione");
-  if (btn) { btn.disabled = true; btn.textContent = "Registrazione..."; }
+  const btns = document.querySelectorAll("#btn-conferma-spazio-azione, .btn-conferma-spazio-inline");
+  btns.forEach(b => {
+    b.disabled = true;
+    b.innerHTML = `<span>⏳</span> Invio in corso...`;
+  });
 
   try {
-    const res = await callApi("prenotaSpazio", { risorsa, data, slot_orario: slot, email: emailPrenotante });
+    const isMasterSpazi = haPermessiMasterSpazi();
+    const autoApprova = isMasterSpazi && Boolean(document.getElementById("modal-spazio-check-auto-approva")?.checked);
+
+    const res = await callApi("prenotaSpazio", {
+      risorsa,
+      data,
+      slot_orario: slot,
+      email: emailPrenotante,
+      note,
+      autoApprovaMaster: autoApprova
+    });
+
     if (res.success) {
-      mostraToast(`✅ Slot ${slot} per ${nomeRisorsa} prenotato!`, "success");
+      const statoFinale = res.stato || (autoApprova ? "Approvata" : "In Attesa");
+      const nuovaPrenotazione = {
+        id: res.id || ("S_" + Date.now()),
+        risorsa,
+        data,
+        slot_orario: slot,
+        email: emailPrenotante,
+        note: note,
+        stato: statoFinale,
+        approvato_da: (statoFinale === "Approvata" ? (emailPrenotante || "Master") : ""),
+        timestamp: new Date().toISOString()
+      };
+
       if (!appState.prenotazioniSpazi) appState.prenotazioniSpazi = [];
-      appState.prenotazioniSpazi.push({ id: res.id || ("S_" + Date.now()), risorsa, data, slot_orario: slot, email: emailPrenotante, timestamp: new Date().toISOString() });
+      appState.prenotazioniSpazi = appState.prenotazioniSpazi.filter(p => String(p.id) !== String(nuovaPrenotazione.id));
+      appState.prenotazioniSpazi.push(nuovaPrenotazione);
+
+      // Sincronizza anche con il database locale se salvato in localStorage
+      try {
+        const rawLocal = localStorage.getItem(STORAGE_KEYS.LOCAL_DB);
+        if (rawLocal) {
+          const db = JSON.parse(rawLocal);
+          if (!db.prenotazioni_spazi) db.prenotazioni_spazi = [];
+          db.prenotazioni_spazi = db.prenotazioni_spazi.filter(p => String(p.id) !== String(nuovaPrenotazione.id));
+          db.prenotazioni_spazi.push(nuovaPrenotazione);
+          localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        }
+      } catch (e) {}
+
       chiudiModalPrenotaSpazio();
+      if (statoFinale === "Approvata") {
+        mostraToast(`✅ Prenotazione confermata per ${nomeRisorsa} (${slot})!`, "success");
+      } else {
+        mostraToast(`📨 Richiesta inviata con successo! In attesa di conferma da un Master per ${slot}.`, "info");
+      }
+
+      appState.selectedSpazioRisorsa = risorsa;
+      appState.selectedSpazioData = data;
+      renderSpaziView();
       renderSlotSpazi();
+      renderMiePrenotazioniSpazi();
       if (document.getElementById("master-dynamic-content") && haPermessiMaster()) renderMasterSection();
-    } else mostraToast("Errore: " + (res.error || "Slot non disponibile"), "error");
-  } catch (err) { mostraToast("Errore di connessione", "error"); }
-  finally { if (btn) { btn.disabled = false; btn.textContent = "✅ Conferma Prenotazione"; } }
+    } else {
+      mostraToast("Errore: " + (res.error || "Slot non disponibile"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di connessione durante la richiesta", "error");
+  } finally {
+    btns.forEach(b => {
+      b.disabled = false;
+      b.innerHTML = `✅ Conferma &amp; Invia Richiesta al Master`;
+    });
+  }
+};
+
+window.eseguiPrenotazioneSpazioRapidaInline = async function() {
+  const risorsa = appState.selectedSpazioRisorsa || "Chiesa";
+  const data = document.getElementById("inline-spazio-data")?.value || appState.selectedSpazioData || formatYMD(new Date());
+  const slotSelect = document.getElementById("inline-spazio-slot");
+  const slot = slotSelect ? slotSelect.value : "";
+  const note = (document.getElementById("inline-spazio-note")?.value || "").trim();
+
+  if (!slot) {
+    mostraToast("Seleziona uno slot orario valido", "warning");
+    return;
+  }
+
+  if (!appState.user) {
+    apriModalNuovaRichiestaSpazio(risorsa, data, slot);
+    return;
+  }
+
+  const btn = document.getElementById("btn-invia-spazio-inline");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = `<span>⏳</span> Invio in corso...`;
+  }
+
+  const nomeRisorsa = risorsa === "Chiesa" ? "Chiesa / Cappella" : "Sala TV";
+
+  try {
+    const res = await callApi("prenotaSpazio", {
+      risorsa,
+      data,
+      slot_orario: slot,
+      email: appState.user.email,
+      note,
+      autoApprovaMaster: false
+    });
+
+    if (res.success) {
+      const nuovaPrenotazione = {
+        id: res.id || ("S_" + Date.now()),
+        risorsa,
+        data,
+        slot_orario: slot,
+        email: appState.user.email,
+        note: note,
+        stato: res.stato || "In Attesa",
+        approvato_da: "",
+        timestamp: new Date().toISOString()
+      };
+
+      if (!appState.prenotazioniSpazi) appState.prenotazioniSpazi = [];
+      appState.prenotazioniSpazi = appState.prenotazioniSpazi.filter(p => String(p.id) !== String(nuovaPrenotazione.id));
+      appState.prenotazioniSpazi.push(nuovaPrenotazione);
+
+      try {
+        const rawLocal = localStorage.getItem(STORAGE_KEYS.LOCAL_DB);
+        if (rawLocal) {
+          const db = JSON.parse(rawLocal);
+          if (!db.prenotazioni_spazi) db.prenotazioni_spazi = [];
+          db.prenotazioni_spazi = db.prenotazioni_spazi.filter(p => String(p.id) !== String(nuovaPrenotazione.id));
+          db.prenotazioni_spazi.push(nuovaPrenotazione);
+          localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        }
+      } catch (e) {}
+
+      mostraToast(`📨 Richiesta per ${nomeRisorsa} (${slot}) inviata con successo! In attesa di conferma del Master.`, "info");
+      renderSpaziView();
+      renderSlotSpazi();
+      renderMiePrenotazioniSpazi();
+      if (document.getElementById("master-dynamic-content") && haPermessiMaster()) renderMasterSection();
+    } else {
+      mostraToast("Errore: " + (res.error || "Slot non disponibile"), "error");
+    }
+  } catch (err) {
+    mostraToast("Errore di connessione durante la richiesta", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = `<span>✅</span> <span>Conferma &amp; Invia Richiesta al Master</span>`;
+    }
+  }
+};
+
+window.apriMasterSchedaSpazi = function() {
+  appState.masterActiveTab = "spazi";
+  switchTab("master");
 };
 
 window.cancellaSlotSpazio = function(id, slot, isMasterAction) {
@@ -3260,10 +3654,21 @@ window.approvaRichiestaSpazio = async function(id) {
   try {
     const res = await callApi("approvaPrenotazioneSpazio", { id, approvatoreEmail: masterEmail });
     if (res.success) {
-      mostraToast("✅ Prenotazione approvata!", "success");
+      mostraToast("✅ Prenotazione approvata con successo!", "success");
       const pren = (appState.prenotazioniSpazi || []).find(p => String(p.id) === String(id));
       if (pren) { pren.stato = "Approvata"; pren.approvato_da = masterEmail; }
+      try {
+        const rawLocal = localStorage.getItem(STORAGE_KEYS.LOCAL_DB);
+        if (rawLocal) {
+          const db = JSON.parse(rawLocal);
+          const pLocal = (db.prenotazioni_spazi || []).find(p => String(p.id) === String(id));
+          if (pLocal) { pLocal.stato = "Approvata"; pLocal.approvato_da = masterEmail; }
+          localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        }
+      } catch (e) {}
+      renderSpaziView();
       renderSlotSpazi();
+      renderMiePrenotazioniSpazi();
       if (document.getElementById("master-dynamic-content")) renderMasterSection();
     } else mostraToast("Errore: " + (res.error || "Impossibile approvare"), "error");
   } catch (err) { mostraToast("Errore durante l'approvazione", "error"); }
@@ -3271,13 +3676,23 @@ window.approvaRichiestaSpazio = async function(id) {
 
 window.rifiutaRichiestaSpazio = async function(id) {
   if (!id) return;
-  if (!confirm("Confermi di voler rifiutare questa richiesta?")) return;
+  if (!confirm("Confermi di voler rifiutare questa richiesta di ambiente e liberare lo slot?")) return;
   try {
     const res = await callApi("rifiutaPrenotazioneSpazio", { id });
     if (res.success) {
-      mostraToast("Richiesta rifiutata", "info");
+      mostraToast("Richiesta rifiutata e slot liberato", "info");
       appState.prenotazioniSpazi = (appState.prenotazioniSpazi || []).filter(p => String(p.id) !== String(id));
+      try {
+        const rawLocal = localStorage.getItem(STORAGE_KEYS.LOCAL_DB);
+        if (rawLocal) {
+          const db = JSON.parse(rawLocal);
+          db.prenotazioni_spazi = (db.prenotazioni_spazi || []).filter(p => String(p.id) !== String(id));
+          localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+        }
+      } catch (e) {}
+      renderSpaziView();
       renderSlotSpazi();
+      renderMiePrenotazioniSpazi();
       if (document.getElementById("master-dynamic-content")) renderMasterSection();
     } else mostraToast("Errore: " + (res.error || "Impossibile rifiutare"), "error");
   } catch (err) { mostraToast("Errore durante il rifiuto", "error"); }
@@ -4351,19 +4766,19 @@ window.handleSalvaConfigEmailSuperadmin = async function(e) {
 // SEZIONE MASTER & CONTROLLO RUOLI
 // ----------------------------------------------------------------------------
 
+function haPermessiMasterSpazi() {
+  if (!appState.user) return false;
+  return Boolean(appState.user.perm_admin || appState.user.is_master_spazi || (appState.user.perm_spazi && (appState.user.email?.toLowerCase().includes("dotti") || appState.user.ruolo === "Master")));
+}
+
 function haPermessiMaster() {
   if (!appState.user) return false;
-  return Boolean(appState.user.perm_admin || appState.user.perm_mensa || appState.user.perm_manutenzione || appState.user.perm_spazi);
+  return Boolean(appState.user.perm_admin || appState.user.perm_mensa || appState.user.perm_manutenzione || haPermessiMasterSpazi());
 }
 
 function haPermessiMasterMensa() {
   if (!appState.user) return false;
   return Boolean(appState.user.perm_mensa || appState.user.perm_admin);
-}
-
-function haPermessiMasterSpazi() {
-  if (!appState.user) return false;
-  return Boolean(appState.user.perm_spazi || appState.user.perm_admin);
 }
 
 function haPermessiMasterManutenzione() {
@@ -4375,6 +4790,15 @@ window.haPermessiMaster = haPermessiMaster;
 window.haPermessiMasterMensa = haPermessiMasterMensa;
 window.haPermessiMasterSpazi = haPermessiMasterSpazi;
 window.haPermessiMasterManutenzione = haPermessiMasterManutenzione;
+
+function trovaNomeUtente(email) {
+  if (!email) return "-";
+  const em = String(email).toLowerCase().trim();
+  const list = appState.tuttiUtenti || INITIAL_MOCK_DB.utenti || [];
+  const u = list.find(x => String(x.email).toLowerCase().trim() === em);
+  return u ? u.nome : email.split("@")[0];
+}
+window.trovaNomeUtente = trovaNomeUtente;
 
 window.getDestinatariNotifiche = function(tipo) {
   const destinatari = [];
@@ -4856,6 +5280,132 @@ function renderMasterSection() {
                 }).join("")}
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  // SCHEDA AMBIENTI & APPROVAZIONI MASTER
+  if (perm_spazi && (isVistaTutto || activeTab === "spazi")) {
+    const inAttesaSpaziList = (appState.prenotazioniSpazi || []).filter(p => p.stato === "In Attesa");
+    const confermateSpaziList = (appState.prenotazioniSpazi || []).filter(p => p.stato !== "In Attesa" && p.stato !== "Rifiutata");
+
+    html += `
+      <div class="master-block card" style="border-top: 4px solid #9d174d;">
+        <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 24px;">⛪</span>
+            <div>
+              <h3 class="card-title" style="margin: 0; color: #831843;">Ambienti &amp; Approvazioni Prenotazioni</h3>
+              <span class="text-xs text-muted">Gestione richieste residenti e prenotazioni per Chiesa e Sala TV</span>
+            </div>
+          </div>
+          <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+            <span class="badge" style="background: #fdf2f8; color: #9d174d; font-weight: 700;">In Attesa: ${inAttesaSpaziList.length}</span>
+            <button type="button" class="btn btn-sm btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #831843; font-weight: 700;">
+              ➕ Inserisci Appuntamento
+            </button>
+          </div>
+        </div>
+
+        <!-- SEZIONE 1: RICHIESTE IN ATTESA DI APPROVAZIONE -->
+        <div class="sub-section" style="margin-top: 14px;">
+          <div class="flex-between" style="margin-bottom: 8px;">
+            <h4 style="margin: 0; font-size: 14px; font-weight: 800; color: #9d174d;">
+              ⏳ Richieste Residenti in Attesa (${inAttesaSpaziList.length})
+            </h4>
+            <span class="text-xs text-muted">Richiedono conferma da un Master</span>
+          </div>
+
+          <div id="master-spazi-in-attesa-list">
+            ${inAttesaSpaziList.length === 0 ? `
+              <div style="background: #fdf2f8; border: 1px dashed #fbcfe8; border-radius: 8px; padding: 14px; text-align: center; color: #9d174d; font-size: 13px;">
+                ✅ Nessuna richiesta in attesa di approvazione. Tutti gli ambienti sono allineati.
+              </div>
+            ` : inAttesaSpaziList.map(p => {
+              const resIcon = p.risorsa === "Chiesa" ? "⛪" : "📺";
+              const nomeRichiedente = trovaNomeUtente(p.email);
+              return `
+                <div class="card-inner" style="background: #fffdf5; border: 1.5px solid #fde68a; border-left: 5px solid #f59e0b; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;">
+                  <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
+                    <div class="flex-align" style="gap: 8px;">
+                      <span style="font-size: 22px;">${resIcon}</span>
+                      <div>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                          <strong style="font-size: 14.5px; color: #0f172a;">${escapeHtml(p.risorsa)}</strong>
+                          <span class="badge" style="background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 700;">In Attesa di Conferma</span>
+                        </div>
+                        <div style="font-size: 13px; font-weight: 700; color: #9d174d; margin-top: 2px;">
+                          📅 ${String(p.data).split('T')[0]} · ⏰ ${escapeHtml(p.slot_orario)}
+                        </div>
+                      </div>
+                    </div>
+                    <div style="display: flex; gap: 6px; align-items: center;">
+                      <button type="button" class="btn btn-sm btn-success" onclick="approvaRichiestaSpazio('${p.id}')" style="font-weight: 700; padding: 6px 12px; display: inline-flex; align-items: center; gap: 4px;">
+                        <span>✅</span> Approva
+                      </button>
+                      <button type="button" class="btn btn-sm btn-outline" onclick="rifiutaRichiestaSpazio('${p.id}')" style="font-weight: 700; padding: 6px 10px; color: #dc2626; border-color: #fca5a5; background: #fff;">
+                        <span>❌</span> Rifiuta
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style="font-size: 12px; color: #475569; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
+                    <div>👤 <strong>Richiedente:</strong> ${escapeHtml(nomeRichiedente)} (<code style="font-size: 11px;">${escapeHtml(p.email)}</code>)</div>
+                    ${p.note ? `<div style="margin-top: 4px; color: #1e293b;">📝 <strong>Motivo/Note:</strong> ${escapeHtml(p.note)}</div>` : ''}
+                    <div style="margin-top: 3px; font-size: 11px; color: #94a3b8;">Inviata: ${p.timestamp ? new Date(p.timestamp).toLocaleString('it-IT') : '-'}</div>
+                  </div>
+                </div>
+              `;
+            }).join("")}
+          </div>
+        </div>
+
+        <!-- SEZIONE 2: PRENOTAZIONI CONFERMATE E ATTIVE -->
+        <div class="sub-section" style="margin-top: 20px; border-top: 1px dashed #e2e8f0; padding-top: 16px;">
+          <div class="flex-between" style="margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+            <h4 style="margin: 0; font-size: 14px; font-weight: 700; color: #1e293b;">
+              📋 Prenotazioni Confermate (${confermateSpaziList.length})
+            </h4>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('spazi')" style="font-size: 11.5px;">
+                👁️ Vai al Tabellone Orario Spazi
+              </button>
+            </div>
+          </div>
+
+          <div style="max-height: 280px; overflow-y: auto; border: 1px solid #e2e8f0; border-radius: 8px;">
+            ${confermateSpaziList.length === 0 ? `
+              <p style="padding: 16px; text-align: center; color: #64748b; font-size: 12.5px; margin: 0;">Nessuna prenotazione confermata.</p>
+            ` : `
+              <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                  <tr style="background: #f8fafc; border-bottom: 1px solid #e2e8f0; text-align: left; font-size: 11px; text-transform: uppercase; color: #64748b;">
+                    <th style="padding: 8px 10px;">Ambiente</th>
+                    <th style="padding: 8px 10px;">Data</th>
+                    <th style="padding: 8px 10px;">Orario</th>
+                    <th style="padding: 8px 10px;">Utente</th>
+                    <th style="padding: 8px 10px; text-align: right;">Azione</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${confermateSpaziList.slice(0, 30).map(p => `
+                    <tr style="border-bottom: 1px solid #f1f5f9;">
+                      <td style="padding: 8px 10px; font-weight: 700;">${p.risorsa === 'Chiesa' ? '⛪ Chiesa' : '📺 Sala TV'}</td>
+                      <td style="padding: 8px 10px;">${String(p.data).split('T')[0]}</td>
+                      <td style="padding: 8px 10px; font-weight: 600;">${escapeHtml(p.slot_orario)}</td>
+                      <td style="padding: 8px 10px;"><span style="font-size: 11px;">${escapeHtml(trovaNomeUtente(p.email))}</span></td>
+                      <td style="padding: 8px 10px; text-align: right;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="cancellaSlotSpazio('${p.id || ''}', '${p.slot_orario}', true)" style="color: #dc2626; border-color: #fca5a5; padding: 2px 6px; font-size: 10.5px;">
+                          Libera
+                        </button>
+                      </td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>
+            `}
           </div>
         </div>
       </div>

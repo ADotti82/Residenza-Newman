@@ -805,6 +805,49 @@
       box-sizing: border-box !important;
     }
 
+    /* Fix modale Prenotazione Spazi & Ambienti - Struttura Flex a Footer Fisso */
+    #modal-prenota-spazio .modal-card,
+    .modal-spazio-responsive {
+      max-width: 480px !important;
+      width: 100% !important;
+      max-height: 90vh !important;
+      max-height: 90dvh !important;
+      height: auto !important;
+      display: flex !important;
+      flex-direction: column !important;
+      overflow: hidden !important;
+      padding: 0 !important;
+      border-radius: 14px !important;
+      position: relative !important;
+      box-sizing: border-box !important;
+    }
+    #modal-prenota-spazio .spazio-modal-header {
+      flex-shrink: 0 !important;
+      padding: 14px 18px 10px 18px !important;
+      border-bottom: 1px solid var(--border) !important;
+      background: var(--surface) !important;
+      z-index: 10 !important;
+    }
+    #modal-prenota-spazio #spazio-modal-scroll-body {
+      flex: 1 1 auto !important;
+      min-height: 0 !important;
+      overflow-y: auto !important;
+      -webkit-overflow-scrolling: touch !important;
+      padding: 14px 18px 18px 18px !important;
+    }
+    #modal-prenota-spazio .spazio-modal-footer {
+      flex-shrink: 0 !important;
+      position: sticky !important;
+      bottom: 0 !important;
+      background: var(--surface) !important;
+      border-top: 1px solid var(--border) !important;
+      padding: 12px 18px calc(12px + env(safe-area-inset-bottom)) 18px !important;
+      display: flex !important;
+      gap: 8px !important;
+      z-index: 20 !important;
+      box-shadow: 0 -4px 14px rgba(0, 0, 0, 0.08) !important;
+    }
+
     @media (max-width: 600px) {
       .modal-overlay {
         padding: 6px !important;
@@ -819,6 +862,22 @@
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
         box-sizing: border-box !important;
+      }
+      #modal-prenota-spazio .modal-card,
+      .modal-spazio-responsive {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 94vh !important;
+        max-height: 94dvh !important;
+        padding: 0 !important;
+        overflow: hidden !important;
+        border-radius: 12px !important;
+      }
+      #modal-prenota-spazio #spazio-modal-scroll-body {
+        padding: 12px 14px 16px 14px !important;
+      }
+      #modal-prenota-spazio .spazio-modal-footer {
+        padding: 10px 14px calc(10px + env(safe-area-inset-bottom)) 14px !important;
       }
       .modal-presentazione-responsive {
         padding: 12px 10px !important;
@@ -2005,42 +2064,91 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-prenota-spazio" style="display: none;">
-    <div class="modal-card">
-      <div class="flex-between" style="margin-bottom: 14px;">
-        <div class="flex-align" style="gap: 8px;">
+  <div class="modal-overlay" id="modal-prenota-spazio" style="display: none;" onclick="if(event.target === this) chiudiModalPrenotaSpazio()">
+    <div class="modal-card modal-spazio-responsive" style="max-width: 480px; width: 100%;">
+      <!-- Header fisso -->
+      <div class="flex-between spazio-modal-header" style="padding: 14px 18px 10px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface);">
+        <div class="flex-align" style="gap: 10px;">
           <span id="modal-spazio-icon" style="font-size: 26px;">🏛️</span>
           <div>
-            <h3 class="modal-title" id="modal-spazio-titolo" style="margin: 0;">Richiesta di Prenotazione</h3>
+            <h3 class="modal-title" id="modal-spazio-titolo" style="margin: 0; font-size: 16px;">Richiesta di Prenotazione</h3>
             <span class="text-xs text-muted" id="modal-spazio-sub">Sottoposta ad autorizzazione del Master</span>
           </div>
         </div>
-        <button type="button" class="btn-icon-head" onclick="chiudiModalPrenotaSpazio()" style="color:#0f172a;">✕</button>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalPrenotaSpazio()" style="color: var(--text-main); font-size: 16px; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: var(--surface-alt); border: 1px solid var(--border);" title="Chiudi">✕</button>
       </div>
-      <div class="card-inner" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 12px;">
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-          <span class="text-xs text-muted">Ambiente:</span>
-          <strong id="modal-spazio-dettaglio-risorsa" style="color: #0f172a;">Chiesa / Cappella</strong>
+
+      <!-- Area scorrevole del modulo -->
+      <div style="flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 18px 20px 18px;" id="spazio-modal-scroll-body">
+        <div class="card-inner" style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 14px;">
+          <div class="form-group" style="margin-bottom: 8px;">
+            <label style="font-size: 12px; font-weight: 700; color: #334155; display: block; margin-bottom: 3px;">Ambiente:</label>
+            <div style="display: flex; gap: 8px;">
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer;">
+                <input type="radio" name="modal-spazio-scelta-risorsa" id="modal-radio-chiesa" value="Chiesa" onchange="onModalSpazioRisorsaChange('Chiesa')">
+                <span>⛪ Chiesa / Cappella</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 600; cursor: pointer; margin-left: 8px;">
+                <input type="radio" name="modal-spazio-scelta-risorsa" id="modal-radio-salatv" value="Sala TV" onchange="onModalSpazioRisorsaChange('Sala TV')">
+                <span>📺 Sala TV</span>
+              </label>
+            </div>
+            <strong id="modal-spazio-dettaglio-risorsa" style="display: none;">Chiesa / Cappella</strong>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+            <div>
+              <label for="modal-spazio-input-data" style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Data:</label>
+              <input type="date" id="modal-spazio-input-data" class="input-text" style="font-size: 12.5px; padding: 6px 8px;" onchange="onModalSpazioDataChange(this.value)">
+              <strong id="modal-spazio-dettaglio-data" style="display: none;">-</strong>
+            </div>
+            <div>
+              <label for="modal-spazio-select-slot" style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Slot Orario (30 min):</label>
+              <select id="modal-spazio-select-slot" class="input-select" style="font-size: 12px; padding: 6px 8px; font-weight: 600;" onchange="onModalSpazioSlotChange(this.value)">
+              </select>
+              <span class="badge badge-info" id="modal-spazio-dettaglio-slot" style="display: none;">-</span>
+            </div>
+          </div>
+
+          <div class="form-group" style="margin-bottom: 0;">
+            <label for="modal-spazio-input-note" style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Motivo / Note per il Master (opzionale):</label>
+            <input type="text" id="modal-spazio-input-note" class="input-text" placeholder="Es. S. Messa devozione privata, studio di gruppo..." style="font-size: 12.5px; padding: 6px 10px;">
+          </div>
         </div>
-        <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
-          <span class="text-xs text-muted">Data:</span>
-          <strong id="modal-spazio-dettaglio-data" style="color: #0f172a;">-</strong>
+
+        <div id="modal-spazio-avviso-ruolo" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 12px; margin-bottom: 12px; font-size: 12px; color: #1e40af; line-height: 1.45;">
+          <strong>📋 Iter di Approvazione Comunitaria:</strong> La richiesta viene registrata nello stato <em>"In Attesa"</em> e inviata ai Master competenti. Appena un Master la autorizza, lo slot risulterà riservato e confermato a tuo nome.
         </div>
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <span class="text-xs text-muted">Fascia Oraria:</span>
-          <span class="badge badge-info" id="modal-spazio-dettaglio-slot" style="font-size: 13px; font-weight: 700; padding: 4px 10px;">-</span>
+
+        <div id="modal-spazio-utente-blocco" style="margin-bottom: 8px;"></div>
+
+        <!-- Opzione facoltativa per utenti con privilegi Master -->
+        <div id="modal-spazio-blocco-master-override" style="display: none; background: #fffdf5; border: 1px dashed #fcd34d; border-radius: 6px; padding: 8px 12px; margin-bottom: 12px;">
+          <label style="display: flex; align-items: center; gap: 8px; font-size: 12px; font-weight: 600; color: #92400e; cursor: pointer;">
+            <input type="checkbox" id="modal-spazio-check-auto-approva" style="width: 16px; height: 16px; cursor: pointer;">
+            <span>👑 Approva direttamente come Master (salta attesa conferma)</span>
+          </label>
+        </div>
+
+        <!-- Sezione di conferma interna visibile dopo la compilazione -->
+        <div style="margin-top: 14px; padding: 12px 14px; background: #fff1f2; border: 1.5px dashed #fecdd3; border-radius: 8px; text-align: center;">
+          <div style="font-size: 12px; font-weight: 700; color: #9f1239; margin-bottom: 8px;">
+            👉 Clicca per inviare la richiesta di prenotazione al Master:
+          </div>
+          <button type="button" class="btn btn-primary btn-block btn-conferma-spazio-inline" onclick="eseguiPrenotazioneSpazioConfermata()" style="font-weight: 800; font-size: 14px; padding: 12px 16px; background: #9d174d; border-color: #831843; border-radius: 8px; box-shadow: 0 4px 12px rgba(157, 23, 77, 0.3); display: flex; align-items: center; justify-content: center; gap: 8px;">
+            <span>✅</span>
+            <span>Conferma &amp; Invia Richiesta al Master</span>
+          </button>
         </div>
       </div>
-      <div id="modal-spazio-avviso-ruolo" style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 10px 12px; margin-bottom: 14px; font-size: 12.5px; color: #1e40af; line-height: 1.45;">
-          <strong>Richiesta di Prenotazione:</strong> Per i residenti, l'invio costituisce una richiesta che verrà sottoposta all'autorizzazione di uno dei responsabili con ruolo (Master Ambienti / Admin). Riceverai notifica appena autorizzata.
-      </div>
-      <div id="modal-spazio-utente-blocco" style="margin-bottom: 14px;"></div>
-      <div style="display: flex; gap: 8px; margin-top: 16px;">
-        <button type="button" id="btn-conferma-spazio-azione" class="btn btn-primary btn-block" onclick="eseguiPrenotazioneSpazioConfermata()">
-            Invia Richiesta di Prenotazione
-        </button>
-        <button type="button" class="btn btn-secondary" onclick="chiudiModalPrenotaSpazio()">
+
+      <!-- Footer fisso SEMPRE VISIBILE con pulsante di conferma in evidenza -->
+      <div class="spazio-modal-footer" style="padding: 12px 18px; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; display: flex; gap: 8px;">
+        <button type="button" class="btn btn-secondary" onclick="chiudiModalPrenotaSpazio()" style="flex: 1;">
           Annulla
+        </button>
+        <button type="button" id="btn-conferma-spazio-azione" class="btn btn-primary" onclick="eseguiPrenotazioneSpazioConfermata()" style="flex: 2; font-weight: 800; background: #9d174d; border-color: #831843; font-size: 13.5px; padding: 11px 14px; box-shadow: 0 2px 8px rgba(157, 23, 77, 0.35);">
+          ✅ Conferma &amp; Invia Richiesta
         </button>
       </div>
     </div>

@@ -1006,24 +1006,13 @@ function gestisciPrenotazioneSpazio(payload) {
     }
   }
 
-  // Verifica se l'utente è master dai permessi nel foglio Utenti
-  let requesterIsMaster = Boolean(isMaster);
-  if (!requesterIsMaster) {
-    const sUtenti = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_UTENTI);
-    if (sUtenti) {
-      const uRows = sUtenti.getDataRange().getValues();
-      for (let u = 1; u < uRows.length; u++) {
-        if (String(uRows[u][0]).trim().toLowerCase() === email.trim().toLowerCase()) {
-          if (uRows[u][6]) requesterIsMaster = true; // perm_admin
-          break;
-        }
-      }
-    }
-  }
-
-  const stato = requesterIsMaster ? "Approvata" : "In Attesa";
-  const approvatoDa = requesterIsMaster ? email : "";
+  // Di base ogni richiesta di ambiente entra nello stato "In Attesa" e richiede conferma da un Master,
+  // a meno che non sia specificato espressamente autoApprovaMaster (es. appuntamenti liturgici/comunitari del Master)
+  const autoApprova = Boolean(payload.autoApprovaMaster);
+  const stato = autoApprova ? "Approvata" : "In Attesa";
+  const approvatoDa = autoApprova ? (email || "Master") : "";
   const id = generaId("SPAZIO");
+  const noteRichiesta = String(payload.note || "").trim();
 
   sheet.appendRow([
     id,
@@ -1033,7 +1022,8 @@ function gestisciPrenotazioneSpazio(payload) {
     email.trim().toLowerCase(),
     new Date().toISOString(),
     stato,
-    approvatoDa
+    approvatoDa,
+    noteRichiesta
   ]);
 
   // Se la richiesta è di un residente ed è in attesa, manda notifica email ai Master
@@ -1461,7 +1451,8 @@ function gestisciGetBootstrap(payload) {
           slot_orario: String(rows[i][3] || ""),
           email: String(rows[i][4] || "").toLowerCase(),
           stato: String(rows[i][6] || "Approvata"),
-          approvato_da: String(rows[i][7] || "")
+          approvato_da: String(rows[i][7] || ""),
+          note: String(rows[i][8] || "")
         });
       }
     }
