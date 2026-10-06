@@ -5835,6 +5835,11 @@ function aggiornaUIUtente() {
     const btnGuidaSettings = document.getElementById("settings-btn-guida");
     if (btnGuidaSettings) btnGuidaSettings.style.display = isMaster ? "flex" : "none";
 
+    const btnLogoutHead = document.getElementById("header-btn-logout");
+    if (btnLogoutHead) btnLogoutHead.style.display = "inline-flex";
+    const topLogoutRow = document.getElementById("settings-top-logout-row");
+    if (topLogoutRow) topLogoutRow.style.display = "flex";
+
     const bannerSintesi = document.getElementById("banner-master-manutenzione-sintesi");
     if (bannerSintesi) bannerSintesi.style.display = haPermessiMasterManutenzione() ? "block" : "none";
 
@@ -5852,11 +5857,26 @@ function aggiornaUIUtente() {
     if (btnGuidaHead) btnGuidaHead.style.display = "none";
     const btnGuidaSettings = document.getElementById("settings-btn-guida");
     if (btnGuidaSettings) btnGuidaSettings.style.display = "none";
+    const btnLogoutHead = document.getElementById("header-btn-logout");
+    if (btnLogoutHead) btnLogoutHead.style.display = "none";
+    const topLogoutRow = document.getElementById("settings-top-logout-row");
+    if (topLogoutRow) topLogoutRow.style.display = "none";
     const bannerSintesi = document.getElementById("banner-master-manutenzione-sintesi");
     if (bannerSintesi) bannerSintesi.style.display = "none";
     if (mensaNav) mensaNav.style.display = "flex";
   }
 }
+
+window.confermaLogoutRapido = function() {
+  if (!appState.user) {
+    window.mostraModalAuth(true);
+    return;
+  }
+  const nomeUtente = appState.user.nome || appState.user.email || "questo account";
+  if (confirm(`Confermi di voler effettuare la disconnessione (logout) da ${nomeUtente}?`)) {
+    window.logout();
+  }
+};
 
 function aggiornaIndicatoreConnessione() {
   const badge = document.getElementById("header-connection-badge");
@@ -5881,7 +5901,7 @@ window.logout = function() {
   else { renderBachecaView(); renderMensaView(); renderSpaziView(); }
   const inp = document.getElementById("auth-input-email");
   if (inp) inp.value = "";
-  mostraToast("Disconnessione effettuata", "info");
+  mostraToast("Disconnessione effettuata con successo", "info");
   mostraModalAuth(true);
 };
 
@@ -5952,6 +5972,9 @@ function apriModalSettings() {
       logoutBtn.onclick = () => { chiudiModalSettings(); window.mostraModalAuth(true); };
     }
   }
+
+  const topLogoutRow = document.getElementById("settings-top-logout-row");
+  if (topLogoutRow) topLogoutRow.style.display = appState.user ? "flex" : "none";
 
   const passSection = document.getElementById("settings-password-section");
   const boxPass = document.getElementById("box-cambio-password");
@@ -6661,7 +6684,7 @@ window.renderCucinaView = function() {
               <span class="text-xs text-muted">Ciclo: <strong>${cicloSettimana === 'settimana1' ? 'Settimana 1' : 'Settimana 2'}</strong> • Programmazione 14 Giorni</span>
             </div>
           </div>
-          <div style="display: flex; gap: 6px;" class="no-print">
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;" class="no-print">
             <button type="button" class="btn btn-outline btn-sm" onclick="apriModalConsultaMenu('${cicloSettimana}')" style="font-weight: 700; font-size: 11.5px; color: #0369a1; border-color: #bae6fd;">
               📖 Consulta Menù 14 Giorni
             </button>
@@ -6671,7 +6694,7 @@ window.renderCucinaView = function() {
           </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px;">
           <!-- Colonna Pranzo -->
           <div style="background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 12px 14px;">
             <div class="flex-between" style="margin-bottom: 8px;">
@@ -7726,6 +7749,95 @@ window.masterSegnaTuttiBusta = async function(impostaBusta) {
   if (haPermessiMaster()) caricaDatiMaster();
 };
 
+// ----------------------------------------------------------------------------
+// MODAL PRESENTAZIONE COMMITTENTI, GUIDA UTENTE & RELAZIONE TECNICA
+// ----------------------------------------------------------------------------
+
+appState.presentazioneTabAttiva = "committenti";
+
+window.apriModalPresentazioneCommittenti = function(tabIniziale) {
+  const modal = document.getElementById("modal-presentazione-committenti");
+  if (!modal) return;
+  modal.style.display = "flex";
+  selezionaTabPresentazione(tabIniziale || "committenti");
+};
+
+window.chiudiModalPresentazioneCommittenti = function() {
+  const modal = document.getElementById("modal-presentazione-committenti");
+  if (modal) modal.style.display = "none";
+};
+
+window.selezionaTabPresentazione = function(tabId) {
+  const targetTab = tabId || "committenti";
+  appState.presentazioneTabAttiva = targetTab;
+
+  const btnComm = document.getElementById("tab-pres-btn-committenti");
+  const btnGuida = document.getElementById("tab-pres-btn-guida");
+  const btnTec = document.getElementById("tab-pres-btn-tecnica");
+
+  const secComm = document.getElementById("pres-sec-committenti");
+  const secGuida = document.getElementById("pres-sec-guida");
+  const secTec = document.getElementById("pres-sec-tecnica");
+
+  if (btnComm) btnComm.className = (targetTab === "committenti") ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline";
+  if (btnGuida) btnGuida.className = (targetTab === "guida") ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline";
+  if (btnTec) btnTec.className = (targetTab === "tecnica") ? "btn btn-sm btn-primary" : "btn btn-sm btn-outline";
+
+  if (secComm) secComm.style.display = (targetTab === "committenti") ? "block" : "none";
+  if (secGuida) secGuida.style.display = (targetTab === "guida") ? "block" : "none";
+  if (secTec) secTec.style.display = (targetTab === "tecnica") ? "block" : "none";
+
+  const container = document.getElementById("presentazione-container-body");
+  if (container) container.scrollTo({ top: 0, behavior: "smooth" });
+};
+
+window.copiaTestoPresentazione = function() {
+  const tab = appState.presentazioneTabAttiva || "committenti";
+  let testoDaCopiare = "";
+
+  if (tab === "committenti") {
+    testoDaCopiare = `RESIDENZA CARDINAL NEWMAN - PRESENTAZIONE ISTITUZIONALE PER I COMMITTENTI E LA DIREZIONE\n` +
+      `Piattaforma Digitale Integrata di Servizi Comunitari\n\n` +
+      `OBIETTIVI CHIAVE:\n` +
+      `- Riduzione drastica degli sprechi alimentari grazie alle prenotazioni certe e programmate dei pasti.\n` +
+      `- Zero costi di server dedicati grazie all'infrastruttura serverless su Google Apps Script e Google Sheets.\n` +
+      `- Piena autonomia della Cuoca tramite Registro Cucina digitale con conteggi e pietanze del giorno.\n` +
+      `- Regola rigida Busta al Sacco per Martedì e Giovedì con scadenze la domenica e il martedì pomeriggio.\n` +
+      `- Trasparenza contabile con statistiche mensili presenze ed esportazione CSV.\n` +
+      `- Armonizzazione degli spazi comuni (Chiesa e Sala TV) con prenotazione a slot orari da 30 minuti.\n` +
+      `- Servizio foresteria e accoglienza con modulo autorizzativo della Direzione.\n` +
+      `- Gestione guasti tecnici con foto scattate da smartphone e tracciamento manutenzioni.\n` +
+      `- Bacheca istituzionale con calendario romano, ricorrenze comunitarie e notifiche push alle ore 07:00.\n\n` +
+      `ACCESSO ALL'APPLICAZIONE: PWA installabile su qualsiasi smartphone iOS o Android senza passare dagli store.`;
+  } else if (tab === "guida") {
+    testoDaCopiare = `GUIDA UTENTE RAPIDA - RESIDENZA CARDINAL NEWMAN\n\n` +
+      `1. COME INSTALLARE L'APP:\n` +
+      `- iPhone (Safari): icona Condividi -> "Aggiungi alla schermata Home" -> Aggiungi.\n` +
+      `- Android (Chrome): menu 3 puntini -> "Aggiungi a schermata Home" / "Installa applicazione".\n\n` +
+      `2. REGOLE MENSA E BUSTE:\n` +
+      `- Pranzo ore 14:30 | Cena ore 19:30.\n` +
+      `- Busta al sacco Martedì: richiesta entro Domenica ore 18:00.\n` +
+      `- Busta al sacco Giovedì: richiesta entro Martedì ore 18:00.\n\n` +
+      `3. COME AGGIORNARE L'APP SUL TELEFONO:\n` +
+      `- L'app si aggiorna automaticamente ad ogni sblocco dello schermo o riapertura.\n` +
+      `- Per forzare subito le ultime novita, tocca il pulsante 🔄 in alto a destra o vai in Impostazioni -> "Ricarica & Svuota Cache Ora".`;
+  } else {
+    testoDaCopiare = `RELAZIONE TECNICA & ARCHITETTURA SOFTWARE - RESIDENZA CARDINAL NEWMAN\n\n` +
+      `1. FRONTEND: Progressive Web App (PWA) Mobile-First in Vanilla TypeScript, HTML5, CSS3/Tailwind e Vite.\n` +
+      `2. BACKEND & DATABASE: Google Apps Script API RESTful serverless + Google Sheets come database relazionale (zero costi operativi, backup nativi su Google Drive).\n` +
+      `3. SERVICE WORKER V10-AUTORELOAD: Caching Network-First no-cache su HTML/JS (aggiornamenti istantanei senza blocco cache), Stale-While-Revalidate su asset statici, listener su visibilitychange e pageshow, auto-claim e skipWaiting immediati.\n` +
+      `4. SICUREZZA: Connessione cifrata HTTPS, controllo accessi RBAC basato su ruoli (Residente, Master Mensa, Master Manutenzioni, Cuoca, Direttore).`;
+  }
+
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(testoDaCopiare)
+      .then(() => mostraToast("📋 Testo di presentazione copiato negli appunti!", "success"))
+      .catch(() => mostraToast("Testo pronto", "info"));
+  } else {
+    mostraToast("Testo selezionato", "info");
+  }
+};
+
 // ============================================================================
 // SISTEMA NOTIFICHE PUSH (OPZIONALI PER UTENTE)
 // - Avvisi alle ore 07:00 del mattino in caso di eventi del giorno
@@ -8649,7 +8761,7 @@ window.renderSintesiManutenzioniView = function() {
       </div>
 
       <!-- ANALISI RIPARTIZIONI: CATEGORIE, PRIORITÀ, DITTE -->
-      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(310px, 1fr)); gap: 14px; margin-bottom: 16px;">
+      <div class="sintesi-distrib-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px; margin-bottom: 16px;">
         <!-- RIPARTIZIONE PER AREA D'INTERVENTO -->
         <div class="card" style="padding: 16px;">
           <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 800; color: var(--text-main);">🔍 Ripartizione per Tipologia di Intervento</h3>

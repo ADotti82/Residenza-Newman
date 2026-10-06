@@ -788,6 +788,137 @@
       .btn-primary:hover:not(:disabled) { background-color: var(--primary-light); }
       .btn-accent:hover:not(:disabled) { background-color: var(--accent-hover); }
     }
+
+    /* ==========================================================================
+       RESPONSIVITÀ MOBILE SCREEN & SCHERMATA D'INSIEME
+       ========================================================================== */
+    .modal-presentazione-responsive {
+      width: 100% !important;
+      max-width: 840px !important;
+      max-height: 92vh !important;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      padding: 20px 22px;
+      border-radius: 14px;
+      background: #ffffff;
+      box-sizing: border-box !important;
+    }
+
+    @media (max-width: 600px) {
+      .modal-overlay {
+        padding: 6px !important;
+      }
+      .modal-card {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 14px 12px !important;
+        border-radius: 12px !important;
+        max-height: 96vh !important;
+        box-sizing: border-box !important;
+      }
+      .modal-presentazione-responsive {
+        padding: 12px 10px !important;
+        border-radius: 10px !important;
+        max-height: 96vh !important;
+        width: 100% !important;
+        max-width: 100% !important;
+      }
+      .pres-header-row {
+        flex-direction: column !important;
+        align-items: stretch !important;
+        gap: 8px !important;
+      }
+      .pres-header-actions {
+        justify-content: flex-end !important;
+        width: 100% !important;
+        gap: 6px !important;
+      }
+      .pres-tabs-bar {
+        gap: 4px !important;
+        padding-bottom: 6px !important;
+      }
+      .pres-tabs-bar button {
+        font-size: 11px !important;
+        padding: 5px 8px !important;
+      }
+      .pres-metric-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+      }
+      .pres-guide-grid {
+        grid-template-columns: 1fr !important;
+        gap: 10px !important;
+      }
+      .hide-on-mobile-micro {
+        display: none !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .app-header {
+        padding: 8px 10px !important;
+        gap: 6px !important;
+      }
+      .brand-icon {
+        width: 34px !important;
+        height: 34px !important;
+      }
+      .brand-title {
+        font-size: 13.5px !important;
+      }
+      .brand-subtitle {
+        display: none !important;
+      }
+      .header-actions {
+        gap: 4px !important;
+      }
+      .connection-badge {
+        display: none !important;
+      }
+      .user-pill {
+        padding: 2px 6px 2px 3px !important;
+        gap: 4px !important;
+      }
+      .user-avatar {
+        width: 24px !important;
+        height: 24px !important;
+        font-size: 10px !important;
+      }
+      .header-user-name {
+        max-width: 60px !important;
+        font-size: 10.5px !important;
+      }
+      .header-user-role {
+        font-size: 8.5px !important;
+      }
+      #header-btn-logout {
+        padding: 3px 6px !important;
+        font-size: 11px !important;
+      }
+      .header-logout-text {
+        display: none !important;
+      }
+      .sintesi-manutenzioni-view .card {
+        padding: 12px 10px !important;
+      }
+      .stat-kpi-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 8px !important;
+      }
+      .stat-kpi-val {
+        font-size: 22px !important;
+      }
+      .sintesi-distrib-grid {
+        grid-template-columns: 1fr !important;
+      }
+      .table-responsive {
+        width: 100% !important;
+        max-width: 100% !important;
+        overflow-x: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+      }
+    }
   </style>
 </head>
 <body>
@@ -837,6 +968,11 @@
             <span class="header-user-role" id="header-user-role">Accedi</span>
           </div>
         </div>
+        <!-- Pulsante Logout Diretto (Visibile quando l'utente è autenticato) -->
+        <button type="button" class="btn-icon-head" id="header-btn-logout" onclick="confermaLogoutRapido()" title="Disconnetti (Logout)" style="display: none; color: #ef4444; background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); border-radius: 18px; padding: 4px 8px; font-size: 12px; font-weight: 700; align-items: center; gap: 4px;">
+          <span style="font-size: 13px;">🚪</span>
+          <span class="header-logout-text" style="font-size: 11px;">Esci</span>
+        </button>
         <!-- Pulsante Impostazioni e Profilo -->
         <button type="button" class="btn-icon-head" id="btn-open-settings" title="Impostazioni e Profilo">
           <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1271,6 +1407,13 @@
           </div>
           <span class="badge" id="settings-role-badge" style="background: var(--accent-soft); color: var(--accent); font-weight: 600; font-size: 11px;">Ospite</span>
         </div>
+        <div id="settings-top-logout-row" style="margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); display: none; align-items: center; justify-content: space-between;">
+          <span style="font-size: 11px; color: var(--text-muted);">Sessione attiva sul dispositivo</span>
+          <button type="button" class="btn btn-sm btn-danger" id="btn-settings-top-logout" onclick="logout()" style="font-weight: 700; padding: 5px 12px; font-size: 12px; display: inline-flex; align-items: center; gap: 4px;">
+            <span>🚪</span>
+            <span>Disconnetti (Logout)</span>
+          </button>
+        </div>
       </div>
       <div style="margin-bottom: 16px;">
         <label style="font-size: 13px; font-weight: 700; color: var(--text-main); display: block; margin-bottom: 8px;">
@@ -1349,6 +1492,13 @@
               <span style="font-weight: 600;">Calendario Appuntamenti Completo</span>
             </div>
             <span style="font-size: 12px; color: var(--text-muted);">Apri ↗</span>
+          </button>
+          <button type="button" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); apriModalPresentazioneCommittenti('committenti');" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm); border-color: #38bdf8; background: #f0f9ff; color: #0369a1;">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 16px;">📄</span>
+              <span style="font-weight: 700;">Scheda Presentazione Committenti &amp; Relazione Tecnica</span>
+            </div>
+            <span style="font-size: 12px; font-weight: 700; color: #0284c7;">Apri ↗</span>
           </button>
           <button type="button" class="btn btn-outline btn-block" id="settings-btn-guida" onclick="chiudiModalSettings(); apriModalGuida();" style="display: none; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm);">
             <div class="flex-align" style="gap: 10px;">
@@ -2183,6 +2333,7 @@
         <button type="button" class="badge" id="chip-guida-calendario" onclick="filtraModalGuida('calendario')" style="cursor: pointer; padding: 5px 12px; font-size: 11.5px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 20px;">📅 Calendario &amp; Direzione</button>
         <button type="button" class="badge" id="chip-guida-fogli" onclick="filtraModalGuida('fogli')" style="cursor: pointer; padding: 5px 12px; font-size: 11.5px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 20px;">📊 Google Fogli &amp; CSV</button>
         <button type="button" class="badge" id="chip-guida-ditte" onclick="filtraModalGuida('ditte')" style="cursor: pointer; padding: 5px 12px; font-size: 11.5px; font-weight: 600; background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; border-radius: 20px;">🔧 Ditte &amp; Webhook</button>
+        <button type="button" class="badge" onclick="chiudiModalGuida(); apriModalPresentazioneCommittenti('committenti');" style="cursor: pointer; padding: 5px 12px; font-size: 11.5px; font-weight: 700; background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; border-radius: 20px;">📄 Presentazione Committenti ↗</button>
       </div>
       <div style="flex: 1; overflow-y: auto; padding-right: 6px; margin: 4px 0 10px 0; font-size: 13px; line-height: 1.55; color: #334155;" id="guida-content-body">
         <div class="card-inner guida-section" id="guida-sec-mensa" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
@@ -2277,8 +2428,330 @@
       </div>
       <div style="border-top: 1px solid #e2e8f0; padding-top: 12px; display: flex; justify-content: flex-end; flex-shrink: 0;">
         <button type="button" class="btn btn-secondary btn-block" onclick="chiudiModalGuida()" style="font-weight: 800; font-size: 13.5px; padding: 10px 20px;">
-            Chiudi Guida
+  </div>
+  </div>
+
+  <!-- MODAL PRESENTAZIONE COMMITTENTI, GUIDA UTENTE & RELAZIONE TECNICA -->
+  <div class="modal-overlay" id="modal-presentazione-committenti" style="display: none;" onclick="if(event.target === this) chiudiModalPresentazioneCommittenti()">
+    <div class="modal-card modal-presentazione-responsive" id="modal-pres-card">
+      <!-- Header Istituzionale -->
+      <div class="pres-header-row flex-between" style="border-bottom: 2px solid #0284c7; padding-bottom: 12px; flex-shrink: 0; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap;">
+        <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 190px;">
+          <div style="width: 40px; height: 40px; border-radius: 50%; overflow: hidden; border: 2px solid #0284c7; flex-shrink: 0; background: #f0f9ff; display: flex; align-items: center; justify-content: center;">
+            <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" onerror="this.onerror=null;this.src='/icon-newman.png'" alt="Card. Newman" style="width: 100%; height: 100%; object-fit: cover;">
+          </div>
+          <div>
+            <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+              <h3 class="modal-title" style="margin: 0; font-size: 16.5px; font-weight: 800; color: #0f172a; line-height: 1.2;">Residenza Card. Newman</h3>
+              <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 800; font-size: 10px;">Piattaforma Integrata</span>
+            </div>
+            <span class="text-xs text-muted" style="font-size: 11px; display: block; line-height: 1.3; margin-top: 2px;">Presentazione ai Committenti, Guida e Relazione Tecnica</span>
+          </div>
+        </div>
+        <div class="pres-header-actions no-print" style="display: flex; align-items: center; gap: 6px; margin-left: auto;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="window.print()" title="Stampa o Salva PDF" style="font-weight: 700; border-color: #0284c7; color: #0284c7; font-size: 11px; padding: 4px 8px;">
+            🖨️ <span class="hide-on-mobile-micro">Stampa</span>
+          </button>
+          <button type="button" class="btn btn-outline btn-sm" onclick="copiaTestoPresentazione()" title="Copia testo appunti" style="font-weight: 700; font-size: 11px; padding: 4px 8px;">
+            📋 <span class="hide-on-mobile-micro">Copia</span>
+          </button>
+          <button type="button" class="btn-icon-head" onclick="chiudiModalPresentazioneCommittenti()" style="color:#0f172a; font-size: 17px; width: 30px; height: 30px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center;" title="Chiudi">✕</button>
+        </div>
+      </div>
+
+      <!-- Tab Selettori -->
+      <div class="pres-tabs-bar no-print" style="display: flex; gap: 4px; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 12px; flex-shrink: 0; overflow-x: auto; -webkit-overflow-scrolling: touch;">
+        <button type="button" id="tab-pres-btn-committenti" class="btn btn-sm btn-primary" onclick="selezionaTabPresentazione('committenti')" style="font-weight: 700; font-size: 11.5px; border-radius: 6px; padding: 5px 10px; white-space: nowrap;">
+          📄 Presentazione Committenti
         </button>
+        <button type="button" id="tab-pres-btn-guida" class="btn btn-sm btn-outline" onclick="selezionaTabPresentazione('guida')" style="font-weight: 700; font-size: 11.5px; border-radius: 6px; padding: 5px 10px; white-space: nowrap;">
+          📱 Guida Utente Residenti
+        </button>
+        <button type="button" id="tab-pres-btn-tecnica" class="btn btn-sm btn-outline" onclick="selezionaTabPresentazione('tecnica')" style="font-weight: 700; font-size: 11.5px; border-radius: 6px; padding: 5px 10px; white-space: nowrap;">
+          ⚙️ Relazione Tecnica
+        </button>
+      </div>
+
+      <!-- Corpo del Documento Scorrevole -->
+      <div style="flex: 1; overflow-y: auto; padding-right: 4px; font-size: 13px; line-height: 1.55; color: #334155; word-break: break-word;" id="presentazione-container-body">
+        
+        <!-- SEZIONE 1: PRESENTAZIONE AI COMMITTENTI -->
+        <div id="pres-sec-committenti" class="pres-content-section">
+          <div class="pres-banner-hero" style="background: linear-gradient(135deg, #0369a1, #0284c7); color: #ffffff; border-radius: 10px; padding: 16px 18px; margin-bottom: 14px; box-shadow: 0 4px 12px rgba(2, 132, 199, 0.2);">
+            <div style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 1.2px; font-weight: 800; color: #bae6fd; margin-bottom: 4px;">Documento Esecutivo per la Direzione</div>
+            <h2 style="margin: 0 0 6px 0; font-size: 19px; font-weight: 800; color: #ffffff; line-height: 1.25;">Digitalizzazione &amp; Coordinamento Servizi Residenza</h2>
+            <p style="margin: 0; font-size: 12.5px; line-height: 1.5; color: #f0f9ff;">
+              La Piattaforma Digitale della <strong>Residenza Cardinal Newman</strong> è stata concepita per armonizzare e semplificare la vita comunitaria di residenti, sacerdoti, cuoca, personale tecnico e Direzione. Elimina il cartaceo, previene gli sprechi alimentari, razionalizza gli spazi e rende trasparente la gestione dell'ente.
+            </p>
+          </div>
+
+          <!-- Highlight Metriche & Risultati -->
+          <div class="pres-metric-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 8px; margin-bottom: 16px;">
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 8px; text-align: center;">
+              <span style="font-size: 20px; display: block; margin-bottom: 2px;">🍽️</span>
+              <div style="font-weight: 800; font-size: 13.5px; color: #0f172a;">-40% Sprechi Mensa</div>
+              <span class="text-xs text-muted" style="font-size: 10.5px;">Prenotazioni esatte e buste programmate</span>
+            </div>
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 8px; text-align: center;">
+              <span style="font-size: 20px; display: block; margin-bottom: 2px;">⚡</span>
+              <div style="font-weight: 800; font-size: 13.5px; color: #0f172a;">Tempo Reale</div>
+              <span class="text-xs text-muted" style="font-size: 10.5px;">Sincronizzazione cloud istantanea</span>
+            </div>
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 8px; text-align: center;">
+              <span style="font-size: 20px; display: block; margin-bottom: 2px;">💶</span>
+              <div style="font-weight: 800; font-size: 13.5px; color: #0f172a;">Zero Costi Server</div>
+              <span class="text-xs text-muted" style="font-size: 10.5px;">Architettura Serverless Google Cloud</span>
+            </div>
+            <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 10px 8px; text-align: center;">
+              <span style="font-size: 20px; display: block; margin-bottom: 2px;">📱</span>
+              <div style="font-weight: 800; font-size: 13.5px; color: #0f172a;">PWA Mobile-First</div>
+              <span class="text-xs text-muted" style="font-size: 10.5px;">Subito su Home senza app store</span>
+            </div>
+          </div>
+
+          <!-- Moduli Operativi Dettagliati -->
+          <h4 style="margin: 0 0 12px 0; font-size: 16px; color: #0f172a; border-left: 4px solid #0284c7; padding-left: 10px;">
+            Panoramica dei Moduli Funzionali dell'App
+          </h4>
+
+          <div style="display: flex; flex-direction: column; gap: 12px; margin-bottom: 16px;">
+            <!-- Modulo 1: Mensa -->
+            <div style="background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 10px; padding: 14px;">
+              <div class="flex-between" style="margin-bottom: 6px;">
+                <strong style="color: #92400e; font-size: 15px; display: flex; align-items: center; gap: 8px;">
+                  <span>🍽️</span> 1. Ristorazione Comunitaria, Mensa &amp; Busta da Asporto
+                </strong>
+                <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 800;">Centrale</span>
+              </div>
+              <ul style="margin: 0; padding-left: 20px; color: #78350f;">
+                <li><strong>Presenze Giornaliere:</strong> I residenti confermano la presenza o assenza a Pranzo (14:30) e Cena (19:30), indicando eventuali ritardi o ospiti esterni aggiuntivi a proprio carico.</li>
+                <li><strong>Regola Busta al Sacco (Martedì e Giovedì):</strong> Nelle giornate di lezioni universitarie fuori sede, la mensa predispone il pranzo al sacco. L'app automatizza le scadenze: la busta del martedì va scelta entro <strong>domenica ore 18:00</strong>; quella del giovedì entro <strong>martedì ore 18:00</strong>.</li>
+                <li><strong>Registro Cucina &amp; Visualizzazione Cuoca:</strong> Schermo touch dedicato per il personale di cucina, con conteggi aggiornati in tempo reale (sala vs busta vs ritardi), menù previsto del giorno, lista nominale dei residenti con spunte interattive di avvenuto ritiro e stampa cartacea.</li>
+                <li><strong>Menù Ciclico delle 2 Settimane:</strong> Consultazione e modifica completa di primi, secondi, contorni e dessert per tutti i 14 giorni del ciclo alimentare.</li>
+                <li><strong>Variazioni Cuoca Straordinarie:</strong> Avvisi tempestivi visualizzati in cima all'app per tutti gli utenti in caso di cambi piatto dell'ultimo minuto.</li>
+                <li><strong>Statistiche Mensili Mensa:</strong> Registro storico consultabile dal Master con presenze mensili totali, buste e ospiti per la rendicontazione dell'economato.</li>
+              </ul>
+            </div>
+
+            <!-- Modulo 2: Bacheca & Calendario -->
+            <div style="background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 14px;">
+              <strong style="color: #1e40af; font-size: 15px; display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                <span>📅</span> 2. Bacheca Istituzionale &amp; Calendario Romano
+              </strong>
+              <ul style="margin: 0; padding-left: 20px; color: #1e3a8a;">
+                <li><strong>Comunicazioni Direzione:</strong> Pubblicazione di avvisi ufficiali con programmazione di visibilità (data/ora inizio) e scadenza/archiviazione automatica.</li>
+                <li><strong>Calendario Liturgico:</strong> Santo del giorno, memoria liturgica, tempo e colore dei paramenti sacri per la preghiera comunitaria.</li>
+                <li><strong>Ricorrenze Comunitarie:</strong> Evidenziazione automatica di compleanni dei residenti e anniversari di ordinazione sacerdotale.</li>
+                <li><strong>Notifiche Push Dispositivo:</strong> Sistema di avvisi alle ore 07:00 con il riepilogo degli eventi del giorno e conferme istantanee.</li>
+              </ul>
+            </div>
+
+            <!-- Modulo 3: Spazi Comuni -->
+            <div style="background: #fdf4ff; border: 1.5px solid #f5d0fe; border-radius: 10px; padding: 14px;">
+              <strong style="color: #86198f; font-size: 15px; display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                <span>🏛️</span> 3. Gestione e Prenotazione Spazi Comuni (Chiesa &amp; Sala TV)
+              </strong>
+              <ul style="margin: 0; padding-left: 20px; color: #701a75;">
+                <li><strong>Slot Temporali:</strong> Fasce orarie da 30 minuti dalle 06:30 alle 23:30, visualizzate con indicatore di disponibilità.</li>
+                <li><strong>Workflow di Autorizzazione:</strong> Richiesta inviata dal residente e validata dal Master per evitare sovrapposizioni tra celebrazioni liturgiche, studio e svago.</li>
+                <li><strong>Riservatezza:</strong> Visibilità protetta dei dettagli per garantire la necessaria privacy dei confratelli.</li>
+              </ul>
+            </div>
+
+            <!-- Modulo 4: Accoglienza -->
+            <div style="background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 10px; padding: 14px;">
+              <strong style="color: #166534; font-size: 15px; display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                <span>🛏️</span> 4. Servizio Accoglienza &amp; Foresteria Ospiti
+              </strong>
+              <ul style="margin: 0; padding-left: 20px; color: #14532d;">
+                <li>Modulo telematico per richiedere ospitalità per parenti, amici o confratelli sacerdoti di passaggio.</li>
+                <li>Tracciamento date check-in/check-out, numero ospiti, note camera e approvazione formale della Direzione.</li>
+                <li>Notifica push immediata al richiedente non appena la richiesta viene autorizzata.</li>
+              </ul>
+            </div>
+
+            <!-- Modulo 5: Manutenzioni -->
+            <div style="background: #fafaf9; border: 1.5px solid #e7e5e4; border-radius: 10px; padding: 14px;">
+              <strong style="color: #292524; font-size: 15px; display: flex; align-items: center; gap: 8px; margin-bottom: 6px;">
+                <span>🛠️</span> 5. Registro Manutenzioni &amp; Segnalazioni Tecniche
+              </strong>
+              <ul style="margin: 0; padding-left: 20px; color: #44403c;">
+                <li>Invio segnalazione con foto scattata direttamente dal cellulare e descrizione del guasto.</li>
+                <li>Classificazione tra <strong>Manutenzione Tecnica</strong> e <strong>Servizi/Pulizie</strong>, con priorità (Bassa, Media, Alta, Urgente).</li>
+                <li>Gestione stati d'intervento (Da fare, In lavorazione, Risolto), assegnazione tecnici, inoltro email all'amministrazione/economato ed esportazione tabellare CSV.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEZIONE 2: GUIDA UTENTE PER I RESIDENTI -->
+        <div id="pres-sec-guida" class="pres-content-section" style="display: none;">
+          <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
+            <h3 style="margin: 0 0 6px 0; font-size: 18px; color: #0f172a; font-weight: 800;">📱 Guida Rapida all'Uso per i Residenti</h3>
+            <p style="margin: 0; font-size: 13px; color: #64748b;">
+              Tutto quello che c'è da sapere per installare e sfruttare al meglio l'app sul proprio smartphone.
+            </p>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <!-- Installazione PWA -->
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <h4 style="margin: 0 0 8px 0; color: #0284c7; font-size: 15px; font-weight: 800;">
+                📲 1. Come Installare l'App sulla Schermata Home
+              </h4>
+              <div class="pres-guide-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 10px;">
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="color: #0f172a; display: block; margin-bottom: 4px;">🍎 Su iPhone (Safari):</strong>
+                  <ol style="margin: 0; padding-left: 18px; font-size: 12.5px; color: #475569;">
+                    <li>Apri il link dell'app in <strong>Safari</strong>.</li>
+                    <li>Tocca il pulsante <strong>Condividi</strong> in basso (il quadrato con la freccia verso l'alto).</li>
+                    <li>Scorri e tocca <strong>"Aggiungi alla schermata Home"</strong>.</li>
+                    <li>Premi <strong>Aggiungi</strong> in alto a destra. L'icona apparirà tra le tue app!</li>
+                  </ol>
+                </div>
+                <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 10px;">
+                  <strong style="color: #0f172a; display: block; margin-bottom: 4px;">🤖 Su Android (Chrome):</strong>
+                  <ol style="margin: 0; padding-left: 18px; font-size: 12.5px; color: #475569;">
+                    <li>Apri il link dell'app in <strong>Google Chrome</strong>.</li>
+                    <li>Tocca i <strong>3 puntini</strong> in alto a destra (oppure il banner <em>"Installa App"</em>).</li>
+                    <li>Tocca <strong>"Aggiungi a schermata Home"</strong> o <strong>"Installa applicazione"</strong>.</li>
+                    <li>Conferma l'installazione. L'app funzionerà a schermo intero!</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+
+            <!-- Prenotazione pasti e buste -->
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <h4 style="margin: 0 0 8px 0; color: #ea580c; font-size: 15px; font-weight: 800;">
+                🥪 2. Regole e Scadenze per Mensa &amp; Buste al Sacco
+              </h4>
+              <div style="font-size: 13px; color: #334155; line-height: 1.55;">
+                <p style="margin: 0 0 8px 0;">
+                  Per default, ogni residente abilitato è considerato <strong>presente ai pasti</strong>, consentendo alla cucina di lavorare con regolarità.
+                </p>
+                <div style="background: #fff7ed; border-left: 4px solid #ea580c; padding: 10px 12px; border-radius: 4px; margin-bottom: 8px;">
+                  <strong>⏰ Termini Tassativi per il Pranzo al Sacco (Busta):</strong>
+                  <ul style="margin: 4px 0 0 0; padding-left: 18px;">
+                    <li><strong>Busta del Martedì:</strong> va richiesta entro <strong>Domenica pomeriggio (ore 18:00)</strong>.</li>
+                    <li><strong>Busta del Giovedì:</strong> va richiesta entro <strong>Martedì pomeriggio (ore 18:00)</strong>.</li>
+                  </ul>
+                  <small style="color: #9a3412; display: block; margin-top: 4px;">Trascorso il termine, l'opzione si blocca automaticamente. Per deroghe straordinarie, contattare il Master Mensa.</small>
+                </div>
+                <p style="margin: 0;">
+                  Se devi assentarti o rientrare in ritardo, segnalalo sempre tramite l'app con qualche ora di anticipo per consentire la corretta conservazione del tuo pasto.
+                </p>
+              </div>
+            </div>
+
+            <!-- Aggiornamenti dell'App -->
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <h4 style="margin: 0 0 8px 0; color: #16a34a; font-size: 15px; font-weight: 800;">
+                🔄 3. Come Aggiornare l'App sul Telefono
+              </h4>
+              <p style="margin: 0 0 8px 0; font-size: 13px; color: #334155;">
+                L'applicazione è dotata di un sistema di <strong>aggiornamento automatico ad ogni riapertura</strong>: ogni volta che sblocchi il telefono o torni sull'app dal multitasking, viene verificata la presenza di novità.
+              </p>
+              <div style="display: flex; align-items: center; gap: 10px; background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 6px; padding: 10px 12px;">
+                <span style="font-size: 24px;">🔄</span>
+                <div style="font-size: 12.5px; color: #14532d;">
+                  <strong>Pulsante Rapido di Garanzia:</strong> In caso di modifiche appena rilasciate che non compaiono subito, tocca il pulsante <strong>🔄</strong> in alto a destra nell'intestazione o entra in <em>Impostazioni -&gt; "Ricarica &amp; Svuota Cache Ora"</em>. L'app si ricaricherà all'istante con tutti i contenuti freschi!
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- SEZIONE 3: RELAZIONE TECNICA & ARCHITETTURA -->
+        <div id="pres-sec-tecnica" class="pres-content-section" style="display: none;">
+          <div style="background: #0f172a; color: #f8fafc; border-radius: 10px; padding: 16px; margin-bottom: 16px;">
+            <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 1px; color: #38bdf8; font-weight: 800; margin-bottom: 4px;">Specifiche Tecniche &amp; Architettura</div>
+            <h3 style="margin: 0 0 6px 0; font-size: 18px; color: #ffffff; font-weight: 800;">Documentazione Ingegneristica del Sistema</h3>
+            <p style="margin: 0; font-size: 13px; color: #cbd5e1;">
+              Descrizione dell'infrastruttura software, del flusso dati serverless e della gestione avanzata della cache mobile.
+            </p>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 14px;">
+            <!-- Stack Frontend -->
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <h4 style="margin: 0 0 6px 0; color: #0f172a; font-size: 15px; font-weight: 800;">
+                🖥️ 1. Stack Frontend &amp; Progressive Web App (PWA)
+              </h4>
+              <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569;">
+                L'applicazione è sviluppata come <strong>Single Page Application (SPA) Mobile-First</strong> basata su standard web moderni (HTML5, Vanilla TypeScript, CSS3 con Tailwind framework e Vite).
+              </p>
+              <ul style="margin: 0; padding-left: 20px; font-size: 12.5px; color: #334155;">
+                <li><strong>Performance Eccellenti:</strong> Nessun framework monolitico pesante (come Angular o librerie di terze parti sovradimensionate). Bundle ultraleggero con tempo di First Contentful Paint inferiore a 900ms su reti 4G.</li>
+                <li><strong>Responsive Design:</strong> Adattamento fluido da smartphone (iOS/Android) a tablet di cucina, fino a monitor desktop per l'amministrazione.</li>
+                <li><strong>Web App Manifest:</strong> Configurato con standard PWA (display <code>standalone</code>, icone maskable ad alta risoluzione e theme color coordinato).</li>
+              </ul>
+            </div>
+
+            <!-- Backend Cloud e Database -->
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <h4 style="margin: 0 0 6px 0; color: #0f172a; font-size: 15px; font-weight: 800;">
+                ☁️ 2. Backend Serverless &amp; Database Cloud (Google Apps Script)
+              </h4>
+              <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569;">
+                L'architettura dati si appoggia a <strong>Google Apps Script (GAS)</strong> che espone endpoint REST sicuri e si interfaccia a <strong>Google Sheets</strong> come database relazionale tabellare.
+              </p>
+              <div style="background: #f1f5f9; border-radius: 6px; padding: 10px; font-family: monospace; font-size: 12px; color: #0f172a; margin-bottom: 8px;">
+                Fogli Attivi: [Utenti] [Mensa] [Prenotazioni_Spazi] [Manutenzione] [Configurazione] [Bacheca]
+              </div>
+              <ul style="margin: 0; padding-left: 20px; font-size: 12.5px; color: #334155;">
+                <li><strong>Zero Costi Infrastrutturali:</strong> Nessun server VPS, istanza Cloud SQL o canone di manutenzione server a carico della Residenza.</li>
+                <li><strong>Backup Nativi:</strong> I dati risiedono nell'account Google istituzionale della Residenza, con cronologia delle versioni e backup automatici su Google Drive.</li>
+                <li><strong>Esportabilità Immediata:</strong> L'economato e il direttore possono aprire i fogli Google in qualsiasi momento con Excel o Calc senza dipendere da strumenti terzi.</li>
+              </ul>
+            </div>
+
+            <!-- Service Worker e Cache -->
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <h4 style="margin: 0 0 6px 0; color: #0f172a; font-size: 15px; font-weight: 800;">
+                ⚡ 3. Gestione Cache &amp; Service Worker v10-autoreload
+              </h4>
+              <p style="margin: 0 0 8px 0; font-size: 13px; color: #475569;">
+                Il Service Worker (<code>sw.js</code> v10) è stato ingegnerizzato appositamente per superare i noti problemi di freeze della cache sui browser mobile:
+              </p>
+              <ul style="margin: 0; padding-left: 20px; font-size: 12.5px; color: #334155;">
+                <li><strong>Network-First con <code>cache: 'no-cache'</code> su HTML e JS:</strong> Le pagine e gli script applicativi non vengono mai serviti da vecchie copie su disco quando il dispositivo è connesso, scaricando subito il codice aggiornato.</li>
+                <li><strong>Stale-While-Revalidate su Asset Statici:</strong> Icone, immagini e manifest sono serviti istantaneamente dalla cache e aggiornati in background.</li>
+                <li><strong>Bypass Integrale Google APIs:</strong> Le chiamate verso <code>script.google.com</code> e <code>googleusercontent.com</code> non vengono mai intercettate dal Service Worker, prevenendo qualsiasi anomalia di CORS o redirect HTTP 302.</li>
+                <li><strong>Standby Resume Trigger:</strong> Monitoraggio degli eventi di sistema mobile <code>visibilitychange</code> (quando lo schermo viene sbloccato) e <code>pageshow</code>, con invocazione istantanea di <code>registration.update()</code>.</li>
+                <li><strong>Auto-Reload su <code>controllerchange</code>:</strong> Quando una nuova versione prende il controllo, l'app esegue un refresh fluido senza richiedere l'intervento dell'utente.</li>
+              </ul>
+            </div>
+
+            <!-- Sicurezza e RBAC -->
+            <div style="background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 14px;">
+              <h4 style="margin: 0 0 6px 0; color: #0f172a; font-size: 15px; font-weight: 800;">
+                🔒 4. Sicurezza, Privacy e Controllo Accessi (RBAC)
+              </h4>
+              <ul style="margin: 0; padding-left: 20px; font-size: 12.5px; color: #334155;">
+                <li><strong>Crittografia in Transito:</strong> Tutto il traffico è forzato su protocollo cifrato HTTPS con certificati TLS validi.</li>
+                <li><strong>Profili e Ruoli Separati:</strong> Il sistema verifica i permessi dell'utente autenticato: un residente normale non può accedere al pannello Master Mensa, alla visualizzazione cuoca o all'amministrazione manutenzioni.</li>
+                <li><strong>GDPR &amp; Riservatezza:</strong> I dati personali, i numeri di camera e i dettagli delle richieste restano confinati all'ambito della comunità e non sono indicizzati pubblicamente sui motori di ricerca.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Footer Modale con Azioni -->
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 8px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; flex-wrap: wrap; gap: 8px;" class="no-print">
+        <div style="font-size: 12px; color: #64748b;">
+          Residenza Card. Newman • Relazione Esecutiva 2026
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn btn-outline btn-sm" onclick="window.print()" style="font-weight: 700;">
+            🖨️ Stampa Documento
+          </button>
+          <button type="button" class="btn btn-primary btn-sm" onclick="chiudiModalPresentazioneCommittenti()" style="font-weight: 700; padding: 6px 18px;">
+            Chiudi
+          </button>
+        </div>
       </div>
     </div>
   </div>
