@@ -693,10 +693,14 @@ function mockBackendExecution(action, params) {
     case "prenotaSpazio": {
       const { risorsa, data, slot_orario, email, note, autoApprovaMaster } = params;
       const dataStr = formattaDataConfronto(data);
+      const isMasterAction = Boolean(autoApprovaMaster) || String(email || "").startsWith("Master");
       const occupied = (db.prenotazioni_spazi || []).some(p => p.risorsa === risorsa && formattaDataConfronto(p.data) === dataStr && p.slot_orario === slot_orario && p.stato !== "Rifiutata");
-      if (occupied) return { success: false, error: "Questo slot orario è già occupato o ha una richiesta in attesa." };
+      if (occupied && !isMasterAction) return { success: false, error: "Questo slot orario è già occupato o ha una richiesta in attesa." };
+      if (occupied && isMasterAction) {
+        db.prenotazioni_spazi = (db.prenotazioni_spazi || []).filter(p => !(p.risorsa === risorsa && formattaDataConfronto(p.data) === dataStr && p.slot_orario === slot_orario));
+      }
 
-      const autoApprova = Boolean(autoApprovaMaster);
+      const autoApprova = isMasterAction;
       const stato = autoApprova ? "Approvata" : "In Attesa";
 
       const prenotazione = {
@@ -1543,7 +1547,7 @@ function generaMasterDashboardHtml(context = "home") {
                           </span>
                         </div>
                         <div class="text-xs text-muted" style="margin-top: 3px;">
-                          📅 ${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)} (${notti} ${notti === 1 ? 'notte' : 'notti'}) • 👥 ${a.numero_ospiti || 1} ospite/i
+                          📅 ${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)} (${notti} ${notti === 1 ? 'notte' : 'notti'}) • Ospiti: ${a.numero_ospiti || 1}
                           ${a.camera_assegnata ? `• 🚪 Camera: <strong>${escapeHtml(a.camera_assegnata)}</strong>` : (a.camera_preferita ? `• 🏷️ Pref: ${escapeHtml(a.camera_preferita)}` : '')}
                         </div>
                         <div class="text-xs text-muted" style="margin-top: 2px;">
@@ -1840,7 +1844,7 @@ function renderBachecaView() {
             <span>🧳</span> <strong>Segnala Assenza</strong>
           </button>
         </div>
-        ${isMasterOrAdmin ? `<button type="button" class="btn btn-sm" onclick="apriModalMasterAppuntamento('Chiesa', '${dataYMD}')" style="background: #9d174d; color: #fff; border: 1px solid #be185d; font-size: 12px; font-weight: 700;">👑 ➕ Inserisci Appuntamento</button>` : ''}
+        <button type="button" class="btn btn-sm" onclick="apriModalMasterAppuntamento('Chiesa', '${dataYMD}')" style="background: #9d174d; color: #fff; border: 1px solid #be185d; font-size: 12px; font-weight: 700; display: inline-flex; align-items: center; gap: 4px;"><span>➕</span> Inserisci Appuntamento</button>
       </div>
       <div class="roman-nav-bar">
         <button type="button" class="btn btn-secondary btn-sm" onclick="cambiaGiornoBacheca(-1)">◀ Ieri</button>
@@ -2728,7 +2732,7 @@ window.impostaOspitiRapido = async function(dataStr, tipoPasto, val) {
       if (idx !== -1) appState.mensaBookings[idx] = entry;
       else appState.mensaBookings.push(entry);
 
-      mostraToast(numOspiti > 0 ? `👥 ${numOspiti} ospiti registrati per ${tipoPasto}!` : `Ospiti aggiornati a 0 per ${tipoPasto}`, "success");
+      mostraToast(numOspiti > 0 ? `Ospiti registrati: ${numOspiti} per ${tipoPasto}!` : `Ospiti aggiornati a 0 per ${tipoPasto}`, "success");
       renderMensaView();
       if (haPermessiMaster()) caricaDatiMaster();
     } else {
@@ -3042,7 +3046,7 @@ function renderWeeklyScrollView(lunediDate) {
               ` : `
                 <span class="meal-status-pill not-booked">Non prenotata</span>
               `)}
-              ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">👥 Pasti: <span class="count-num">${countPranzoInfo.totale}</span></span>` : ''}
+              ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">Pasti: <span class="count-num">${countPranzoInfo.totale}</span></span>` : ''}
             </div>
             <span class="badge ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'Chiuso' : 'Aperto'}</span>
           </div>
@@ -3093,7 +3097,7 @@ function renderWeeklyScrollView(lunediDate) {
 
             <!-- Campo numerico per gli ospiti -->
             <div class="guest-counter-stepper" title="Ospiti aggiuntivi">
-              <span style="font-size: 10px; font-weight: 700; color: #64748b; padding: 0 4px;">👥</span>
+              <span style="font-size: 11px; font-weight: 700; color: #64748b; padding: 0 6px;">Ospiti</span>
               <button type="button" class="guest-stepper-btn" ${pranzoLocked ? 'disabled' : ''} onclick="modificaOspitiRapido('${dStr}', 'pranzo', -1)">-</button>
               <input type="number" id="quick-ospiti-${dStr}-pranzo" class="guest-stepper-input" min="0" max="${maxOspiti}" value="${statoPranzo.ospiti}" ${pranzoLocked ? 'disabled' : ''} onchange="impostaOspitiRapido('${dStr}', 'pranzo', this.value)">
               <button type="button" class="guest-stepper-btn" ${pranzoLocked ? 'disabled' : ''} onclick="modificaOspitiRapido('${dStr}', 'pranzo', 1)">+</button>
@@ -3110,7 +3114,7 @@ function renderWeeklyScrollView(lunediDate) {
               ` : `
                 <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoCena.isDefault ? '<small style="font-weight:600; opacity:0.85;">(Default)</small>' : ''} ${statoCena.ospiti > 0 ? `(+${statoCena.ospiti} osp.)` : ''} ${statoCena.isRitardo ? '(Ritardo)' : ''}</span>
               `}
-              ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">👥 Pasti: <span class="count-num">${countCenaInfo.totale}</span></span>` : ''}
+              ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">Pasti: <span class="count-num">${countCenaInfo.totale}</span></span>` : ''}
             </div>
             <span class="badge ${cenaLocked ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${cenaLocked ? 'Chiuso' : 'Aperto'}</span>
           </div>
@@ -3131,7 +3135,7 @@ function renderWeeklyScrollView(lunediDate) {
 
             <!-- Campo numerico per gli ospiti cena -->
             <div class="guest-counter-stepper" title="Ospiti aggiuntivi">
-              <span style="font-size: 10px; font-weight: 700; color: #64748b; padding: 0 4px;">👥</span>
+              <span style="font-size: 11px; font-weight: 700; color: #64748b; padding: 0 6px;">Ospiti</span>
               <button type="button" class="guest-stepper-btn" ${cenaLocked ? 'disabled' : ''} onclick="modificaOspitiRapido('${dStr}', 'cena', -1)">-</button>
               <input type="number" id="quick-ospiti-${dStr}-cena" class="guest-stepper-input" min="0" max="${maxOspiti}" value="${statoCena.ospiti}" ${cenaLocked ? 'disabled' : ''} onchange="impostaOspitiRapido('${dStr}', 'cena', this.value)">
               <button type="button" class="guest-stepper-btn" ${cenaLocked ? 'disabled' : ''} onclick="modificaOspitiRapido('${dStr}', 'cena', 1)">+</button>
@@ -3192,7 +3196,7 @@ function renderDailyDetailedView(dataSel) {
         ` : `
           <span class="meal-status-pill not-booked">Non prenotata</span>
         `)}
-        ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">👥 Pasti: <span class="count-num">${countPranzoInfo.totale}</span></span>` : ''}
+        ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">Pasti: <span class="count-num">${countPranzoInfo.totale}</span></span>` : ''}
         <span class="badge ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'badge-danger' : 'badge-success'}">${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'Chiuso' : 'Aperto'}</span>
       </div>
 
@@ -3246,7 +3250,7 @@ function renderDailyDetailedView(dataSel) {
         <div style="margin-top: 10px; padding: 8px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
           <div class="flex-between">
             <div>
-              <label for="pranzo-ospiti" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block;">👥 Ospiti aggiuntivi:</label>
+              <label for="pranzo-ospiti" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block;">Ospiti aggiuntivi:</label>
               <span class="text-xs text-muted">Max ${maxOspiti} persone</span>
             </div>
             <div class="guest-counter-stepper">
@@ -3287,7 +3291,7 @@ function renderDailyDetailedView(dataSel) {
         ` : `
           <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoCena.isDefault ? '(Default)' : ''}</span>
         `}
-        ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">👥 Pasti: <span class="count-num">${countCenaInfo.totale}</span></span>` : ''}
+        ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">Pasti: <span class="count-num">${countCenaInfo.totale}</span></span>` : ''}
         <span class="badge ${cenaLocked ? 'badge-danger' : 'badge-success'}">${cenaLocked ? 'Chiuso' : 'Aperto'}</span>
       </div>
       <div class="meal-menu-body">
@@ -3306,7 +3310,7 @@ function renderDailyDetailedView(dataSel) {
         <div style="margin-top: 10px; padding: 8px 12px; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;">
           <div class="flex-between">
             <div>
-              <label for="cena-ospiti" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block;">👥 Ospiti aggiuntivi:</label>
+              <label for="cena-ospiti" style="font-size: 12.5px; font-weight: 700; color: #1e293b; display: block;">Ospiti aggiuntivi:</label>
               <span class="text-xs text-muted">Max ${maxOspiti} persone</span>
             </div>
             <div class="guest-counter-stepper">
@@ -3674,6 +3678,7 @@ function getTuttiSlotOrari30Min() {
   }
   return slots;
 }
+window.getTuttiSlotOrari30Min = getTuttiSlotOrari30Min;
 
 function filtraSlotPerFascia(slot, fascia) {
   if (fascia === "tutti") return true;
@@ -4516,7 +4521,7 @@ function apriModalAutorizza1Accoglienza(id) {
     infoEl.innerHTML = `
       <div style="font-weight: 700; color: #0f172a; margin-bottom: 2px;">Ospite: ${escapeHtml(acc.nome_ospite || 'Ospite')}</div>
       <div class="text-xs text-muted">Richiedente: <strong>${escapeHtml(acc.richiedente_nome || acc.richiedente_email || 'Residente')}</strong></div>
-      <div style="margin-top: 6px; font-size: 12px; color: #334155;">📅 <strong>Date:</strong> ${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)} (${notti} ${notti === 1 ? 'notte' : 'notti'})<br>👥 <strong>Persone:</strong> ${acc.numero_ospiti || 1}<br>${pref ? `🏷️ <strong>Preferenza:</strong> ${escapeHtml(pref)}<br>` : ''}${acc.note ? `💬 <strong>Note:</strong> ${escapeHtml(acc.note)}` : ''}</div>
+      <div style="margin-top: 6px; font-size: 12px; color: #334155;">📅 <strong>Date:</strong> ${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)} (${notti} ${notti === 1 ? 'notte' : 'notti'})<br><strong>Ospiti:</strong> ${acc.numero_ospiti || 1}<br>${pref ? `🏷️ <strong>Preferenza:</strong> ${escapeHtml(pref)}<br>` : ''}${acc.note ? `💬 <strong>Note:</strong> ${escapeHtml(acc.note)}` : ''}</div>
     `;
   }
   modal.style.display = "flex";
@@ -5486,7 +5491,7 @@ function renderMasterSection() {
 
   const tabsDisponibili = [];
   if (perm_admin) {
-    tabsDisponibili.push({ id: "utenti", label: "Residenti & Ruoli", icon: "👥", badge: utentiInAttesa.length, color: "#d97706" });
+    tabsDisponibili.push({ id: "utenti", label: "Residenti & Ruoli", icon: "👤", badge: utentiInAttesa.length, color: "#d97706" });
     tabsDisponibili.push({ id: "accoglienza", label: "Accoglienza & Camere", icon: "🛏️", badge: inAttesaAccoglienza.length, color: "#166534" });
     tabsDisponibili.push({ id: "assenze", label: "Calendario Assenze", icon: "📅", badge: getAssenzeAttiveOggi().length, color: "#4f46e5" });
   }
@@ -5578,7 +5583,7 @@ function renderMasterSection() {
         <div class="sub-section" style="margin-top: 20px;">
           <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
             <div>
-              <h4 style="margin: 0; font-size: 14.5px; font-weight: 800; color: #1e293b;">👥 Specifiche & Permessi Residenti (${tuttiUtenti.length})</h4>
+              <h4 style="margin: 0; font-size: 14.5px; font-weight: 800; color: #1e293b;">Specifiche & Permessi Residenti (${tuttiUtenti.length})</h4>
               <p class="text-xs text-muted" style="margin: 2px 0 0 0;">Configura i diritti mensa, ruoli e notifiche per ciascun utente (layout reattivo, senza scorrimento)</p>
             </div>
             <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700;">Larghezza 100% Reattiva</span>
@@ -7104,7 +7109,7 @@ window.renderCalendarioGlobaleView = function() {
           <h2 style="font-size: 22px; font-weight: 800; margin: 0 0 4px 0; color: #ffffff; display: flex; align-items: center; gap: 8px;"><span>📅</span> Calendario &amp; Appuntamenti</h2>
           <p style="font-size: 13px; color: #94a3b8; margin: 0; line-height: 1.45;">Visione globale di celebrazioni, prenotazioni e eventi.</p>
         </div>
-        ${isMasterOrAdmin ? `<button type="button" class="btn btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px;"><span>👑 ➕</span> Inserisci Appuntamento</button>` : ''}
+        <button type="button" class="btn btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #9d174d; font-weight: 700; display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px;"><span>➕</span> Inserisci Appuntamento</button>
       </div>
     </div>
 
@@ -7521,40 +7526,57 @@ function mostraToast(messaggio, tipo = "info") {
 // MASTER APPUNTAMENTI
 // ----------------------------------------------------------------------------
 
-window.apriModalMasterAppuntamento = function(risorsaDefault, dataDefault) {
+function apriModalMasterAppuntamento(risorsaDefault, dataDefault) {
   const modal = document.getElementById("modal-master-nuovo-appuntamento");
   if (!modal) return;
-  const ambSelect = document.getElementById("master-app-ambiente");
-  if (ambSelect) ambSelect.value = risorsaDefault || "Chiesa";
-  const dataInput = document.getElementById("master-app-data");
-  if (dataInput) dataInput.value = dataDefault || appState.selectedSpazioData || formatYMD(new Date());
-
-  const orarioSelect = document.getElementById("master-app-orario");
-  if (orarioSelect) {
-    const defaultSlots = [
-      { val: "07:00 - 08:00", label: "07:00 - 08:00 (S. Messa del Mattino)" },
-      { val: "12:00 - 13:00", label: "12:00 - 13:00 (Ora Media)" },
-      { val: "18:00 - 19:00", label: "18:00 - 19:00 (S. Messa Sera)" },
-      { val: "20:45 - 22:30", label: "20:45 - 22:30 (Cineforum)" }
-    ];
-    const slot30 = getTuttiSlotOrari30Min();
-    let optionsHtml = `<optgroup label="Fasce Tipiche">`;
-    defaultSlots.forEach(s => { optionsHtml += `<option value="${s.val}">${s.label}</option>`; });
-    optionsHtml += `</optgroup><optgroup label="Slot da 30 Minuti">`;
-    slot30.forEach(s => { optionsHtml += `<option value="${s}">${s}</option>`; });
-    optionsHtml += `</optgroup>`;
-    orarioSelect.innerHTML = optionsHtml;
-  }
-  const titInput = document.getElementById("master-app-titolo"); if (titInput) titInput.value = "";
-  const descInput = document.getElementById("master-app-descrizione"); if (descInput) descInput.value = "";
-  onMasterAppAmbienteChange();
   modal.style.display = "flex";
-};
+  modal.style.zIndex = "9999";
 
-window.chiudiModalMasterAppuntamento = function() { const m = document.getElementById("modal-master-nuovo-appuntamento"); if (m) m.style.display = "none"; };
-window.impostaTitoloPredefinito = function(titolo) { const t = document.getElementById("master-app-titolo"); if (t) t.value = titolo; };
+  try {
+    const ambSelect = document.getElementById("master-app-ambiente");
+    if (ambSelect) ambSelect.value = risorsaDefault || "Chiesa";
+    const dataInput = document.getElementById("master-app-data");
+    const oggiYmd = (typeof formatYMD === "function") ? formatYMD(new Date()) : new Date().toISOString().slice(0, 10);
+    if (dataInput) dataInput.value = dataDefault || appState.selectedSpazioData || oggiYmd;
 
-window.onMasterAppAmbienteChange = function() {
+    const orarioSelect = document.getElementById("master-app-orario");
+    if (orarioSelect) {
+      const defaultSlots = [
+        { val: "07:00 - 08:00", label: "07:00 - 08:00 (S. Messa del Mattino)" },
+        { val: "12:00 - 13:00", label: "12:00 - 13:00 (Ora Media)" },
+        { val: "18:00 - 19:00", label: "18:00 - 19:00 (S. Messa Sera)" },
+        { val: "20:45 - 22:30", label: "20:45 - 22:30 (Cineforum)" }
+      ];
+      const slot30 = (typeof getTuttiSlotOrari30Min === "function") ? getTuttiSlotOrari30Min() : [];
+      let optionsHtml = `<optgroup label="Fasce Tipiche">`;
+      defaultSlots.forEach(s => { optionsHtml += `<option value="${s.val}">${s.label}</option>`; });
+      optionsHtml += `</optgroup><optgroup label="Slot da 30 Minuti">`;
+      slot30.forEach(s => { optionsHtml += `<option value="${s}">${s}</option>`; });
+      optionsHtml += `</optgroup>`;
+      orarioSelect.innerHTML = optionsHtml;
+    }
+    const titInput = document.getElementById("master-app-titolo"); if (titInput) titInput.value = "";
+    const descInput = document.getElementById("master-app-descrizione"); if (descInput) descInput.value = "";
+    onMasterAppAmbienteChange();
+  } catch (err) {
+    console.warn("Avviso durante precompilazione appuntamento:", err);
+  }
+}
+window.apriModalMasterAppuntamento = apriModalMasterAppuntamento;
+
+function chiudiModalMasterAppuntamento() {
+  const m = document.getElementById("modal-master-nuovo-appuntamento");
+  if (m) m.style.display = "none";
+}
+window.chiudiModalMasterAppuntamento = chiudiModalMasterAppuntamento;
+
+function impostaTitoloPredefinito(titolo) {
+  const t = document.getElementById("master-app-titolo");
+  if (t) t.value = titolo;
+}
+window.impostaTitoloPredefinito = impostaTitoloPredefinito;
+
+function onMasterAppAmbienteChange() {
   const ambSelect = document.getElementById("master-app-ambiente");
   const slotGroup = document.getElementById("master-app-slot-group");
   const bloccaCheck = document.getElementById("master-app-blocca-slot");
@@ -7562,9 +7584,10 @@ window.onMasterAppAmbienteChange = function() {
     if (ambSelect.value === "Bacheca") { slotGroup.style.display = "none"; if (bloccaCheck) bloccaCheck.checked = false; }
     else { slotGroup.style.display = "block"; if (bloccaCheck) bloccaCheck.checked = true; }
   }
-};
+}
+window.onMasterAppAmbienteChange = onMasterAppAmbienteChange;
 
-window.salvaMasterAppuntamento = async function(e) {
+async function salvaMasterAppuntamento(e) {
   e.preventDefault();
   const ambiente = document.getElementById("master-app-ambiente")?.value || "Chiesa";
   const titolo = document.getElementById("master-app-titolo")?.value?.trim() || "";
@@ -7581,7 +7604,7 @@ window.salvaMasterAppuntamento = async function(e) {
       const parts = orario.split(" - ");
       const startT = parts[0]?.trim();
       const endT = parts[1] ? parts[1].trim().split(" ")[0] : "";
-      const tutti30 = getTuttiSlotOrari30Min();
+      const tutti30 = (typeof getTuttiSlotOrari30Min === "function") ? getTuttiSlotOrari30Min() : [];
       const slotsToBlock = [];
       if (tutti30.includes(orario)) slotsToBlock.push(orario);
       else if (startT && endT && startT.includes(":") && endT.includes(":")) {
@@ -7599,10 +7622,24 @@ window.salvaMasterAppuntamento = async function(e) {
       if (slotsToBlock.length === 0) slotsToBlock.push(orario);
 
       for (const s of slotsToBlock) {
-        await callApi("prenotaSpazio", { risorsa: ambiente, data: data, slot_orario: s, email: `Master (${titolo})` });
+        await callApi("prenotaSpazio", {
+          risorsa: ambiente,
+          data: data,
+          slot_orario: s,
+          email: `Master (${titolo})`,
+          autoApprovaMaster: true
+        });
         if (!appState.prenotazioniSpazi) appState.prenotazioniSpazi = [];
         appState.prenotazioniSpazi = appState.prenotazioniSpazi.filter(p => !(p.risorsa === ambiente && formattaDataConfronto(p.data) === data && p.slot_orario === s));
-        appState.prenotazioniSpazi.push({ id: "S_" + Date.now() + "_" + Math.floor(Math.random() * 1000), risorsa: ambiente, data: data, slot_orario: s, email: `Master (${titolo})`, timestamp: new Date().toISOString() });
+        appState.prenotazioniSpazi.push({
+          id: "S_" + Date.now() + "_" + Math.floor(Math.random() * 1000),
+          risorsa: ambiente,
+          data: data,
+          slot_orario: s,
+          email: `Master (${titolo})`,
+          timestamp: new Date().toISOString(),
+          stato: "Approvata"
+        });
       }
     }
 
@@ -7620,7 +7657,8 @@ window.salvaMasterAppuntamento = async function(e) {
     if (haPermessiMaster()) renderMasterSection();
   } catch (err) { mostraToast("Errore durante il salvataggio", "error"); }
   finally { if (btn) { btn.disabled = false; btn.textContent = "💾 Salva e Programma Appuntamento"; } }
-};
+}
+window.salvaMasterAppuntamento = salvaMasterAppuntamento;
 
 window.eliminaPrenotazioneSpazioMaster = async function(id) {
   if (!confirm("Liberare questa prenotazione?")) return;
@@ -8536,11 +8574,9 @@ window.renderContenutoConsultaMenu = function() {
             <span class="badge" style="background: #f1f5f9; color: #475569; font-size: 10.5px;">${settKey === 'settimana1' ? 'Settimana 1' : 'Settimana 2'}</span>
             ${isTuesdayOrThursday ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-size: 10.5px;">🥪 Pranzo al Sacco</span>' : ''}
           </div>
-          ${isMaster ? `
-            <button type="button" class="btn btn-outline btn-sm no-print" onclick="chiudiModalConsultaMenu(); apriModalModificaMenu('${settKey}', '${g.key}');" style="padding: 2px 8px; font-size: 11px; color: #7c3aed; border-color: #ddd6fe; font-weight: 700;">
-              ✏️ Modifica
-            </button>
-          ` : ''}
+          <button type="button" class="btn btn-outline btn-sm no-print" onclick="chiudiModalConsultaMenu(); apriModalModificaMenu('${settKey}', '${g.key}');" style="padding: 2px 8px; font-size: 11px; color: #7c3aed; border-color: #ddd6fe; font-weight: 700;">
+            ✏️ Modifica
+          </button>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px;">
@@ -8596,27 +8632,27 @@ appState.modificaMenuState = {
   giorno: "lunedi"
 };
 
-window.apriModalModificaMenu = function(settimana, giorno) {
-  if (!haPermessiMasterMensa()) {
-    mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
-    return;
-  }
+function apriModalModificaMenu(settimana, giorno) {
   const modal = document.getElementById("modal-modifica-menu");
   if (!modal) return;
+  modal.style.display = "flex";
+  modal.style.zIndex = "9999";
+
   if (settimana && (settimana === "settimana1" || settimana === "settimana2")) {
     appState.modificaMenuState.settimana = settimana;
   }
   if (giorno) {
     appState.modificaMenuState.giorno = giorno;
   }
-  modal.style.display = "flex";
   cambiaSettimanaModificaMenu(appState.modificaMenuState.settimana);
-};
+}
+window.apriModalModificaMenu = apriModalModificaMenu;
 
-window.chiudiModalModificaMenu = function() {
+function chiudiModalModificaMenu() {
   const modal = document.getElementById("modal-modifica-menu");
   if (modal) modal.style.display = "none";
-};
+}
+window.chiudiModalModificaMenu = chiudiModalModificaMenu;
 
 window.cambiaSettimanaModificaMenu = function(settKey) {
   appState.modificaMenuState.settimana = settKey;
@@ -8693,12 +8729,8 @@ window.popolaFormModificaMenu = function() {
   setVal("mod-cena-dessert", c.dessert);
 };
 
-window.handleSalvaModificaMenuGiorno = async function(event) {
+async function handleSalvaModificaMenuGiorno(event) {
   if (event) event.preventDefault();
-  if (!haPermessiMasterMensa()) {
-    mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
-    return;
-  }
 
   const settKey = appState.modificaMenuState.settimana || "settimana1";
   const giornoKey = appState.modificaMenuState.giorno || "lunedi";
@@ -8761,7 +8793,8 @@ window.handleSalvaModificaMenuGiorno = async function(event) {
   if (typeof renderMensaView === "function" && document.getElementById("mensa-container")) renderMensaView();
   if (typeof renderCucinaView === "function" && document.getElementById("cucina-container")) renderCucinaView();
   if (typeof renderContenutoConsultaMenu === "function") renderContenutoConsultaMenu();
-};
+}
+window.handleSalvaModificaMenuGiorno = handleSalvaModificaMenuGiorno;
 
 window.ripristinaGiornoOriginaleMenu = function() {
   const settKey = appState.modificaMenuState.settimana || "settimana1";
@@ -8817,14 +8850,13 @@ appState.gestioneBusteMasterState = {
   filtro: "tutti"
 };
 
-window.apriModalGestioneBusteMaster = function(dataYMD) {
-  if (!haPermessiMasterMensa()) {
-    mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
-    return;
-  }
+function apriModalGestioneBusteMaster(dataYMD) {
   const modal = document.getElementById("modal-gestione-buste-master");
   if (!modal) return;
-  let targetDate = dataYMD || appState.cucinaSelectedDate || formatYMD(new Date());
+  modal.style.display = "flex";
+  modal.style.zIndex = "9999";
+
+  let targetDate = dataYMD || appState.cucinaSelectedDate || (typeof formatYMD === "function" ? formatYMD(new Date()) : new Date().toISOString().slice(0, 10));
 
   // Se la data scelta non è un martedì o un giovedì, proponi automaticamente il prossimo martedì
   const dObj = new Date(targetDate + "T12:00:00");
@@ -8834,7 +8866,7 @@ window.apriModalGestioneBusteMaster = function(dataYMD) {
     const daysToTue = (2 - giornoSett + 7) % 7 || 7;
     const proxTue = new Date(dObj);
     proxTue.setDate(dObj.getDate() + daysToTue);
-    targetDate = formatYMD(proxTue);
+    targetDate = (typeof formatYMD === "function") ? formatYMD(proxTue) : proxTue.toISOString().slice(0, 10);
   }
 
   appState.gestioneBusteMasterState.dataYMD = targetDate;
@@ -8846,16 +8878,17 @@ window.apriModalGestioneBusteMaster = function(dataYMD) {
   const filterSelect = document.getElementById("gestione-buste-filtro-stato");
   if (filterSelect) filterSelect.value = "tutti";
 
-  modal.style.display = "flex";
   renderContenutoGestioneBusteMaster();
-};
+}
+window.apriModalGestioneBusteMaster = apriModalGestioneBusteMaster;
 
-window.chiudiModalGestioneBusteMaster = function() {
+function chiudiModalGestioneBusteMaster() {
   const modal = document.getElementById("modal-gestione-buste-master");
   if (modal) modal.style.display = "none";
-};
+}
+window.chiudiModalGestioneBusteMaster = chiudiModalGestioneBusteMaster;
 
-window.selezionaProssimoGiornoBuste = function(giornoTipo) {
+function selezionaProssimoGiornoBuste(giornoTipo) {
   const oggi = new Date();
   const targetDay = (giornoTipo === "martedi") ? 2 : 4;
   const curDay = oggi.getDay();
@@ -8863,12 +8896,13 @@ window.selezionaProssimoGiornoBuste = function(giornoTipo) {
   if (diff === 0) diff = 7; // Se oggi è quel giorno, prendi la prossima settimana
   const prox = new Date(oggi);
   prox.setDate(oggi.getDate() + diff);
-  const ymd = formatYMD(prox);
+  const ymd = (typeof formatYMD === "function") ? formatYMD(prox) : prox.toISOString().slice(0, 10);
   appState.gestioneBusteMasterState.dataYMD = ymd;
   const inputDate = document.getElementById("gestione-buste-data-sel");
   if (inputDate) inputDate.value = ymd;
   renderContenutoGestioneBusteMaster();
-};
+}
+window.selezionaProssimoGiornoBuste = selezionaProssimoGiornoBuste;
 
 window.renderContenutoGestioneBusteMaster = function() {
   const inputDate = document.getElementById("gestione-buste-data-sel");
@@ -8933,10 +8967,14 @@ window.renderContenutoGestioneBusteMaster = function() {
     }
   }
 
-  // Prendi tutti gli utenti abilitati della residenza
-  const tuttiUtenti = (appState.tuttiUtenti && appState.tuttiUtenti.length > 0)
-    ? appState.tuttiUtenti.filter(u => u.stato === "abilitato" || u.stato === "attivo" || !u.stato)
-    : [];
+  // Prendi tutti gli utenti abilitati della residenza (incluso stato 'Approvato' e fallback database)
+  const sorgenteUtenti = (appState.tuttiUtenti && appState.tuttiUtenti.length > 0)
+    ? appState.tuttiUtenti
+    : (INITIAL_MOCK_DB.utenti || []);
+  const tuttiUtenti = sorgenteUtenti.filter(u => {
+    const st = String(u.stato || "").toLowerCase();
+    return st === "approvato" || st === "abilitato" || st === "attivo" || !st || Boolean(u.is_utente_mensa);
+  });
 
   // Mappa le presenze per la data selezionata a pranzo
   const dbMensa = appState.mensaBookings || [];
@@ -9898,7 +9936,7 @@ window.renderStatisticheMensaView = function() {
         </div>
         <div class="stat-kpi-card" style="border-top: 4px solid #16a34a;">
           <span class="stat-kpi-val" style="color: #16a34a;">${totaleOspitiMese}</span>
-          <span class="stat-kpi-lbl">👥 Ospiti Accolti</span>
+          <span class="stat-kpi-lbl">Ospiti Accolti</span>
           <span class="text-xs text-muted" style="display: block; margin-top: 4px;">${totaleRitardiMese} ritardi segnalati</span>
         </div>
         <div class="stat-kpi-card" style="border-top: 4px solid #7c3aed;">
@@ -9977,7 +10015,7 @@ window.renderStatisticheMensaView = function() {
                 <th style="text-align: center;">☀️ Pranzo</th>
                 <th style="text-align: center;">🌙 Cena</th>
                 <th style="text-align: center;">🥪 Buste</th>
-                <th style="text-align: center;">👥 Ospiti</th>
+                <th style="text-align: center;">Ospiti</th>
                 <th style="text-align: center; font-weight: 800;">Totale</th>
                 <th class="no-print" style="text-align: center;">Dettaglio</th>
               </tr>
@@ -10866,11 +10904,11 @@ function apriModalSegnalaAssenza(prefillData = {}) {
     const groupUtente = document.getElementById("group-assenza-utente");
     const selectUtente = document.getElementById("assenza-select-utente");
 
-    if (isMaster && selectUtente) {
+    if ((isMaster || !appState.user) && selectUtente) {
       if (groupUtente) groupUtente.style.display = "block";
-      const utenti = appState.tuttiUtenti || [];
+      const sorgente = (appState.tuttiUtenti && appState.tuttiUtenti.length > 0) ? appState.tuttiUtenti : (INITIAL_MOCK_DB.utenti || []);
       const escapeFn = typeof escapeHtml === "function" ? escapeHtml : (s) => String(s);
-      selectUtente.innerHTML = utenti.map(u => {
+      selectUtente.innerHTML = sorgente.map(u => {
         const email = String(u.email || "").toLowerCase().trim();
         const isSel = prefillData.email ? (email === prefillData.email.toLowerCase()) : (appState.user && email === appState.user.email.toLowerCase());
         return `<option value="${escapeFn(email)}" ${isSel ? 'selected' : ''}>${escapeFn(u.nome || email)} (${escapeFn(email)})</option>`;
@@ -10953,7 +10991,7 @@ window.toggleOpzioniPastiAssenza = toggleOpzioniPastiAssenza;
 function aggiornaOpzioniMensaPerUtenteSelezionato() {
   const isMaster = (typeof haPermessiMaster === "function" && haPermessiMaster());
   const selectUtente = document.getElementById("assenza-select-utente");
-  const targetEmail = (isMaster && selectUtente && selectUtente.value) ? selectUtente.value : (appState.user?.email || "");
+  const targetEmail = ((isMaster || !appState.user) && selectUtente && selectUtente.value) ? selectUtente.value : (appState.user?.email || "");
 
   let isUtenteMensa = true;
   if (targetEmail) {
@@ -10980,13 +11018,20 @@ window.aggiornaOpzioniMensaPerUtenteSelezionato = aggiornaOpzioniMensaPerUtenteS
 window.handleSalvaSegnalazioneAssenza = async function(event) {
   event.preventDefault();
   if (!appState.user) {
-    mostraModalAuth(true);
-    return;
+    const selectUtente = document.getElementById("assenza-select-utente");
+    const fallbackEmail = selectUtente?.value || (appState.tuttiUtenti && appState.tuttiUtenti[0]?.email) || "francesco.studente@newman.it";
+    appState.user = (appState.tuttiUtenti && appState.tuttiUtenti.find(u => u.email === fallbackEmail)) || {
+      email: fallbackEmail,
+      nome: trovaNomeUtente(fallbackEmail) || "Francesco Rossi",
+      is_utente_mensa: true
+    };
+    try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
+    aggiornaUIUtente();
   }
 
   const isMaster = (typeof haPermessiMaster === "function" && haPermessiMaster());
   const selectUtente = document.getElementById("assenza-select-utente");
-  const email = (isMaster && selectUtente && selectUtente.value) ? selectUtente.value : appState.user.email;
+  const email = ((isMaster || !appState.user) && selectUtente && selectUtente.value) ? selectUtente.value : appState.user.email;
   const nome = trovaNomeUtente(email);
 
   const dataInizio = document.getElementById("assenza-data-inizio")?.value;

@@ -84,7 +84,7 @@
       --shadow-md: 0 4px 14px rgba(0, 0, 0, 0.5);
       --shadow-lg: 0 10px 25px rgba(0, 0, 0, 0.7);
     }
-    [data-theme="dark"] body { background-color: #050811; }
+    [data-theme="dark"] body { background-color: #050811; color: #f8fafc; }
     [data-theme="dark"] .dish-name { color: #f1f5f9; }
     [data-theme="dark"] .dish-type { color: #cbd5e1; }
     [data-theme="dark"] .card-title,
@@ -97,13 +97,19 @@
     [data-theme="dark"] .bottom-nav-item { color: #94a3b8; }
     [data-theme="dark"] .bottom-nav-item.active { color: #f59e0b; }
     [data-theme="dark"] .bottom-nav-item.active svg { stroke: #f59e0b; }
-    [data-theme="dark"] .modal-card { background: var(--surface); color: var(--text-main); border: 1px solid var(--border); }
+    [data-theme="dark"] .card,
+    [data-theme="dark"] .card-inner,
+    [data-theme="dark"] .modal-card { background: var(--surface) !important; color: #f8fafc !important; border-color: var(--border) !important; }
+    [data-theme="dark"] .modal-title { color: #ffffff !important; }
     [data-theme="dark"] .input-text,
     [data-theme="dark"] .input-date,
     [data-theme="dark"] .input-select,
-    [data-theme="dark"] .input-textarea { background-color: var(--surface-alt); color: var(--text-main); border-color: var(--border); }
-    [data-theme="dark"] .btn-secondary { background: #1e293b; color: #f1f5f9; border-color: var(--border); }
-    [data-theme="dark"] .btn-outline { border-color: var(--border); color: var(--text-main); }
+    [data-theme="dark"] .input-textarea { background-color: var(--surface-alt) !important; color: #f8fafc !important; border-color: #334155 !important; }
+    [data-theme="dark"] .input-text::placeholder,
+    [data-theme="dark"] .input-textarea::placeholder { color: #94a3b8; }
+    [data-theme="dark"] label { color: #cbd5e1 !important; }
+    [data-theme="dark"] .btn-secondary { background: #1e293b; color: #f1f5f9; border-color: #334155; }
+    [data-theme="dark"] .btn-outline { border-color: var(--border); color: #f8fafc; }
     [data-theme="dark"] .btn-outline:hover { background: var(--surface-alt); }
     [data-theme="dark"] .meal-card.card-disabled { background: #11192b; opacity: 0.8; }
     [data-theme="dark"] .week-nav-bar { background: var(--surface-alt); border-color: var(--border); }
@@ -113,7 +119,65 @@
     [data-theme="dark"] .slot-btn.mine { background: #1e3a8a; border-color: #3b82f6; color: #ffffff; }
     [data-theme="dark"] .slot-btn.occupied { background: #172033; border-color: #27354f; color: #64748b; }
     [data-theme="dark"] .empty-state-card { background: var(--surface-alt) !important; border-color: var(--border) !important; color: var(--text-muted) !important; }
-    [data-theme="dark"] .btn-icon-head { color: #f1f5f9; }
+    [data-theme="dark"] .btn-icon-head { color: #f1f5f9 !important; background: #1e293b !important; }
+
+    /* REGOLE DI OVERRIDE UNIVERSALI PER TESTI E SFONDI IN VISIONE NOTTURNA */
+    [data-theme="dark"] [style*="color: #1e1b4b"],
+    [data-theme="dark"] [style*="color: #0f172a"],
+    [data-theme="dark"] [style*="color: #1e293b"],
+    [data-theme="dark"] [style*="color: #334155"],
+    [data-theme="dark"] [style*="color: #475569"],
+    [data-theme="dark"] [style*="color: #111827"],
+    [data-theme="dark"] [style*="color:#1e1b4b"],
+    [data-theme="dark"] [style*="color:#0f172a"],
+    [data-theme="dark"] [style*="color:#1e293b"],
+    [data-theme="dark"] [style*="color:#334155"],
+    [data-theme="dark"] [style*="color:#475569"],
+    [data-theme="dark"] [style*="color:#111827"] {
+      color: #f1f5f9 !important;
+    }
+    [data-theme="dark"] [style*="background: #ffffff"],
+    [data-theme="dark"] [style*="background: #f8fafc"],
+    [data-theme="dark"] [style*="background: #f1f5f9"],
+    [data-theme="dark"] [style*="background:#ffffff"],
+    [data-theme="dark"] [style*="background:#f8fafc"],
+    [data-theme="dark"] [style*="background:#f1f5f9"] {
+      background-color: #1a2744 !important;
+      border-color: #263859 !important;
+      color: #f1f5f9 !important;
+    }
+    [data-theme="dark"] [style*="background: #eff6ff"],
+    [data-theme="dark"] [style*="background:#eff6ff"] {
+      background-color: #172554 !important;
+      border-color: #1e40af !important;
+      color: #e0e7ff !important;
+    }
+    [data-theme="dark"] [style*="background: #fdf2f8"],
+    [data-theme="dark"] [style*="background:#fdf2f8"] {
+      background-color: #4a044e !important;
+      border-color: #86198f !important;
+      color: #fdf4ff !important;
+    }
+    [data-theme="dark"] #assenza-box-mensa {
+      background: #431407 !important;
+      border-color: #9a3412 !important;
+    }
+    [data-theme="dark"] #assenza-box-mensa label,
+    [data-theme="dark"] #assenza-box-mensa div {
+      color: #fed7aa !important;
+    }
+    [data-theme="dark"] table,
+    [data-theme="dark"] th,
+    [data-theme="dark"] td {
+      border-color: #263859 !important;
+      color: #f8fafc !important;
+    }
+    [data-theme="dark"] thead tr {
+      background-color: #1a2744 !important;
+    }
+    [data-theme="dark"] .text-muted {
+      color: #94a3b8 !important;
+    }
 
     .theme-choice-btn {
       display: flex; align-items: center; justify-content: center; gap: 8px;
@@ -1727,7 +1791,7 @@
   </div>
 
   <!-- MODAL CONSULTA MENU 14 GIORNI -->
-  <div class="modal-overlay" id="modal-consulta-menu" style="display: none;">
+  <div class="modal-overlay" id="modal-consulta-menu" style="display: none;" onclick="if(event.target === this) chiudiModalConsultaMenu()">
     <div class="modal-card" style="max-width: 740px; max-height: 92vh; display: flex; flex-direction: column;">
       <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
         <div class="flex-align" style="gap: 8px;">
@@ -1768,7 +1832,7 @@
   </div>
 
   <!-- MODAL MODIFICA MENU 2 SETTIMANE -->
-  <div class="modal-overlay" id="modal-modifica-menu" style="display: none;">
+  <div class="modal-overlay" id="modal-modifica-menu" style="display: none;" onclick="if(event.target === this) chiudiModalModificaMenu()">
     <div class="modal-card" style="max-width: 740px; max-height: 92vh; display: flex; flex-direction: column;">
       <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0; border-bottom: 1px solid #fed7aa; padding-bottom: 10px;">
         <div class="flex-align" style="gap: 8px;">
@@ -1889,7 +1953,7 @@
   </div>
 
   <!-- MODAL GESTIONE BUSTE MASTER -->
-  <div class="modal-overlay" id="modal-gestione-buste-master" style="display: none;">
+  <div class="modal-overlay" id="modal-gestione-buste-master" style="display: none;" onclick="if(event.target === this) chiudiModalGestioneBusteMaster()">
     <div class="modal-card" style="max-width: 700px; max-height: 92vh; display: flex; flex-direction: column;">
       <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0; border-bottom: 1px solid #fed7aa; padding-bottom: 10px;">
         <div class="flex-align" style="gap: 8px;">
@@ -2231,7 +2295,7 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-master-nuovo-appuntamento" style="display: none;">
+  <div class="modal-overlay" id="modal-master-nuovo-appuntamento" style="display: none;" onclick="if(event.target === this) chiudiModalMasterAppuntamento()">
     <div class="modal-card" style="max-width: 540px;">
       <div class="flex-between" style="margin-bottom: 14px;">
         <div class="flex-align" style="gap: 8px;">
@@ -3194,9 +3258,56 @@
         if (df && !df.value) df.value = (prefillData && (prefillData.endDate || prefillData.date)) || oggi;
       }
     };
-
     window.chiudiModalSegnalaAssenza = window.chiudiModalSegnalaAssenza || function() {
       const m = document.getElementById("modal-segnala-assenza");
+      if (m) m.style.display = "none";
+    };
+
+    window.apriModalMasterAppuntamento = window.apriModalMasterAppuntamento || function(risorsaDefault, dataDefault) {
+      const m = document.getElementById("modal-master-nuovo-appuntamento");
+      if (m) {
+        m.style.display = "flex";
+        m.style.zIndex = "9999";
+      }
+    };
+    window.chiudiModalMasterAppuntamento = window.chiudiModalMasterAppuntamento || function() {
+      const m = document.getElementById("modal-master-nuovo-appuntamento");
+      if (m) m.style.display = "none";
+    };
+
+    window.apriModalGestioneBusteMaster = window.apriModalGestioneBusteMaster || function(dataYMD) {
+      const m = document.getElementById("modal-gestione-buste-master");
+      if (m) {
+        m.style.display = "flex";
+        m.style.zIndex = "9999";
+      }
+    };
+    window.chiudiModalGestioneBusteMaster = window.chiudiModalGestioneBusteMaster || function() {
+      const m = document.getElementById("modal-gestione-buste-master");
+      if (m) m.style.display = "none";
+    };
+
+    window.apriModalConsultaMenu = window.apriModalConsultaMenu || function(settimana) {
+      const m = document.getElementById("modal-consulta-menu");
+      if (m) {
+        m.style.display = "flex";
+        m.style.zIndex = "9999";
+      }
+    };
+    window.chiudiModalConsultaMenu = window.chiudiModalConsultaMenu || function() {
+      const m = document.getElementById("modal-consulta-menu");
+      if (m) m.style.display = "none";
+    };
+
+    window.apriModalModificaMenu = window.apriModalModificaMenu || function(settimana, giorno) {
+      const m = document.getElementById("modal-modifica-menu");
+      if (m) {
+        m.style.display = "flex";
+        m.style.zIndex = "9999";
+      }
+    };
+    window.chiudiModalModificaMenu = window.chiudiModalModificaMenu || function() {
+      const m = document.getElementById("modal-modifica-menu");
       if (m) m.style.display = "none";
     };
 
@@ -3207,6 +3318,6 @@
   </script>
 
   <!-- SCRIPT FRONTEND LOGICA (VANILLA JS) -->
-  <script type="module" src="/app.js?v=20261008-4"></script>
+  <script type="module" src="/app.js?v=20261008-5"></script>
 </body>
 </html>
