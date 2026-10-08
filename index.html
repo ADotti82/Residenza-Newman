@@ -761,8 +761,25 @@
       .stat-report-table th, .stat-report-table td { border: 1px solid #666 !important; }
     }
     .stepper-auth-step.rejected { background: #fee2e2; color: #991b1b; border-color: #ef4444; font-weight: 700; }
-    .mensa-guest-selector { display: inline-flex; align-items: center; gap: 4px; background: var(--surface-alt); border: 1px solid var(--border); border-radius: 6px; padding: 2px 6px; font-size: 12px; }
     .mensa-guest-selector select { border: none; background: transparent; font-weight: 700; font-size: 12px; color: var(--primary); cursor: pointer; outline: none; }
+
+    /* CALENDARIO ASSENZE SUPERADMIN & RESIDENTI */
+    .cal-assenze-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; margin-top: 10px; }
+    .cal-assenze-dow { text-align: center; font-size: 11px; font-weight: 800; color: #64748b; padding: 6px 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .cal-assenze-day { background: #ffffff; border: 1.5px solid #e2e8f0; border-radius: 8px; min-height: 84px; padding: 6px; display: flex; flex-direction: column; cursor: pointer; transition: all 0.15s ease; position: relative; }
+    .cal-assenze-day:hover { border-color: #4f46e5; box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15); transform: translateY(-1px); }
+    .cal-assenze-day.other-month { background: #f8fafc; opacity: 0.45; }
+    .cal-assenze-day.today { border: 2px solid #4f46e5; background: #f5f3ff; }
+    .cal-assenze-day-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+    .cal-assenze-day-num { font-size: 12.5px; font-weight: 800; color: #1e293b; }
+    .cal-assenze-day.today .cal-assenze-day-num { color: #4f46e5; font-weight: 900; }
+    .cal-assenze-badge { background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe; border-radius: 4px; font-size: 10.5px; font-weight: 700; padding: 2px 4px; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; align-items: center; justify-content: space-between; gap: 2px; line-height: 1.2; }
+    .cal-assenze-badge.badge-mensa-sospesa { border-left: 3px solid #ea580c; background: #fff7ed; color: #9a3412; }
+    .cal-assenze-badge:hover { filter: brightness(0.95); }
+    @media (max-width: 640px) {
+      .cal-assenze-day { min-height: 64px; padding: 3px; }
+      .cal-assenze-badge { font-size: 9.5px; padding: 1px 3px; }
+    }
 
     @media (hover: hover) {
       .accoglienza-room-card:hover { border-color: var(--accent); }
@@ -1599,6 +1616,13 @@
               <span style="font-weight: 600;">Sintesi &amp; Statistiche Manutenzioni</span>
             </div>
             <span style="font-size: 12px; color: #2563eb; font-weight: 600;">Sintesi ↗</span>
+          </button>
+          <button type="button" id="settings-btn-segnala-assenza" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); apriModalSegnalaAssenza();" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm); border-color: #4f46e5;">
+            <div class="flex-align" style="gap: 10px;">
+              <span style="font-size: 16px;">📅</span>
+              <span style="font-weight: 600;">Segnala Assenza Programmata</span>
+            </div>
+            <span style="font-size: 12px; color: #4f46e5; font-weight: 700;">Segnala ↗</span>
           </button>
         </div>
       </div>
@@ -2868,6 +2892,124 @@
             Chiudi
           </button>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL SEGNALA ASSENZA PROGRAMMATA -->
+  <div class="modal-overlay" id="modal-segnala-assenza" style="display: none;" onclick="if(event.target === this) chiudiModalSegnalaAssenza()">
+    <div class="modal-card" style="max-width: 460px;">
+      <div class="modal-header">
+        <div class="modal-brand-badge" style="background: #4f46e5; color: #ffffff;">📅</div>
+        <h3 class="modal-title" style="font-size: 18px; color: #1e1b4b;">Segnala Assenza Programmata</h3>
+        <p class="modal-subtitle" style="font-size: 12.5px;">Indica i giorni di assenza e sincronizza automaticamente la Mensa</p>
+      </div>
+
+      <form id="form-segnala-assenza" onsubmit="handleSalvaSegnalazioneAssenza(event)">
+        <!-- Selezione Utente (visibile per Superadmin/Master) -->
+        <div class="form-group" id="group-assenza-utente" style="display: none; margin-bottom: 12px;">
+          <label style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Residente:</label>
+          <select id="assenza-select-utente" class="input-text" style="padding: 8px 10px; font-size: 13px;" onchange="aggiornaOpzioniMensaPerUtenteSelezionato()">
+            <!-- popolato dinamicamente -->
+          </select>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+          <div class="form-group" style="margin: 0;">
+            <label for="assenza-data-inizio" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Data Inizio:</label>
+            <input type="date" id="assenza-data-inizio" class="input-text" required onchange="onCambioDataInizioAssenza(this.value)" style="padding: 8px 10px; font-size: 13px;">
+          </div>
+          <div class="form-group" style="margin: 0;">
+            <label for="assenza-data-fine" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Data Fine:</label>
+            <input type="date" id="assenza-data-fine" class="input-text" required style="padding: 8px 10px; font-size: 13px;">
+          </div>
+        </div>
+
+        <!-- Scorciatoie rapide date -->
+        <div style="display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;">
+          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('oggi')" style="font-size: 11px; padding: 3px 8px;">Oggi (1 giorno)</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('domani')" style="font-size: 11px; padding: 3px 8px;">Domani</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('weekend')" style="font-size: 11px; padding: 3px 8px;">Questo Weekend</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('settimana')" style="font-size: 11px; padding: 3px 8px;">7 Giorni</button>
+        </div>
+
+        <!-- Motivo -->
+        <div class="form-group" style="margin-bottom: 12px;">
+          <label for="assenza-select-motivo" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Motivo dell'Assenza:</label>
+          <select id="assenza-select-motivo" class="input-text" style="padding: 8px 10px; font-size: 13px;">
+            <option value="Famiglia / Ritorno a casa">Famiglia / Ritorno a casa</option>
+            <option value="Studio / Esami">Studio / Esami universitari</option>
+            <option value="Lavoro / Tirocinio">Lavoro / Tirocinio</option>
+            <option value="Ministero pastorale">Ministero pastorale / Parrocchia</option>
+            <option value="Viaggio / Convegno">Viaggio / Convegno / Esercizi spirituali</option>
+            <option value="Salute">Motivi di salute</option>
+            <option value="Altro">Altro motivo</option>
+          </select>
+        </div>
+
+        <!-- Note opzionali -->
+        <div class="form-group" style="margin-bottom: 14px;">
+          <label for="assenza-input-note" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Note opzionali o recapito:</label>
+          <textarea id="assenza-input-note" class="input-text" rows="2" placeholder="Es. Rientro domenica sera entro le ore 21:00..." style="padding: 8px 10px; font-size: 12.5px; resize: vertical;"></textarea>
+        </div>
+
+        <!-- BOX SINCRONIZZAZIONE MENSA -->
+        <div id="assenza-box-mensa" style="background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
+          <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+            <input type="checkbox" id="assenza-sospendi-mensa" checked onchange="toggleOpzioniPastiAssenza(this.checked)" style="margin-top: 3px; accent-color: #ea580c; width: 16px; height: 16px; cursor: pointer;">
+            <div>
+              <label for="assenza-sospendi-mensa" style="font-size: 13px; font-weight: 800; color: #9a3412; cursor: pointer;">
+                🍽️ Sospendi automaticamente la Mensa per questi giorni
+              </label>
+              <div style="font-size: 11.5px; color: #c2410c; margin-top: 2px; line-height: 1.35;">
+                I pasti selezionati per tutto il periodo risulteranno come <strong>Assente</strong> in cucina, evitando sprechi alimentari.
+              </div>
+            </div>
+          </div>
+
+          <div id="assenza-dettagli-pasti" style="padding-left: 24px; display: flex; gap: 16px; font-size: 12.5px; font-weight: 700; color: #9a3412;">
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="assenza-pasto-pranzo" checked style="accent-color: #ea580c; width: 15px; height: 15px;"> Pranzo
+            </label>
+            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+              <input type="checkbox" id="assenza-pasto-cena" checked style="accent-color: #ea580c; width: 15px; height: 15px;"> Cena
+            </label>
+          </div>
+        </div>
+
+        <!-- Azioni -->
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+          <button type="button" class="btn btn-secondary" onclick="chiudiModalSegnalaAssenza()" style="font-weight: 600;">Annulla</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-assenza" style="background: #4f46e5; border-color: #4338ca; font-weight: 700; padding: 8px 16px;">
+            💾 Salva Assenza
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- MODAL DETTAGLIO GIORNO ASSENZE -->
+  <div class="modal-overlay" id="modal-dettaglio-giorno-assenze" style="display: none;" onclick="if(event.target === this) chiudiModalDettaglioGiornoAssenze()">
+    <div class="modal-card" style="max-width: 520px;">
+      <div class="flex-between" style="border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 14px;">
+        <div>
+          <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6366f1; font-weight: 800;">Registro Presenze &amp; Assenze</span>
+          <h3 class="modal-title" id="dettaglio-assenze-titolo-data" style="margin: 2px 0 0 0; font-size: 17.5px; color: #1e1b4b;">Assenze del Giorno</h3>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalDettaglioGiornoAssenze()" style="font-size: 18px; width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center;">✕</button>
+      </div>
+
+      <div id="dettaglio-assenze-elenco-body" style="max-height: 55vh; overflow-y: auto; margin-bottom: 16px;">
+        <!-- popolato dinamicamente con l'elenco dei residenti assenti per quella data -->
+      </div>
+
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 12px; flex-wrap: wrap; gap: 8px;">
+        <button type="button" class="btn btn-sm btn-primary" id="btn-dettaglio-aggiungi-assenza" onclick="apriModalSegnalaAssenzaDaDettaglio()" style="background: #4f46e5; border-color: #4338ca; font-weight: 700;">
+          ➕ Segnala Assenza per questa data
+        </button>
+        <button type="button" class="btn btn-sm btn-secondary" onclick="chiudiModalDettaglioGiornoAssenze()" style="font-weight: 600;">
+          Chiudi
+        </button>
       </div>
     </div>
   </div>

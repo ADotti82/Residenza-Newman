@@ -20,6 +20,7 @@ const SHEET_CONFIG = "Configurazione";
 const SHEET_BACHECA = "Bacheca";
 const SHEET_MENU = "Menu_Base";
 const SHEET_ACCOGLIENZA = "Accoglienza";
+const SHEET_ASSENZE = "Assenze";
 
 /**
  * Funzione di inizializzazione automatica del database.
@@ -471,6 +472,15 @@ function doPost(e) {
 
       case "getAccoglienzaData":
         return gestisciGetAccoglienzaData();
+
+      case "getAssenze":
+        return gestisciGetAssenze();
+
+      case "registraAssenza":
+        return gestisciRegistraAssenza(payload);
+
+      case "cancellaAssenza":
+        return gestisciCancellaAssenza(payload);
 
       default:
         return rispostaJSON({ success: false, error: "Azione non riconosciuta: " + action });
@@ -1415,7 +1425,8 @@ function getInfoData() {
     prenotazioniSpazi: prenotazioniSpazi,
     prenotazioniMensa: prenotazioniMensa,
     bacheca: bacheca,
-    accoglienza: accoglienza
+    accoglienza: accoglienza,
+    assenze: gestisciGetAssenzeRaw()
   });
 }
 
@@ -1635,6 +1646,7 @@ function gestisciGetBootstrap(payload) {
     bacheca: bacheca,
     accoglienza: accoglienza,
     menuBase: menuBase,
+    assenze: gestisciGetAssenzeRaw(),
     isMaster: isMaster
   };
 
@@ -1861,6 +1873,7 @@ function getMasterData(emailRichiedente) {
     guasti: guasti,
     prenotazioniSpazi: prenotazioniSpazi,
     accoglienza: accoglienza,
+    assenze: gestisciGetAssenzeRaw(),
     config: config
   });
 }
@@ -2844,6 +2857,193 @@ function eseguiNotificheMattinaOre7() {
     return rispostaJSON({ success: true, count: eventiOggi.length, events: eventiOggi, data: oggi });
   } catch (err) {
     Logger.log("Errore eseguiNotificheMattinaOre7: " + err.toString());
+    return rispostaJSON({ success: false, error: err.toString() });
+  }
+}
+
+// ----------------------------------------------------------------------------
+// GESTIONE ASSENZE PROGRAMMATE & SINCRONIZZAZIONE MENSA
+// ----------------------------------------------------------------------------
+
+function getOrCreateSheetAssenze(ss) {
+  let sheet = ss.getSheetByName(SHEET_ASSENZE);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_ASSENZE);
+    sheet.appendRow([
+      "ID",
+      "Email",
+      "Nome",
+      "Data_Inizio",
+      "Data_Fine",
+      "Motivo",
+      "Note",
+      "Assente_Mensa",
+      "Pasti_Interessati",
+      "Data_Creazione"
+    ]);
+  }
+  return sheet;
+}
+
+function gestisciGetAssenzeRaw() {
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sAssenze = ss.getSheetByName(SHEET_ASSENZE);
+  const list = [];
+  if (!sAssenze) return list;
+
+  const rows = sAssenze.getDataRange().getValues();
+  for (let i = 1; i < rows.length; i++) {
+    const row = rows[i];
+    if (row[0]) {
+      let pasti = ["pranzo", "cena"];
+      try {
+        if (row[8]) {
+          pasti = String(row[8]).split(",").map(p => p.trim());
+        }
+      } catch (e) {}
+
+      list.push({
+        id: String(row[0]),
+        email: String(row[1] || "").toLowerCase(),
+        nome: String(row[2] || ""),
+        data_inizio: formattaDataGAS(row[3]),
+        data_fine: formattaDataGAS(row[4] || row[3]),
+        motivo: String(row[5] || "Altro"),
+        note: String(row[6] || ""),
+        assente_mensa: Boolean(row[7] === true || String(row[7]).toLowerCase() === "true" || row[7] === 1),
+        pasti_interessati: pasti,
+        created_at: String(row[9] || "")
+      });
+    }
+  }
+  return list;
+}
+
+function gestisciGetAssenze() {
+  try {
+    const list = gestisciGetAssenzeRaw();
+    return rispostaJSON({ success: true, assenze: list });
+  } catch (err) {
+    return rispostaJSON({ success: false, error: err.toString() });
+  }
+}
+
+function gestisciRegistraAssenza(payload) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = getOrCreateSheetAssenze(ss);
+
+    const email = String(payload.email || "").trim().toLowerCase();
+    const nome = String(payload.nome || "").trim();
+    const dataInizio = formattaDataGAS(payload.data_inizio);
+    const dataFine = formattaDataGAS(payload.data_fine || payload.data_inizio);
+    const motivo = String(payload.motivo || "Altro");
+    const note = String(payload.note || "");
+    const assenteMensa = Boolean(payload.assente_mensa);
+    const pasti = Array.isArray(payload.pasti_interessati) ? payload.pasti_interessati : ["pranzo", "cena"];
+    const id = payload.id || ("ASS_" + Date.now());
+    const dataCreazione = new Date().toISOString();
+
+    sheet.appendRow([
+      id,
+      email,
+      nome,
+      dataInizio,
+      dataFine,
+      motivo,
+      note,
+      assenteMensa,
+      pasti.join(","),
+      dataCreazione
+    ]);
+
+    if (assenteMensa) {
+      const sMensa = ss.getSheetByName(SHEET_MENSA);
+      if (sMensa) {
+        const d1 = new Date(dataInizio + "T12:00:00");
+        const d2 = new Date(dataFine + "T12:00:00");
+        for (let dt = new Date(d1); dt <= d2; dt.setDate(dt.getDate() + 1)) {
+          const ymd = formattaDataGAS(dt);
+          pasti.forEach(pasto => {
+            gestisciPrenotazioneMensa({
+              data: ymd,
+              email: email,
+              tipo_pasto: pasto,
+              busta: false,
+              ritardo: false,
+              ospiti: 0,
+              stato_presenza: "assente",
+              note: "Assenza programmata: " + motivo
+            });
+          });
+        }
+      }
+    }
+
+    return rispostaJSON({
+      success: true,
+      id: id,
+      message: "Assenza registrata con successo!"
+    });
+  } catch (err) {
+    return rispostaJSON({ success: false, error: err.toString() });
+  }
+}
+
+function gestisciCancellaAssenza(payload) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = ss.getSheetByName(SHEET_ASSENZE);
+    if (!sheet) return rispostaJSON({ success: false, error: "Foglio Assenze non trovato" });
+
+    const id = String(payload.id || "");
+    const rows = sheet.getDataRange().getValues();
+    let rowIdx = -1;
+    let target = null;
+
+    for (let i = 1; i < rows.length; i++) {
+      if (String(rows[i][0]) === id) {
+        rowIdx = i + 1;
+        target = {
+          email: String(rows[i][1] || "").toLowerCase(),
+          data_inizio: formattaDataGAS(rows[i][3]),
+          data_fine: formattaDataGAS(rows[i][4] || rows[i][3]),
+          assente_mensa: Boolean(rows[i][7] === true || String(rows[i][7]).toLowerCase() === "true"),
+          pasti: String(rows[i][8] || "pranzo,cena").split(",").map(p => p.trim())
+        };
+        break;
+      }
+    }
+
+    if (rowIdx !== -1) {
+      sheet.deleteRow(rowIdx);
+
+      if (payload.ripristinaMensa && target && target.assente_mensa) {
+        const sMensa = ss.getSheetByName(SHEET_MENSA);
+        if (sMensa) {
+          const mRows = sMensa.getDataRange().getValues();
+          const d1 = new Date(target.data_inizio + "T12:00:00");
+          const d2 = new Date(target.data_fine + "T12:00:00");
+          for (let dt = new Date(d1); dt <= d2; dt.setDate(dt.getDate() + 1)) {
+            const ymd = formattaDataGAS(dt);
+            for (let m = mRows.length - 1; m >= 1; m--) {
+              const rData = formattaDataGAS(mRows[m][0]);
+              const rEmail = String(mRows[m][1] || "").toLowerCase();
+              const rPasto = String(mRows[m][2] || "").toLowerCase();
+              const rStato = String(mRows[m][6] || "").toLowerCase();
+              if (rData === ymd && rEmail === target.email && target.pasti.includes(rPasto) && rStato === "assente") {
+                sMensa.deleteRow(m + 1);
+              }
+            }
+          }
+        }
+      }
+
+      return rispostaJSON({ success: true, message: "Assenza revocata con successo!" });
+    }
+
+    return rispostaJSON({ success: false, error: "Assenza non trovata" });
+  } catch (err) {
     return rispostaJSON({ success: false, error: err.toString() });
   }
 }

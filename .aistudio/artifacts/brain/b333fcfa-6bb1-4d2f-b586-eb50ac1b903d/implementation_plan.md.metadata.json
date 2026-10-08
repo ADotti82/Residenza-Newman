@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di implementazione per integrare le Comunicazioni Ufficiali della Direzione (Messaggi Master) in Bacheca come avviso prioritario fissato in evidenza, con titolo, testo, date di pubblicazione e scadenza, e gestione centralizzata dal Pannello Master.",
-  "updatedAt":  "2026-10-06T11:00:58.156316730Z",
+  "summary":  "Piano di implementazione per il Calendario Assenze Residenti per i Superadmin e modulo di segnalazione assenza per gli utenti con sincronizzazione automatica della mensa. Include schema dati assenze, modale di inserimento con opzione pasti mensa, vista a calendario mensile interattivo nel pannello Master/Superadmin con filtri e drawer giornaliero, e riepilogo delle proprie assenze.",
+  "updatedAt":  "2026-10-08T13:41:40.782715943Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

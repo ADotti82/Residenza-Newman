@@ -1,107 +1,127 @@
-# Integrazione Comunicazioni Ufficiali Master in Bacheca
+# Calendario Assenze Residenti & Sincronizzazione Mensa per Superadmin
 
-Integrazione delle comunicazioni ufficiali della Direzione (Master/Supermaster) direttamente all'inizio della Bacheca come avviso istituzionale in evidenza fissato in cima, con supporto a titolo, testo, data di pubblicazione, data di scadenza e gestione reattiva dal Pannello Master.
+Sistema completo per consentire a ogni residente di segnalare le proprie assenze (per uno o più giorni) e ai Superadmin / Master di monitorare le assenze su un vero calendario interattivo mensile, con disattivazione/sincronizzazione automatica dei pasti in mensa per gli utenti del servizio.
+
+---
 
 ## User Review & Critical Decisions
 
 > [!IMPORTANT]
-> Decisioni confermate tramite le risposte di chiarimento:
-> - **Collocazione Primaria**: La comunicazione ufficiale della Direzione/Master compare direttamente in **Bacheca** come card prioritaria fissata in cima alla schermata principale, ben visibile a tutti i sacerdoti e residenti appena aprono l'app.
-> - **Formato Strutturato**: La comunicazione include Titolo istituzionale, Testo del messaggio, Data di pubblicazione e Data di scadenza facoltativa (con scomparsa automatica o indicazione di validità).
-> - **Accesso e Modifica**: I profili con privilegi Master possono creare, modificare o revocare la comunicazione sia direttamente dalla Bacheca (pulsante rapido "Modifica Comunicazione") sia dalla sezione dedicata del Pannello Master.
-
-- **Conferma Scadenza**: Se impostata una data di scadenza passata, l'avviso non viene mostrato ai residenti; il Master può riattivarlo o aggiornarlo in qualsiasi momento.
-- **Doppia Visibilità Consolidata**: Per coerenza storica, il messaggio rimane consultabile anche nella scheda Residenza/Info, ma il suo fulcro operativo quotidiano diventa la Bacheca comunitaria.
+> **Decisioni confermate & flussi operativi integrati:**
+> - **Segnalazione Assenza Utente**: Ogni utente può accedere sia dalla Home (widget dedicato / pulsante rapido) sia dalla sezione Mensa / Profilo per registrare un'assenza singola o un intervallo di date, specificando motivo opzionale e note.
+> - **Sincronizzazione Mensa Automatica**: Se l'utente è un "utente mensa" (`is_utente_mensa: true`), la finestra permette di spuntare "Assente anche dai pasti in Mensa" (con scelta tra Pranzo, Cena o Entrambi). Al salvataggio, per tutti i giorni del periodo indicato, lo stato dei pasti viene automaticamente marcato come `assente` nel registro mensa comunitario.
+> - **Calendario Superadmin / Master**: Una scheda dedicata nel pannello Master ("Calendario Assenze") strutturata come un calendario mensile reale con navigazione mesi, vista giorni Lun-Dom, badge dei nominativi assenti, chip pasto sospeso, filtri di ricerca e cassetto dettagli per ciascuna data.
 
 ---
 
-## 1. Overview & Core Concept
+## 1. Panoramica & Funzionalità Chiave
 
-- **Che cosa fa**: Porta la voce della Direzione al centro dell'esperienza quotidiana della Residenza. Invece di richiedere agli utenti di cercare la comunicazione nella scheda secondaria "Residenza", il messaggio ufficiale viene presentato in cima alla Bacheca (la home page dell'applet), sopra il calendario romano e gli eventi del giorno.
-- **Target & Contesto**: Sacerdoti e residenti della Residenza Newman che consultano l'app ogni mattina per orari, mensa e liturgia; Direzione/Master che deve comunicare tempestivamente avvisi urgenti o direttive comunitarie.
-- **Valore Aggiunto**: Elimina ogni ambiguità sulla visibilità degli avvisi del Master, garantisce priorità alle comunicazioni della Direzione e offre un form completo di gestione con scadenza temporale.
-
----
-
-## 2. User Experience & Visual Design
-
-### Flusso Utente Principale
-
-1. **Apertura Bacheca (Tutti i Residenti)**:
-   - In cima alla Bacheca, subito sotto la testata della data liturgica romana (o come primo elemento in evidenza), compare la card istituzionale della Direzione:
-     - Header con icona distintiva `👑 Comunicazione della Direzione`.
-     - Badge di evidenza con data di pubblicazione formattata in italiano.
-     - Titolo in grassetto chiaro e corpo del testo formattato (con supporto ad a capo e link).
-     - Eventuale indicazione di scadenza ("Valido fino al: [Data]").
-     - Per i Master: pulsante contestuale `✏️ Modifica` per aggiornamento istantaneo con un solo tap.
-2. **Creazione & Modifica dal Master**:
-   - Apertura di una modal dedicata o form nel Pannello Master con:
-     - Titolo della comunicazione (es. "Aggiornamento orari estivi mensa" o "Accoglienza nuovi residenti").
-     - Testo esteso del messaggio.
-     - Data di pubblicazione (default: oggi).
-     - Data di scadenza opzionale (con date picker).
-     - Checkbox/opzione "Rimuovi / Disattiva comunicazione attiva".
-3. **Persistenza & Reattività Immediata**:
-   - Al salvataggio, l'avviso viene inviato a Google Apps Script (`aggiornaConfig`) e aggiornato nello stato locale `appState.cachedConfig`.
-   - La vista della Bacheca e il Pannello Master si ri-renderizzano immediatamente senza dover ricaricare la pagina.
-
-### Design Visivo & Ergonomia Mobile (Mobile-First)
-
-- **Canvas & Spaziatura**: Progettato per schermi smartphone (360px–430px) senza overflow orizzontale.
-- **Bordo & Superficie**: Bordo sinistro accentuato con tonalità ambra istituzionale (`border-left: 4px solid #f59e0b`), sfondo chiaro caldo con contrasto WCAG AA (`#fffbeb` in light mode, superficie scura compensata in dark mode).
-- **Gerarchia Tipografica**:
-  - Titolo sezione: 15px semi-bold con icona 👑.
-  - Titolo avviso: 16px bold ad alta leggibilità.
-  - Testo: 13.5px con interlinea 1.5, per una lettura fluida anche su telefoni piccoli.
-  - Metadati (data pub/scadenza): 11.5px non incapsulati in pillole decorative, ma con testo nitido e separatori tipografici (`·`).
+- **Per ogni Utente/Residente**:
+  - Finestra modale intuitiva per registrare un'assenza (giorno singolo o intervallo date).
+  - Opzione per contrassegnare l'assenza dai pasti con cancellazione/impostazione automatica su `assente` in mensa.
+  - Sezione "Le Mie Assenze" con visualizzazione dei periodi salvati e possibilità di annullare o modificare.
+- **Per i Superadmin & Master**:
+  - Calendario mensile autentico (griglia Lun-Dom con evidenza del giorno corrente).
+  - Visualizzazione immediata di chi è assente giorno per giorno con nomi leggibili e badge visuali.
+  - Indicazione chiara se l'assenza comporta anche la sospensione della mensa (icona piatto/posate).
+  - Statistiche rapide di testata: *Assenti oggi*, *Assenze nei prossimi 7 giorni*, *Pasti mensa sospesi*.
+  - Filtri istantanei: ricerca per nome residente, filtro per sole assenze con mensa sospesa.
+  - Clic su qualsiasi data del calendario per aprire il cassetto/popup di dettaglio con la lista completa dei residenti assenti in quel giorno, i contatti, il motivo e i pasti disattivati.
 
 ---
 
-## 3. Decisioni di Prodotto & Trade-Offs
-
-- **Decisione 1: Struttura dei Dati (Configurazione Globale vs Collezione Bacheca)**
-  - *Scelta*: Estendere l'oggetto di configurazione globale (`Messaggio_Supermaster`, `Messaggio_Supermaster_Titolo`, `Messaggio_Supermaster_Data_Pubblicazione`, `Messaggio_Supermaster_Data_Scadenza`).
-  - *Perché*: La Direzione emette un'unica comunicazione istituzionale in vigore alla volta (o stato vuoto). Questo evita conflitti con i singoli eventi giornalieri (compleanni, sante messe speciali) e permette al Master di modificare o cancellare l'avviso centrale in modo rapido e atomico, senza rischiare di cancellare per errore eventi del calendario.
-- **Decisione 2: Filtro Data di Scadenza**
-  - *Scelta*: Verifica automatica `dataScadenza < oggi`. Se la data è passata, la card non viene mostrata ai residenti comuni, ma nel pannello Master appare come "Comunicazione scaduta" con opzione di rinnovo o nuovo testo.
-- **Decisione 3: Doppia presenza coerente**
-  - *Scelta*: Il messaggio resta visibile sia in Bacheca (con la massima priorità) sia nella scheda "Residenza" sotto Dove Siamo, assicurando che chi naviga per consultare regolamento e contatti ritrovi lo stesso messaggio ufficiale.
-
----
-
-## 4. Architettura Tecnica & Flusso Dati
+## 2. Esperienza Utente & Visual Design
 
 ```
-┌────────────────────────────────────────────────────────┐
-│                   PANNELLO MASTER                      │
-│  - Form rapido o Modal "Comunicazione Direzione"       │
-│  - Campi: Titolo, Testo, Data Pubblicazione, Scadenza │
-└──────────────────────────┬─────────────────────────────┘
-                           │ callApi("aggiornaConfig")
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│               BACKEND (Apps Script / Cache)            │
-│  - Salva proprietà su Foglio/Configurazione           │
-│  - Restituisce payload aggiornato                      │
-└──────────────────────────┬─────────────────────────────┘
-                           │ appState.cachedConfig
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│               RENDER BACHECA (renderBachecaView)       │
-│  1. Verifica presenza e validità temporale del msg     │
-│  2. Inserisce Card Ufficiale in cima alla Bacheca      │
-│  3. Renderizza sotto il Calendario Romano & Avvisi     │
-└────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│ MASTER: CALENDARIO ASSENZE RESIDENTI                                  │
+├────────────────────────────────────────────────────────────────────────┤
+│ [ < Mese Prec ]        Ottobre 2026        [ Mese Succ > ]  [ Oggi ]   │
+│                                                                        │
+│ Filtra residente: [ Cerca nome... ]    [x] Solo con mensa sospesa      │
+│                                                                        │
+│ ┌──────────────┐  ┌──────────────┐  ┌────────────────────────────────┐ │
+│ │ 3 Assenti    │  │ 7 Assenze    │  │ 12 Pasti Mensa                 │ │
+│ │ Oggi         │  │ Prossimi 7gg │  │ Sospesi questo mese            │ │
+│ └──────────────┘  └──────────────┘  └────────────────────────────────┘ │
+├────────────────────────────────────────────────────────────────────────┤
+│ LUN    MAR    MER    GIO    VEN    SAB    DOM                          │
+│ ────────────────────────────────────────────────────────────────────── │
+│ 28     29     30     1      2      3      4                            │
+│                      [• Rossi (🍽️)]                                     │
+│                                                                        │
+│ 5      6      7      8      9      10     11                           │
+│        [• Bianchi]   [• Rossi (🍽️)] [• Verdi]                            │
+│                      [• Don Rocco]                                     │
+│                                                                        │
+│ 12     13     14     15     16     17     18                           │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### Componenti e Funzioni Coinvolte
+- **Stile visivo**: Coerente con la palette Newman (Navy, Slate, Indigo, Amber), senza badge caramellosi o card annidate. Tipografia pulita con numeri tabulari.
+- **Interazione al clic sul giorno**: Apre un pannello pulito con l'elenco degli assenti del giorno selezionato, le note di assenza e lo stato dei pasti.
 
-1. **`renderBachecaView()` (`app.js`)**:
-   - Iniezione della card in evidenza prima della sezione degli eventi giornalieri se `Messaggio_Supermaster` è configurato e non scaduto.
-   - Presenza pulsante rapido `✏️ Modifica` per utenti con ruolo Master/Supermaster/Admin.
-2. **`apriModalMessaggioSupermaster()` & `salvaMessaggioSupermaster()` (`app.js`)**:
-   - Aggiunta del campo `Titolo Comunicazione` (attualmente mancava o era solo testo).
-   - Validazione delle date di pubblicazione e scadenza.
-   - Chiamata a `aggiornaConfig` e re-render immediato di `renderBachecaView()` e `renderResidenzaView()`.
-3. **Pannello Master (`renderMasterSection()` in `app.js`)**:
-   - Aggiornamento della sottosezione "Messaggio della Direzione" per includere i campi Titolo e Scadenza e preview contestuale.
+---
+
+## 3. Architettura Dati & Sincronizzazione
+
+```
+┌─────────────────────────┐
+│     Modulo Assenza      │
+│ (Data inizio - fine)    │
+│ [x] Sospendi pasti      │
+└───────────┬─────────────┘
+            │
+            ▼
+┌─────────────────────────┐       Salvataggio
+│   Array `db.assenze`    ├─────────────────────────────► localStorage /
+│   - id, email, nome     │                               Apps Script API
+│   - data_inizio, fine   │
+│   - assente_mensa, pasti│
+└───────────┬─────────────┘
+            │ Se assente_mensa === true
+            ▼
+┌─────────────────────────┐
+│ Ciclo date intervallo   │
+│ Aggiorna `db.mensa`     │──► Segna stato_presenza = "assente"
+│ per pranzo / cena       │    per ogni giorno compreso
+└─────────────────────────┘
+```
+
+- **Entità `assenze`**:
+  - `id`: identificativo univoco (es. `ASS_1728384910`)
+  - `email`: email del residente
+  - `nome`: nominativo del residente
+  - `data_inizio`: `YYYY-MM-DD`
+  - `data_fine`: `YYYY-MM-DD`
+  - `motivo`: motivo selezionabile ("Studio", "Famiglia / Ritorno a casa", "Lavoro / Tirocinio", "Viaggio", "Altro")
+  - `note`: note descrittive facoltative
+  - `assente_mensa`: booleano (`true` / `false`)
+  - `pasti_interessati`: array di pasti (`['pranzo']`, `['cena']`, o `['pranzo', 'cena']`)
+  - `data_creazione`: timestamp ISO
+
+- **Aggiornamento automatico della Mensa**:
+  - Quando viene salvata un'assenza con `assente_mensa: true`, il sistema itera su tutte le date da `data_inizio` a `data_fine` (inclusive).
+  - Per ciascun pasto selezionato (pranzo, cena o entrambi), crea o aggiorna la prenotazione in `db.mensa` impostando `stato_presenza: "assente"`, `busta: false`, `ritardo: false`, `note: "Assenza programmata: " + motivo`.
+  - Se un'assenza viene cancellata dal residente prima della sua scadenza, viene data la possibilità di ripristinare o pulire i record mensa collegati.
+
+---
+
+## 4. Fasi di Implementazione
+
+1. **Struttura Dati & Backend Mock**:
+   - Inizializzazione della collezione `assenze` nel mock DB locale e gestione persistenza `localStorage`.
+   - Implementazione delle azioni API: `registraAssenza`, `cancellaAssenza`, `getAssenze`.
+   - Logica di sincronizzazione transazionale con `prenotaMensa` per impostare lo stato `assente`.
+
+2. **UI Utente Residente**:
+   - Modale "Segnala Assenza": scelta data singola o intervallo, motivo, note, toggle "Assente dai pasti della Mensa" con checkbox pranzo/cena.
+   - Pulsante "Segnala Assenza" accessibile nella Home, nella vista Mensa e nel menu opzioni.
+   - Scheda/elenco delle "Mie Assenze Programmate" per visualizzare e revocare le proprie assenze.
+
+3. **Calendario Mensile Superadmin / Master**:
+   - Aggiunta della tab "Calendario Assenze" nel pannello Master (visibile ai Superadmin/Master).
+   - Generazione della griglia del calendario per il mese corrente con controlli Mese Prec / Mese Succ / Oggi.
+   - Rendering dei residenti assenti su ogni casella giornaliera con badge nominativi ed icona pasto.
+   - Statistiche in testata e filtri veloci (ricerca nominativo, toggle solo pasti mensa).
+   - Drawer/modale di dettaglio del singolo giorno al clic sulla casella.
