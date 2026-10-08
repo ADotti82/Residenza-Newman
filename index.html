@@ -2899,10 +2899,11 @@
   <!-- MODAL SEGNALA ASSENZA PROGRAMMATA -->
   <div class="modal-overlay" id="modal-segnala-assenza" style="display: none;" onclick="if(event.target === this) chiudiModalSegnalaAssenza()">
     <div class="modal-card" style="max-width: 460px;">
-      <div class="modal-header">
+      <div class="modal-header" style="position: relative; margin-bottom: 16px;">
+        <button type="button" onclick="chiudiModalSegnalaAssenza()" style="position: absolute; top: 0; right: 0; border: none; background: #f1f5f9; color: #475569; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Chiudi">✕</button>
         <div class="modal-brand-badge" style="background: #4f46e5; color: #ffffff;">📅</div>
-        <h3 class="modal-title" style="font-size: 18px; color: #1e1b4b;">Segnala Assenza Programmata</h3>
-        <p class="modal-subtitle" style="font-size: 12.5px;">Indica i giorni di assenza e sincronizza automaticamente la Mensa</p>
+        <h3 class="modal-title" style="font-size: 18px; color: #1e1b4b; margin: 0;">Segnala Assenza Programmata</h3>
+        <p class="modal-subtitle" style="font-size: 12.5px; margin: 4px 0 0 0;">Indica i giorni di assenza e sincronizza automaticamente la Mensa</p>
       </div>
 
       <form id="form-segnala-assenza" onsubmit="handleSalvaSegnalazioneAssenza(event)">

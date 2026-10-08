@@ -10822,38 +10822,49 @@ window.generaCalendarioAssenzeMasterHtml = generaCalendarioAssenzeMasterHtml;
 
 window.apriModalSegnalaAssenza = function(prefillData = {}) {
   const modal = document.getElementById("modal-segnala-assenza");
-  if (!modal) return;
-
-  const isMaster = (typeof haPermessiMaster === "function" && haPermessiMaster());
-  const groupUtente = document.getElementById("group-assenza-utente");
-  const selectUtente = document.getElementById("assenza-select-utente");
-
-  if (isMaster && selectUtente) {
-    if (groupUtente) groupUtente.style.display = "block";
-    const utenti = appState.tuttiUtenti || [];
-    selectUtente.innerHTML = utenti.map(u => {
-      const email = String(u.email || "").toLowerCase().trim();
-      const isSel = prefillData.email ? (email === prefillData.email.toLowerCase()) : (appState.user && email === appState.user.email.toLowerCase());
-      return `<option value="${escapeHtml(email)}" ${isSel ? 'selected' : ''}>${escapeHtml(u.nome || email)} (${escapeHtml(email)})</option>`;
-    }).join("");
-  } else if (groupUtente) {
-    groupUtente.style.display = "none";
+  if (!modal) {
+    console.error("Modale segnala assenza non trovata nel DOM");
+    return;
   }
 
-  const oggiYmd = formatYMD(new Date());
-  const inpInizio = document.getElementById("assenza-data-inizio");
-  const inpFine = document.getElementById("assenza-data-fine");
-  if (inpInizio) inpInizio.value = prefillData.date || oggiYmd;
-  if (inpFine) inpFine.value = prefillData.endDate || prefillData.date || oggiYmd;
+  try {
+    const isMaster = (typeof haPermessiMaster === "function" && haPermessiMaster());
+    const groupUtente = document.getElementById("group-assenza-utente");
+    const selectUtente = document.getElementById("assenza-select-utente");
 
-  const selectMotivo = document.getElementById("assenza-select-motivo");
-  if (selectMotivo) selectMotivo.value = prefillData.motivo || "Famiglia / Ritorno a casa";
+    if (isMaster && selectUtente) {
+      if (groupUtente) groupUtente.style.display = "block";
+      const utenti = appState.tuttiUtenti || [];
+      selectUtente.innerHTML = utenti.map(u => {
+        const email = String(u.email || "").toLowerCase().trim();
+        const isSel = prefillData.email ? (email === prefillData.email.toLowerCase()) : (appState.user && email === appState.user.email.toLowerCase());
+        return `<option value="${escapeHtml(email)}" ${isSel ? 'selected' : ''}>${escapeHtml(u.nome || email)} (${escapeHtml(email)})</option>`;
+      }).join("");
+    } else if (groupUtente) {
+      groupUtente.style.display = "none";
+    }
 
-  const inpNote = document.getElementById("assenza-input-note");
-  if (inpNote) inpNote.value = prefillData.note || "";
+    const oggiYmd = (typeof formatYMD === "function") ? formatYMD(new Date()) : new Date().toISOString().slice(0, 10);
+    const inpInizio = document.getElementById("assenza-data-inizio");
+    const inpFine = document.getElementById("assenza-data-fine");
+    if (inpInizio) inpInizio.value = prefillData.date || oggiYmd;
+    if (inpFine) inpFine.value = prefillData.endDate || prefillData.date || oggiYmd;
 
-  aggiornaOpzioniMensaPerUtenteSelezionato();
+    const selectMotivo = document.getElementById("assenza-select-motivo");
+    if (selectMotivo) selectMotivo.value = prefillData.motivo || "Famiglia / Ritorno a casa";
+
+    const inpNote = document.getElementById("assenza-input-note");
+    if (inpNote) inpNote.value = prefillData.note || "";
+
+    if (typeof aggiornaOpzioniMensaPerUtenteSelezionato === "function") {
+      aggiornaOpzioniMensaPerUtenteSelezionato();
+    }
+  } catch (err) {
+    console.warn("Avviso durante l'apertura modale assenza:", err);
+  }
+
   modal.style.display = "flex";
+  modal.style.zIndex = "9999";
 };
 
 window.chiudiModalSegnalaAssenza = function() {
