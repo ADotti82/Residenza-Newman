@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di risoluzione per il blocco dei clic dell'app: sblocco del ciclo di vita di inizializzazione JavaScript (readyState check), aggiunta di fallback dichiarativi onclick sulla barra di navigazione e sui pulsanti, e spiegazione rassicurante sugli avvisi di console.",
-  "updatedAt":  "2026-10-08T18:53:24.580370193Z",
+  "summary":  "Piano di revisione e consolidamento pre-lancio: sblocco modali assenze e appuntamenti, gestione buste e menu 14 giorni, sostituzione icona ospiti e ottimizzazione del contrasto per visione notturna (Dark Mode).",
+  "updatedAt":  "2026-10-08T19:24:47.728239881Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
