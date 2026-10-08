@@ -16,7 +16,7 @@
  * ============================================================================
  */
 
-const CACHE_VERSION = 'newman-v10-autoreload';
+const CACHE_VERSION = 'newman-v12-unfreeze';
 
 // Asset minimi per la shell offline (pre-caching sicuro con allSettled)
 const PRECACHE_ASSETS = [

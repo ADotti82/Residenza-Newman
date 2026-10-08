@@ -2973,6 +2973,7 @@ function gestisciRegistraAssenza(payload) {
               ritardo: false,
               ospiti: 0,
               stato_presenza: "assente",
+              bypassTimeLock: true,
               note: "Assenza programmata: " + motivo
             });
           });
@@ -2980,9 +2981,23 @@ function gestisciRegistraAssenza(payload) {
       }
     }
 
+    const assenzaObj = {
+      id: id,
+      email: email,
+      nome: nome,
+      data_inizio: dataInizio,
+      data_fine: dataFine,
+      motivo: motivo,
+      note: note,
+      assente_mensa: assenteMensa,
+      pasti_interessati: pasti,
+      created_at: dataCreazione
+    };
+
     return rispostaJSON({
       success: true,
       id: id,
+      assenza: assenzaObj,
       message: "Assenza registrata con successo!"
     });
   } catch (err) {

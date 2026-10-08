@@ -387,14 +387,36 @@ const appState = {
 window.appState = appState;
 
 // ----------------------------------------------------------------------------
-// INIZIALIZZAZIONE DELL'APP
+// INIZIALIZZAZIONE DELL'APP (BOOTSTRAP UNIVERSALE INFALLIBILE)
 // ----------------------------------------------------------------------------
-document.addEventListener("DOMContentLoaded", () => {
-  initStorage();
-  initDateSelectorMensa();
-  setupEventListeners();
-  checkAuthAndLoad();
-});
+let appInizializzata = false;
+function avviaApplicazione() {
+  if (appInizializzata) return;
+  appInizializzata = true;
+  console.log("🚀 Bootstrap Newman App avviato (readyState:", document.readyState, ")");
+  try {
+    initStorage();
+  } catch (e) {
+    console.error("Errore durante initStorage:", e);
+  }
+  try {
+    initDateSelectorMensa();
+  } catch (e) {
+    console.error("Errore durante initDateSelectorMensa:", e);
+  }
+  try {
+    setupEventListeners();
+  } catch (e) {
+    console.error("Errore durante setupEventListeners:", e);
+  }
+  try {
+    checkAuthAndLoad();
+  } catch (e) {
+    console.error("Errore durante checkAuthAndLoad:", e);
+  }
+}
+
+window.avviaApplicazione = avviaApplicazione;
 function initStorage() {
   // ✅ FIX: Forza il reset dell'URL GAS se è quello vecchio/rotto
   const URL_CORRETTO = "https://script.google.com/macros/s/AKfycbys9aPfUH6PXGCmHPDWset6pgvwG1kmxUlDFv3Yaiq8uAfp_2uiswm7DNd8_tQqDHHxVg/exec";
@@ -1348,7 +1370,8 @@ function calcolaCalendarioRomano(date) {
     if (m >= 5) settimanaNum = Math.min(34, Math.max(8, Math.floor((currMs - new Date(y, 4, 25).getTime()) / (7 * 86400000)) + 9));
   }
 
-  const eventoFisso = CALENDARIO_ROMANO_IT[keyMeseGiorno];
+  const dictCalendario = (typeof CALENDARIO_ROMANO_IT !== "undefined" && CALENDARIO_ROMANO_IT) ? CALENDARIO_ROMANO_IT : {};
+  const eventoFisso = dictCalendario[keyMeseGiorno];
   let santo = "";
   let coloreLiturgico = coloreTempo;
   let coloreHex = hexTempo;
@@ -1828,10 +1851,12 @@ function renderBachecaView() {
     </div>
 
     ${(() => {
-      if (!appState.user) return "";
-      const mieAssenze = (appState.assenze || []).filter(a => String(a.email).toLowerCase() === appState.user.email.toLowerCase());
-      if (mieAssenze.length === 0) return "";
-      return `
+      try {
+        if (!appState.user || !appState.user.email) return "";
+        const uEmail = String(appState.user.email).trim().toLowerCase();
+        const mieAssenze = (appState.assenze || []).filter(a => a && a.email && String(a.email).trim().toLowerCase() === uEmail);
+        if (mieAssenze.length === 0) return "";
+        return `
         <div class="card" style="background: #f8fafc; border-left: 4px solid #4f46e5; padding: 12px 14px; margin-bottom: 14px;">
           <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
             <div style="display: flex; align-items: center; gap: 6px;">
@@ -1855,6 +1880,10 @@ function renderBachecaView() {
           </div>
         </div>
       `;
+      } catch (e) {
+        console.warn("Errore rendering mieAssenze:", e);
+        return "";
+      }
     })()}
 
     <div class="card">
@@ -5002,7 +5031,7 @@ function inizializzaSezioneEmailAmministrazione() {
   }
 
   const textarea = document.getElementById("manutenzione-testo-email-amm");
-  if (textarea && !textarea.value.trim()) {
+  if (textarea && !(textarea.value || "").trim()) {
     textarea.value = generaTemplateStandardEmailAmministrazione();
   }
 }
@@ -10820,13 +10849,18 @@ function generaCalendarioAssenzeMasterHtml() {
 }
 window.generaCalendarioAssenzeMasterHtml = generaCalendarioAssenzeMasterHtml;
 
-window.apriModalSegnalaAssenza = function(prefillData = {}) {
+function apriModalSegnalaAssenza(prefillData = {}) {
   const modal = document.getElementById("modal-segnala-assenza");
   if (!modal) {
     console.error("Modale segnala assenza non trovata nel DOM");
     return;
   }
 
+  // 1. Apri subito la modale a schermo (visibilità garantita)
+  modal.style.display = "flex";
+  modal.style.zIndex = "9999";
+
+  // 2. Popola i dati e imposta opzioni in modalità protetta
   try {
     const isMaster = (typeof haPermessiMaster === "function" && haPermessiMaster());
     const groupUtente = document.getElementById("group-assenza-utente");
@@ -10835,10 +10869,11 @@ window.apriModalSegnalaAssenza = function(prefillData = {}) {
     if (isMaster && selectUtente) {
       if (groupUtente) groupUtente.style.display = "block";
       const utenti = appState.tuttiUtenti || [];
+      const escapeFn = typeof escapeHtml === "function" ? escapeHtml : (s) => String(s);
       selectUtente.innerHTML = utenti.map(u => {
         const email = String(u.email || "").toLowerCase().trim();
         const isSel = prefillData.email ? (email === prefillData.email.toLowerCase()) : (appState.user && email === appState.user.email.toLowerCase());
-        return `<option value="${escapeHtml(email)}" ${isSel ? 'selected' : ''}>${escapeHtml(u.nome || email)} (${escapeHtml(email)})</option>`;
+        return `<option value="${escapeFn(email)}" ${isSel ? 'selected' : ''}>${escapeFn(u.nome || email)} (${escapeFn(email)})</option>`;
       }).join("");
     } else if (groupUtente) {
       groupUtente.style.display = "none";
@@ -10856,30 +10891,28 @@ window.apriModalSegnalaAssenza = function(prefillData = {}) {
     const inpNote = document.getElementById("assenza-input-note");
     if (inpNote) inpNote.value = prefillData.note || "";
 
-    if (typeof aggiornaOpzioniMensaPerUtenteSelezionato === "function") {
-      aggiornaOpzioniMensaPerUtenteSelezionato();
-    }
+    aggiornaOpzioniMensaPerUtenteSelezionato();
   } catch (err) {
     console.warn("Avviso durante l'apertura modale assenza:", err);
   }
+}
+window.apriModalSegnalaAssenza = apriModalSegnalaAssenza;
 
-  modal.style.display = "flex";
-  modal.style.zIndex = "9999";
-};
-
-window.chiudiModalSegnalaAssenza = function() {
+function chiudiModalSegnalaAssenza() {
   const modal = document.getElementById("modal-segnala-assenza");
   if (modal) modal.style.display = "none";
-};
+}
+window.chiudiModalSegnalaAssenza = chiudiModalSegnalaAssenza;
 
-window.onCambioDataInizioAssenza = function(val) {
+function onCambioDataInizioAssenza(val) {
   const inpFine = document.getElementById("assenza-data-fine");
   if (inpFine && (!inpFine.value || inpFine.value < val)) {
     inpFine.value = val;
   }
-};
+}
+window.onCambioDataInizioAssenza = onCambioDataInizioAssenza;
 
-window.impostaIntervalloAssenzaRapido = function(tipo) {
+function impostaIntervalloAssenzaRapido(tipo) {
   const inpInizio = document.getElementById("assenza-data-inizio");
   const inpFine = document.getElementById("assenza-data-fine");
   if (!inpInizio || !inpFine) return;
@@ -10908,14 +10941,16 @@ window.impostaIntervalloAssenzaRapido = function(tipo) {
     inpInizio.value = formatYMD(oggi);
     inpFine.value = formatYMD(f);
   }
-};
+}
+window.impostaIntervalloAssenzaRapido = impostaIntervalloAssenzaRapido;
 
-window.toggleOpzioniPastiAssenza = function(checked) {
+function toggleOpzioniPastiAssenza(checked) {
   const el = document.getElementById("assenza-dettagli-pasti");
   if (el) el.style.display = checked ? "flex" : "none";
-};
+}
+window.toggleOpzioniPastiAssenza = toggleOpzioniPastiAssenza;
 
-window.aggiornaOpzioniMensaPerUtenteSelezionato = function() {
+function aggiornaOpzioniMensaPerUtenteSelezionato() {
   const isMaster = (typeof haPermessiMaster === "function" && haPermessiMaster());
   const selectUtente = document.getElementById("assenza-select-utente");
   const targetEmail = (isMaster && selectUtente && selectUtente.value) ? selectUtente.value : (appState.user?.email || "");
@@ -10936,9 +10971,11 @@ window.aggiornaOpzioniMensaPerUtenteSelezionato = function() {
     } else {
       boxMensa.style.display = "none";
       if (chkMensa) chkMensa.checked = false;
+      toggleOpzioniPastiAssenza(false);
     }
   }
-};
+}
+window.aggiornaOpzioniMensaPerUtenteSelezionato = aggiornaOpzioniMensaPerUtenteSelezionato;
 
 window.handleSalvaSegnalazioneAssenza = async function(event) {
   event.preventDefault();
@@ -10995,14 +11032,52 @@ window.handleSalvaSegnalazioneAssenza = async function(event) {
     const res = await callApi("registraAssenza", payload);
     if (res && res.success) {
       if (!appState.assenze) appState.assenze = [];
-      const idx = appState.assenze.findIndex(a => String(a.id) === String(res.id));
-      if (idx !== -1) appState.assenze[idx] = res.assenza;
-      else appState.assenze.push(res.assenza);
+      const assenzaObj = res.assenza || {
+        id: res.id || ("ASS_" + Date.now()),
+        email,
+        nome,
+        data_inizio: dataInizio,
+        data_fine: dataFine,
+        motivo,
+        note,
+        assente_mensa: sospendiMensa,
+        pasti_interessati: pasti,
+        created_at: new Date().toISOString()
+      };
+
+      const idx = appState.assenze.findIndex(a => a && String(a.id) === String(assenzaObj.id));
+      if (idx !== -1) appState.assenze[idx] = assenzaObj;
+      else appState.assenze.push(assenzaObj);
 
       if (res.mensa) {
         appState.mensaBookings = res.mensa;
+      } else if (sospendiMensa) {
+        if (!appState.mensaBookings) appState.mensaBookings = [];
+        const dStart = new Date(dataInizio + "T12:00:00");
+        const dEnd = new Date(dataFine + "T12:00:00");
+        for (let dt = new Date(dStart); dt <= dEnd; dt.setDate(dt.getDate() + 1)) {
+          const ymd = (typeof formatYMD === "function") ? formatYMD(dt) : dt.toISOString().slice(0, 10);
+          pasti.forEach(pasto => {
+            const mIdx = appState.mensaBookings.findIndex(m => m && formattaDataConfronto(m.data) === ymd && String(m.email).toLowerCase() === email.toLowerCase() && m.tipo_pasto === pasto);
+            const mEntry = {
+              id: mIdx !== -1 ? appState.mensaBookings[mIdx].id : ("M_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4)),
+              data: ymd,
+              email,
+              tipo_pasto: pasto,
+              busta: false,
+              ritardo: false,
+              ospiti: 0,
+              stato_presenza: "assente",
+              note: "Assenza programmata: " + motivo,
+              timestamp: new Date().toISOString()
+            };
+            if (mIdx !== -1) appState.mensaBookings[mIdx] = { ...appState.mensaBookings[mIdx], ...mEntry };
+            else appState.mensaBookings.push(mEntry);
+          });
+        }
       }
 
+      console.log("✅ [Assenze] Assenza salvata con successo:", assenzaObj);
       mostraToast(sospendiMensa ? "Assenza registrata e pasti in mensa sospesi! 🍽️" : "Assenza registrata con successo!", "success");
       chiudiModalSegnalaAssenza();
 
@@ -11147,3 +11222,13 @@ window.cancellaAssenzaUtente = async function(id) {
     mostraToast("Errore durante la revoca dell'assenza", "error");
   }
 };
+
+// ----------------------------------------------------------------------------
+// AVVIO APPLICAZIONE (DOPO LA VALUTAZIONE COMPLETA DI TUTTE LE COSTANTI E FUNZIONI)
+// ----------------------------------------------------------------------------
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", avviaApplicazione);
+} else {
+  setTimeout(avviaApplicazione, 0);
+}
+window.addEventListener("load", avviaApplicazione);

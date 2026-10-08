@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di implementazione per il Calendario Assenze Residenti per i Superadmin e modulo di segnalazione assenza per gli utenti con sincronizzazione automatica della mensa. Include schema dati assenze, modale di inserimento con opzione pasti mensa, vista a calendario mensile interattivo nel pannello Master/Superadmin con filtri e drawer giornaliero, e riepilogo delle proprie assenze.",
-  "updatedAt":  "2026-10-08T13:41:40.782715943Z",
+  "summary":  "Piano di risoluzione per il blocco dei clic dell'app: sblocco del ciclo di vita di inizializzazione JavaScript (readyState check), aggiunta di fallback dichiarativi onclick sulla barra di navigazione e sui pulsanti, e spiegazione rassicurante sugli avvisi di console.",
+  "updatedAt":  "2026-10-08T18:53:24.580370193Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
