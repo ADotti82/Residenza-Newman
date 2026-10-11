@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di implementazione per la risoluzione dei problemi di segnalazione assenza pasti (disaccoppiamento sabato/domenica e gestione singoli pasti pranzo/cena) e introduzione del blocco automatico istituzionale per Lodi (06:30-06:45) e Santa Messa (06:45-07:15) dal lunedì al venerdì (escluso giovedì).",
-  "updatedAt":  "2026-10-11T20:23:44.662331215Z",
+  "summary":  "Piano di implementazione per applicare le rifiniture emerse durante l'audit funzionale e collaudare l'app:\n1. Allineamento elemento feedback per il test di connessione Google Apps Script sia in 'master-gas-test-result' che in 'gas-test-result'.\n2. Ottimizzazione mobile per il modal della guida, garantendo scrolling fluido del corpo e ancoraggio fisso della barra di chiusura.\n3. Salvaguardia delle note e preferenze pre-esistenti dell'utente durante il ripristino di una presenza a seguito di cancellazione dell'assenza programmata.\n4. Verifica e compilazione finale dell'applicazione.",
+  "updatedAt":  "2026-10-11T22:55:59.824208135Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

@@ -47,21 +47,21 @@ window.testaConnessioneGoogleFogli = async function() {
       aggiornaIndicatoreConnessione();
     }
   }
-  const resEl = document.getElementById("gas-test-result");
-  if (resEl) {
-    resEl.style.display = "block";
-    resEl.innerHTML = `<span style="color:#0284c7;">🔄 Test di connessione in corso...</span>`;
-  }
+  const resultEls = [document.getElementById("gas-test-result"), document.getElementById("master-gas-test-result")].filter(Boolean);
+  resultEls.forEach(el => {
+    el.style.display = "block";
+    el.innerHTML = `<span style="color:#0284c7;">🔄 Test di connessione in corso...</span>`;
+  });
   if (typeof window.testaConnessioneGAS === "function") {
     await window.testaConnessioneGAS();
   }
-  if (resEl) {
+  resultEls.forEach(el => {
     if (appState.backendUrl) {
-      resEl.innerHTML = `<span style="color:#166534; font-weight:600;">✅ URL Google Apps Script configurato e testato!</span>`;
+      el.innerHTML = `<span style="color:#166534; font-weight:600;">✅ URL Google Apps Script configurato e testato!</span>`;
     } else {
-      resEl.innerHTML = `<span style="color:#92400e;">⚠️ Modalità Stand-alone Locale attiva (nessun URL specificato).</span>`;
+      el.innerHTML = `<span style="color:#92400e;">⚠️ Modalità Stand-alone Locale attiva (nessun URL specificato).</span>`;
     }
-  }
+  });
 };
 
 window.switchTab = function(tabId) {
@@ -11547,10 +11547,21 @@ window.cancellaAssenzaUtente = async function(id) {
   try {
     const res = await callApi("cancellaAssenza", { id, ripristinaMensa: true });
     if (res && res.success) {
+      const targetAssenza = (appState.assenze || []).find(a => String(a.id) === String(id));
       if (appState.assenze) {
         appState.assenze = appState.assenze.filter(a => String(a.id) !== String(id));
       }
-      mostraToast("Assenza revocata con successo!", "info");
+      if (targetAssenza && targetAssenza.assente_mensa && appState.mensaBookings) {
+        const dStart = new Date(targetAssenza.data_inizio + "T12:00:00");
+        const dEnd = new Date(targetAssenza.data_fine + "T12:00:00");
+        for (let dt = new Date(dStart); dt <= dEnd; dt.setDate(dt.getDate() + 1)) {
+          const ymd = (typeof formatYMD === "function") ? formatYMD(dt) : dt.toISOString().slice(0, 10);
+          (targetAssenza.pasti_interessati || ["pranzo", "cena"]).forEach(pasto => {
+            appState.mensaBookings = appState.mensaBookings.filter(m => !(formattaDataConfronto(m.data) === ymd && String(m.email).toLowerCase() === String(targetAssenza.email).toLowerCase() && m.tipo_pasto === pasto && m.stato_presenza === "assente"));
+          });
+        }
+      }
+      mostraToast("Assenza revocata con successo! Pasti in mensa ripristinati.", "success");
 
       if (appState.dettaglioGiornoAssenzeData) {
         const stillOpen = document.getElementById("modal-dettaglio-giorno-assenze");
