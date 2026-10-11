@@ -1001,6 +1001,20 @@ function gestisciPrenotazioneSpazio(payload) {
 
   const targetDataStr = formattaDataGAS(data);
 
+  // Blocco istituzionale Chiesa per Lodi (06:30 - 06:45) e S. Messa (06:45 - 07:15) dal lunedì al venerdì tranne giovedì
+  if (risorsa === "Chiesa" && !isMaster) {
+    const dObj = new Date(targetDataStr + "T12:00:00");
+    const dayOfWeek = dObj.getDay(); // 1=Lun, 2=Mar, 3=Mer, 5=Ven
+    if (dayOfWeek === 1 || dayOfWeek === 2 || dayOfWeek === 3 || dayOfWeek === 5) {
+      if (slot_orario === "06:30 - 06:45" || slot_orario === "06:45 - 07:15") {
+        return rispostaJSON({
+          success: false,
+          error: "Questo slot è riservato alla preghiera comunitaria della Residenza (Lodi / S. Messa)."
+        });
+      }
+    }
+  }
+
   // Controllo sovrapposizione slot
   for (let i = 1; i < rows.length; i++) {
     const rRisorsa = String(rows[i][1]);
@@ -2940,7 +2954,9 @@ function gestisciRegistraAssenza(payload) {
     const motivo = String(payload.motivo || "Altro");
     const note = String(payload.note || "");
     const assenteMensa = Boolean(payload.assente_mensa);
-    const pasti = Array.isArray(payload.pasti_interessati) ? payload.pasti_interessati : ["pranzo", "cena"];
+    const pasti = (Array.isArray(payload.pasti_interessati) && payload.pasti_interessati.length > 0)
+      ? payload.pasti_interessati
+      : (payload.pasti_interessati ? [payload.pasti_interessati] : ["pranzo", "cena"]);
     const id = payload.id || ("ASS_" + Date.now());
     const dataCreazione = new Date().toISOString();
 

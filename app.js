@@ -562,7 +562,13 @@ function formattaDataConfronto(val) {
   if (!val) return "";
   if (val instanceof Date) return formatYMD(val);
   const s = String(val).trim();
-  if (s.includes("T")) return s.split("T")[0];
+  if (s.includes("T")) {
+    if (s.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(s)) {
+      const d = new Date(s);
+      if (!isNaN(d.getTime())) return formatYMD(d);
+    }
+    return s.split("T")[0];
+  }
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
   const d = new Date(s);
   if (!isNaN(d.getTime())) return formatYMD(d);
@@ -694,6 +700,13 @@ function mockBackendExecution(action, params) {
       const { risorsa, data, slot_orario, email, note, autoApprovaMaster } = params;
       const dataStr = formattaDataConfronto(data);
       const isMasterAction = Boolean(autoApprovaMaster) || String(email || "").startsWith("Master");
+
+      if (risorsa === "Chiesa" && typeof isGiornoLiturgiaComunitaria === "function" && isGiornoLiturgiaComunitaria(dataStr)) {
+        if ((slot_orario === "06:30 - 06:45" || slot_orario === "06:45 - 07:15") && !isMasterAction) {
+          return { success: false, error: "Questo slot orario è riservato alla preghiera comunitaria della Residenza (Lodi / S. Messa)." };
+        }
+      }
+
       const occupied = (db.prenotazioni_spazi || []).some(p => p.risorsa === risorsa && formattaDataConfronto(p.data) === dataStr && p.slot_orario === slot_orario && p.stato !== "Rifiutata");
       if (occupied && !isMasterAction) return { success: false, error: "Questo slot orario è già occupato o ha una richiesta in attesa." };
       if (occupied && isMasterAction) {
@@ -1033,7 +1046,9 @@ function mockBackendExecution(action, params) {
       const motivo = params.motivo || "Altro";
       const note = params.note || "";
       const assenteMensa = Boolean(params.assente_mensa);
-      const pasti = Array.isArray(params.pasti_interessati) ? params.pasti_interessati : (params.pasti_interessati ? [params.pasti_interessati] : ["pranzo", "cena"]);
+      const pasti = (Array.isArray(params.pasti_interessati) && params.pasti_interessati.length > 0)
+        ? params.pasti_interessati
+        : (params.pasti_interessati ? [params.pasti_interessati] : ["pranzo", "cena"]);
       const entryId = params.id || ("ASS_" + Date.now());
 
       const assenzaObj = {
@@ -1834,6 +1849,13 @@ function renderBachecaView() {
         <div class="liturgy-saint" style="font-size: 14.5px; font-weight: 600; color: #ffffff; margin-top: 5px; line-height: 1.4;">
           ⛪ ${escapeHtml(cal.santo)}
         </div>
+        ${isGiornoLiturgiaComunitaria(dataYMD) ? `
+          <div style="margin-top: 8px; padding: 6px 10px; background: rgba(255,255,255,0.18); border-radius: 6px; font-size: 12px; color: #f8fafc; display: flex; flex-direction: column; gap: 3px;">
+            <div style="font-weight: 700; color: #fef08a;">✝️ Preghiera Comunitaria in Chiesa:</div>
+            <div>📖 <strong>06:30 - 06:45:</strong> Lodi Mattutine Comunitarie</div>
+            <div>⛪ <strong>06:45 - 07:15:</strong> Santa Messa Comunitaria</div>
+          </div>
+        ` : ''}
       </div>
       <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; align-items: center;">
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -2542,7 +2564,7 @@ function calcolaContatoreMensa(dataStr, tipoPasto) {
   const isBustaMeal = isPastoBustaGiorno(dataStr, tipoPasto);
   const utentiMensa = getListaUtentiMensa();
   const dbMensa = appState.mensaBookings || [];
-  const prenotazioniPasto = dbMensa.filter(m => String(m.data).split("T")[0] === dataStr && m.tipo_pasto === tipoPasto);
+  const prenotazioniPasto = dbMensa.filter(m => formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto);
 
   if (isBustaMeal) {
     // I pasti contrassegnati dalla busta sono esclusi dalla presenza automatica di default:
@@ -2635,7 +2657,7 @@ function getStatoPresenzaUtente(dataStr, tipoPasto, userEmail) {
   if (!userEmail) return { isPresente: false, isAssente: false, isBusta: false, isRitardo: false, ospiti: 0, isDefault: false, note: "" };
   const emailNorm = userEmail.toLowerCase().trim();
   const pren = (appState.mensaBookings || []).find(m =>
-    String(m.data).split("T")[0] === dataStr &&
+    formattaDataConfronto(m.data) === dataStr &&
     m.tipo_pasto === tipoPasto &&
     String(m.email).toLowerCase().trim() === emailNorm
   );
@@ -2949,7 +2971,7 @@ function renderMensaView() {
           <button type="button" class="mode-tab-btn" style="background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; font-weight: 700;" onclick="switchTab('cucina')">👩‍🍳 Vista Cuoca</button>
           <button type="button" class="mode-tab-btn" style="background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; font-weight: 700;" onclick="switchTab('statistiche-mensa')">📊 Statistiche Mensili</button>
         ` : ''}
-        <button type="button" class="mode-tab-btn" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; font-weight: 700; margin-left: auto;" onclick="apriModalSegnalaAssenza()">
+        <button type="button" class="mode-tab-btn" style="background: #eef2ff; color: #4338ca; border: 1px solid #c7d2fe; font-weight: 700; margin-left: auto;" onclick="apriModalSegnalaAssenza({ date: '${formatYMD(dataSel)}', endDate: '${formatYMD(dataSel)}' })">
           🧳 Segnala Assenza (Sospendi Pasti)
         </button>
       </div>
@@ -3032,7 +3054,10 @@ function renderWeeklyScrollView(lunediDate) {
             <span>${giornoLabel}, ${formattaDataItaliana(d)}</span>
             ${isToday ? '<span class="badge badge-accent" style="font-size: 10px;">Oggi</span>' : ''}
           </div>
-          <button type="button" class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px;" onclick="apriDettaglioGiornoMensa('${dStr}')">Dettagli & Note</button>
+          <div style="display: flex; gap: 4px; align-items: center;">
+            <button type="button" class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px; color: #4338ca; border-color: #c7d2fe;" onclick="apriModalSegnalaAssenza({ date: '${dStr}', endDate: '${dStr}' })" title="Segnala assenza per ${giornoLabel}">🧳 Assenza Giorno</button>
+            <button type="button" class="btn btn-secondary" style="padding: 3px 8px; font-size: 11px;" onclick="apriDettaglioGiornoMensa('${dStr}')">Dettagli & Note</button>
+          </div>
         </div>
 
         <div class="weekly-meal-row">
@@ -3392,7 +3417,7 @@ window.quickSegnaPresenza = async function(dataStr, tipoPasto, busta, ritardo) {
   try {
     const res = await callApi("prenotaMensa", payload);
     if (res.success) {
-      const existIdx = appState.mensaBookings.findIndex(m => String(m.data).split("T")[0] === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase());
+      const existIdx = appState.mensaBookings.findIndex(m => formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase());
       const entry = { id: res.id || ("M_" + Date.now()), data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: Boolean(busta), ritardo: Boolean(ritardo), ospiti: 0, stato_presenza: "presente", note: "" };
       if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
       else appState.mensaBookings.push(entry);
@@ -3409,7 +3434,7 @@ window.quickSegnaAssente = async function(dataStr, tipoPasto) {
   try {
     const res = await callApi("prenotaMensa", payload);
     if (res.success) {
-      const existIdx = appState.mensaBookings.findIndex(m => String(m.data).split("T")[0] === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase());
+      const existIdx = appState.mensaBookings.findIndex(m => formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase());
       const entry = { id: res.id || ("M_" + Date.now()), data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Assente comunicato" };
       if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
       else appState.mensaBookings.push(entry);
@@ -3425,7 +3450,7 @@ window.quickCancelPresenza = async function(dataStr, tipoPasto) {
   try {
     const res = await callApi("cancellaPrenotazioneMensa", { data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto });
     if (res.success) {
-      appState.mensaBookings = appState.mensaBookings.filter(m => !(String(m.data).split("T")[0] === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase()));
+      appState.mensaBookings = appState.mensaBookings.filter(m => !(formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase()));
       mostraToast(`Presenza a ${tipoPasto} cancellata`, "info");
       renderMensaView();
       if (haPermessiMaster()) caricaDatiMaster();
@@ -3459,7 +3484,7 @@ window.handlePrenotazioneMensa = async function(event, tipoPasto) {
   try {
     const res = await callApi("prenotaMensa", payload);
     if (res.success) {
-      const existIdx = appState.mensaBookings.findIndex(m => String(m.data).split("T")[0] === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase());
+      const existIdx = appState.mensaBookings.findIndex(m => formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase());
       const entry = { id: res.id || ("M_" + Date.now()), data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: Boolean(busta), ritardo: Boolean(ritardo), ospiti: ospiti, stato_presenza: "presente", note: note };
       if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
       else appState.mensaBookings.push(entry);
@@ -3605,9 +3630,13 @@ function renderSpaziView() {
             <input type="date" id="inline-spazio-data" class="input-text" style="font-size: 12.5px; padding: 6px 8px;" value="${dataAttiva}" min="${oggiYMD}" onchange="cambiaDataSpazio(this.value)">
           </div>
           <div>
-            <label style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Slot Orario (30 min):</label>
+            <label style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Slot Orario:</label>
             <select id="inline-spazio-slot" class="input-select" style="font-size: 12px; padding: 6px 8px; font-weight: 600;">
-              ${getTuttiSlotOrari30Min().map(s => {
+              ${getTuttiSlotOrari30Min(risorsaAttiva, dataAttiva).map(s => {
+                if (risorsaAttiva === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
+                  const blocco = getBloccoComunitarioChiesa(s, dataAttiva);
+                  if (blocco) return `<option value="${s}" disabled style="color:#94a3b8; font-style:italic;">${s} - ${blocco.badge} (Riservato)</option>`;
+                }
                 const occ = (appState.prenotazioniSpazi || []).some(p => p.risorsa === risorsaAttiva && formattaDataConfronto(p.data) === formattaDataConfronto(dataAttiva) && p.slot_orario === s && p.stato !== "Rifiutata");
                 return occ ? `<option value="${s}" disabled style="color:#94a3b8;">${s} (Occupato)</option>` : `<option value="${s}">${s}</option>`;
               }).join("")}
@@ -3660,8 +3689,66 @@ window.cambiaRisorsaSpazio = function(risorsa) { appState.selectedSpazioRisorsa 
 window.cambiaDataSpazio = function(dateStr) { if (!dateStr) return; appState.selectedSpazioData = dateStr; renderSpaziView(); };
 window.cambiaFasciaSpazio = function(fascia) { appState.selectedSpazioFascia = fascia; renderSpaziView(); };
 
-function getTuttiSlotOrari30Min() {
+function isGiornoLiturgiaComunitaria(dataInput) {
+  if (!dataInput) return false;
+  const dStr = formattaDataConfronto(dataInput);
+  if (!dStr) return false;
+  const d = new Date(dStr + "T12:00:00");
+  const day = d.getDay(); // 0 = Dom, 1 = Lun, 2 = Mar, 3 = Mer, 4 = Gio, 5 = Ven, 6 = Sab
+  // Dal lunedì al venerdì tranne giovedì: 1 (Lun), 2 (Mar), 3 (Mer), 5 (Ven)
+  return day === 1 || day === 2 || day === 3 || day === 5;
+}
+window.isGiornoLiturgiaComunitaria = isGiornoLiturgiaComunitaria;
+
+function getBloccoComunitarioChiesa(slot, dataYmd) {
+  if (!slot || !dataYmd) return null;
+  if (!isGiornoLiturgiaComunitaria(dataYmd)) return null;
+  if (slot === "06:30 - 06:45") {
+    return {
+      titolo: "Lodi Mattutine Comunitarie",
+      icona: "📖",
+      dettaglio: "Preghiera comunitaria della Residenza (06:30 - 06:45)",
+      badge: "📖 Lodi Comunitarie",
+      bloccato: true
+    };
+  }
+  if (slot === "06:45 - 07:15") {
+    return {
+      titolo: "Santa Messa Comunitaria",
+      icona: "⛪",
+      dettaglio: "Celebrazione eucaristica comunitaria (06:45 - 07:15)",
+      badge: "⛪ S. Messa Comunitaria",
+      bloccato: true
+    };
+  }
+  return null;
+}
+window.getBloccoComunitarioChiesa = getBloccoComunitarioChiesa;
+
+function getTuttiSlotOrari30Min(risorsa, dataStr) {
   const slots = [];
+  const isChiesa = (!risorsa || risorsa === "Chiesa");
+  if (isChiesa) {
+    // Per la Chiesa supportiamo gli slot mattutini dedicati alla liturgia comunitaria
+    slots.push("06:30 - 06:45");
+    slots.push("06:45 - 07:15");
+    let currentHour = 7;
+    let currentMin = 15;
+    while (currentHour < 23 || (currentHour === 23 && currentMin <= 30)) {
+      const startH = String(currentHour).padStart(2, "0");
+      const startM = String(currentMin).padStart(2, "0");
+      let endHour = currentHour;
+      let endMin = currentMin + 30;
+      if (endMin >= 60) { endHour++; endMin = endMin - 60; }
+      const endH = String(endHour).padStart(2, "0");
+      const endM = String(endMin).padStart(2, "0");
+      slots.push(`${startH}:${startM} - ${endH}:${endM}`);
+      currentHour = endHour;
+      currentMin = endMin;
+    }
+    return slots;
+  }
+
   let currentHour = 6;
   let currentMin = 30;
   while (currentHour < 23 || (currentHour === 23 && currentMin <= 30)) {
@@ -3699,7 +3786,7 @@ function renderSlotSpazi() {
   const selRisorsa = appState.selectedSpazioRisorsa || "Chiesa";
   const selData = appState.selectedSpazioData || formatYMD(new Date());
   const selFascia = appState.selectedSpazioFascia || "tutti";
-  const tuttiSlot = getTuttiSlotOrari30Min();
+  const tuttiSlot = getTuttiSlotOrari30Min(selRisorsa, selData);
   const slotFiltrati = tuttiSlot.filter(s => filtraSlotPerFascia(s, selFascia));
 
   const occupati = (appState.prenotazioniSpazi || []).filter(p => {
@@ -3716,6 +3803,27 @@ function renderSlotSpazi() {
   let html = "";
 
   slotFiltrati.forEach(slot => {
+    if (selRisorsa === "Chiesa") {
+      const bloccoComunitario = getBloccoComunitarioChiesa(slot, selData);
+      if (bloccoComunitario) {
+        html += `
+          <div class="slot-card-v2" style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%); border-left: 4px solid #0284c7; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: default;" title="Slot istituzionale riservato: ${bloccoComunitario.titolo}">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+              <div class="slot-time-text" style="font-weight: 800; color: #0369a1;">${slot}</div>
+              <span class="badge" style="background: #0284c7; color: #fff; font-size: 10.5px; font-weight: 700;">${bloccoComunitario.icona} Riservato</span>
+            </div>
+            <div style="margin-top: 4px; font-size: 12px; font-weight: 800; color: #0f172a; line-height: 1.3;">
+              ${bloccoComunitario.titolo}
+            </div>
+            <div style="margin-top: 2px; font-size: 11px; color: #475569;">
+              🔒 ${bloccoComunitario.dettaglio}
+            </div>
+          </div>
+        `;
+        return;
+      }
+    }
+
     const pren = occupatiMap[slot];
     const isOccupato = Boolean(pren);
     const prenEmail = pren ? String(pren.email).toLowerCase() : "";
@@ -3774,8 +3882,8 @@ window.onSpazioResidentSelectChange = function() {
 function popolaSelectSlotSpazioModal(risorsa, data, slotPredefinito) {
   const select = document.getElementById("modal-spazio-select-slot");
   if (!select) return;
-  const tuttiSlot = getTuttiSlotOrari30Min();
   const dataConfronto = formattaDataConfronto(data);
+  const tuttiSlot = getTuttiSlotOrari30Min(risorsa, dataConfronto);
 
   const occupati = (appState.prenotazioniSpazi || []).filter(p => {
     return p.risorsa === risorsa && formattaDataConfronto(p.data) === dataConfronto && p.stato !== "Rifiutata";
@@ -3788,6 +3896,14 @@ function popolaSelectSlotSpazioModal(risorsa, data, slotPredefinito) {
   let primoDisponibile = null;
 
   tuttiSlot.forEach(s => {
+    if (risorsa === "Chiesa") {
+      const blocco = getBloccoComunitarioChiesa(s, dataConfronto);
+      if (blocco) {
+        html += `<option value="${s}" disabled style="color: #94a3b8; font-style: italic;">${s} - ${blocco.badge} (Riservato Comunità)</option>`;
+        return;
+      }
+    }
+
     const isOccupato = Boolean(occupatiMap[s]);
     const isThisSlot = (s === slotPredefinito);
     if (isThisSlot) trovatoPredefinito = true;
@@ -3912,9 +4028,18 @@ window.apriModalNuovaRichiestaSpazio = function(risorsaDefault, dataDefault, slo
 };
 
 window.prenotaSlotDiretto = function(slot) {
+  const risorsa = appState.selectedSpazioRisorsa || "Chiesa";
+  const data = appState.selectedSpazioData || formatYMD(new Date());
+  if (risorsa === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
+    const blocco = getBloccoComunitarioChiesa(slot, data);
+    if (blocco) {
+      mostraToast(`🔒 Orario riservato: ${blocco.titolo} (${slot}) è riservato per la comunità.`, "warning");
+      return;
+    }
+  }
   const inlineSlot = document.getElementById("inline-spazio-slot");
   if (inlineSlot) inlineSlot.value = slot;
-  apriModalNuovaRichiestaSpazio(appState.selectedSpazioRisorsa, appState.selectedSpazioData, slot);
+  apriModalNuovaRichiestaSpazio(risorsa, data, slot);
 };
 
 window.eseguiPrenotazioneSpazioConfermata = async function() {
@@ -3927,6 +4052,14 @@ window.eseguiPrenotazioneSpazioConfermata = async function() {
   if (!slot) {
     mostraToast("Seleziona uno slot orario valido", "warning");
     return;
+  }
+
+  if (risorsa === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
+    const blocco = getBloccoComunitarioChiesa(slot, data);
+    if (blocco) {
+      mostraToast(`🔒 Orario riservato: ${blocco.titolo} (${slot}) è riservato per la comunità.`, "warning");
+      return;
+    }
   }
 
   let emailPrenotante = "";
@@ -4052,6 +4185,14 @@ window.eseguiPrenotazioneSpazioRapidaInline = async function() {
   if (!slot) {
     mostraToast("Seleziona uno slot orario valido", "warning");
     return;
+  }
+
+  if (risorsa === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
+    const blocco = getBloccoComunitarioChiesa(slot, data);
+    if (blocco) {
+      mostraToast(`🔒 Orario riservato: ${blocco.titolo} (${slot}) è riservato per la comunità.`, "warning");
+      return;
+    }
   }
 
   if (!appState.user) {
@@ -7071,6 +7212,40 @@ window.renderCalendarioGlobaleView = function() {
     if (!dStr) return;
     items.push({ id: b.id, origine: "bacheca", tipo: b.tipo || "avviso", categoria: b.tipo === "compleanno" ? "Compleanno" : (b.tipo === "anniversario" ? "Anniversario" : "Bacheca"), data: dStr, orario: b.orario || "Tutto il giorno", titolo: b.titolo || "Avviso", descrizione: b.descrizione || "", autore: b.autore || "Direzione", priorita: b.priorita || "normale" });
   });
+
+  // Appuntamenti istituzionali comunitari in Chiesa (Lodi e S. Messa dal lunedì al venerdì tranne giovedì)
+  const oggiDate = new Date();
+  for (let offset = -7; offset <= 21; offset++) {
+    const dCheck = new Date(oggiDate);
+    dCheck.setDate(oggiDate.getDate() + offset);
+    const dStrCheck = formatYMD(dCheck);
+    if (typeof isGiornoLiturgiaComunitaria === "function" && isGiornoLiturgiaComunitaria(dStrCheck)) {
+      items.push({
+        id: `LODI_${dStrCheck}`,
+        origine: "istituzionale",
+        tipo: "chiesa",
+        categoria: "Chiesa",
+        data: dStrCheck,
+        orario: "06:30 - 06:45",
+        titolo: "📖 Lodi Mattutine Comunitarie",
+        descrizione: "Preghiera comunitaria della Residenza (Lodi)",
+        autore: "Comunità Residenza",
+        stato: "Istituzionale"
+      });
+      items.push({
+        id: `MESSA_${dStrCheck}`,
+        origine: "istituzionale",
+        tipo: "chiesa",
+        categoria: "Chiesa",
+        data: dStrCheck,
+        orario: "06:45 - 07:15",
+        titolo: "⛪ Santa Messa Comunitaria",
+        descrizione: "Celebrazione eucaristica comunitaria (dal lunedì al venerdì tranne giovedì)",
+        autore: "Comunità Residenza",
+        stato: "Istituzionale"
+      });
+    }
+  }
 
   const oggiYMD = formatYMD(new Date());
   let filtered = items.filter(it => {
@@ -10887,6 +11062,94 @@ function generaCalendarioAssenzeMasterHtml() {
 }
 window.generaCalendarioAssenzeMasterHtml = generaCalendarioAssenzeMasterHtml;
 
+let modalAssenzaTipo = "singolo";
+function setModalAssenzaTipo(tipo) {
+  modalAssenzaTipo = tipo;
+  const btnSingolo = document.getElementById("btn-mode-assenza-singolo");
+  const btnPeriodo = document.getElementById("btn-mode-assenza-periodo");
+  const wrapFine = document.getElementById("wrap-assenza-data-fine");
+  const lblInizio = document.getElementById("lbl-assenza-data-inizio");
+  const inpInizio = document.getElementById("assenza-data-inizio");
+  const inpFine = document.getElementById("assenza-data-fine");
+
+  if (tipo === "singolo") {
+    if (btnSingolo) { btnSingolo.style.background = "#4f46e5"; btnSingolo.style.color = "#fff"; btnSingolo.style.border = "none"; }
+    if (btnPeriodo) { btnPeriodo.style.background = "#fff"; btnPeriodo.style.color = "#475569"; btnPeriodo.style.border = "1px solid #cbd5e1"; }
+    if (wrapFine) wrapFine.style.display = "none";
+    if (lblInizio) lblInizio.innerText = "Data dell'Assenza:";
+    if (inpFine && inpInizio && inpInizio.value) inpFine.value = inpInizio.value;
+  } else {
+    if (btnPeriodo) { btnPeriodo.style.background = "#4f46e5"; btnPeriodo.style.color = "#fff"; btnPeriodo.style.border = "none"; }
+    if (btnSingolo) { btnSingolo.style.background = "#fff"; btnSingolo.style.color = "#475569"; btnSingolo.style.border = "1px solid #cbd5e1"; }
+    if (wrapFine) wrapFine.style.display = "block";
+    if (lblInizio) lblInizio.innerText = "Data Inizio:";
+  }
+}
+window.setModalAssenzaTipo = setModalAssenzaTipo;
+
+function onCambioDataInizioAssenza(val) {
+  const inpFine = document.getElementById("assenza-data-fine");
+  if (modalAssenzaTipo === "singolo" || !inpFine || !inpFine.value || inpFine.value < val) {
+    if (inpFine) inpFine.value = val;
+  }
+}
+window.onCambioDataInizioAssenza = onCambioDataInizioAssenza;
+
+function onCambioDataFineAssenza(val) {
+  const inpInizio = document.getElementById("assenza-data-inizio");
+  if (modalAssenzaTipo === "singolo") {
+    if (inpInizio) inpInizio.value = val;
+  } else if (inpInizio && inpInizio.value && inpInizio.value > val) {
+    inpInizio.value = val;
+  }
+}
+window.onCambioDataFineAssenza = onCambioDataFineAssenza;
+
+function selezionaSoloPastoAssenza(tipo) {
+  const chkPranzo = document.getElementById("assenza-pasto-pranzo");
+  const chkCena = document.getElementById("assenza-pasto-cena");
+  if (tipo === "pranzo") {
+    if (chkPranzo) chkPranzo.checked = true;
+    if (chkCena) chkCena.checked = false;
+  } else if (tipo === "cena") {
+    if (chkPranzo) chkPranzo.checked = false;
+    if (chkCena) chkCena.checked = true;
+  } else {
+    if (chkPranzo) chkPranzo.checked = true;
+    if (chkCena) chkCena.checked = true;
+  }
+  aggiornaPulsantiPastiAssenza();
+}
+window.selezionaSoloPastoAssenza = selezionaSoloPastoAssenza;
+
+function aggiornaPulsantiPastiAssenza() {
+  const chkPranzo = document.getElementById("assenza-pasto-pranzo")?.checked;
+  const chkCena = document.getElementById("assenza-pasto-cena")?.checked;
+  const btnPranzo = document.getElementById("btn-assenza-pasto-pranzo");
+  const btnCena = document.getElementById("btn-assenza-pasto-cena");
+  const btnEntrambi = document.getElementById("btn-assenza-pasto-entrambi");
+
+  if (btnPranzo) {
+    const isSoloPranzo = chkPranzo && !chkCena;
+    btnPranzo.style.background = isSoloPranzo ? "#ea580c" : "#fff";
+    btnPranzo.style.color = isSoloPranzo ? "#fff" : "#9a3412";
+    btnPranzo.style.borderColor = "#ea580c";
+  }
+  if (btnCena) {
+    const isSoloCena = !chkPranzo && chkCena;
+    btnCena.style.background = isSoloCena ? "#ea580c" : "#fff";
+    btnCena.style.color = isSoloCena ? "#fff" : "#9a3412";
+    btnCena.style.borderColor = "#ea580c";
+  }
+  if (btnEntrambi) {
+    const isEntrambi = chkPranzo && chkCena;
+    btnEntrambi.style.background = isEntrambi ? "#ea580c" : "#fff";
+    btnEntrambi.style.color = isEntrambi ? "#fff" : "#9a3412";
+    btnEntrambi.style.borderColor = "#ea580c";
+  }
+}
+window.aggiornaPulsantiPastiAssenza = aggiornaPulsantiPastiAssenza;
+
 function apriModalSegnalaAssenza(prefillData = {}) {
   const modal = document.getElementById("modal-segnala-assenza");
   if (!modal) {
@@ -10917,11 +11180,26 @@ function apriModalSegnalaAssenza(prefillData = {}) {
       groupUtente.style.display = "none";
     }
 
-    const oggiYmd = (typeof formatYMD === "function") ? formatYMD(new Date()) : new Date().toISOString().slice(0, 10);
+    const defaultDate = (appState.selectedDateMensa ? formatYMD(appState.selectedDateMensa) : formatYMD(new Date()));
+    const targetDate = prefillData.date || defaultDate;
+    const targetEndDate = prefillData.endDate || targetDate;
+
     const inpInizio = document.getElementById("assenza-data-inizio");
     const inpFine = document.getElementById("assenza-data-fine");
-    if (inpInizio) inpInizio.value = prefillData.date || oggiYmd;
-    if (inpFine) inpFine.value = prefillData.endDate || prefillData.date || oggiYmd;
+    if (inpInizio) inpInizio.value = targetDate;
+    if (inpFine) inpFine.value = targetEndDate;
+
+    if (targetDate === targetEndDate) {
+      setModalAssenzaTipo("singolo");
+    } else {
+      setModalAssenzaTipo("periodo");
+    }
+
+    if (prefillData.pasto) {
+      selezionaSoloPastoAssenza(prefillData.pasto);
+    } else {
+      selezionaSoloPastoAssenza("entrambi");
+    }
 
     const selectMotivo = document.getElementById("assenza-select-motivo");
     if (selectMotivo) selectMotivo.value = prefillData.motivo || "Famiglia / Ritorno a casa";
@@ -10942,14 +11220,6 @@ function chiudiModalSegnalaAssenza() {
 }
 window.chiudiModalSegnalaAssenza = chiudiModalSegnalaAssenza;
 
-function onCambioDataInizioAssenza(val) {
-  const inpFine = document.getElementById("assenza-data-fine");
-  if (inpFine && (!inpFine.value || inpFine.value < val)) {
-    inpFine.value = val;
-  }
-}
-window.onCambioDataInizioAssenza = onCambioDataInizioAssenza;
-
 function impostaIntervalloAssenzaRapido(tipo) {
   const inpInizio = document.getElementById("assenza-data-inizio");
   const inpFine = document.getElementById("assenza-data-fine");
@@ -10957,14 +11227,41 @@ function impostaIntervalloAssenzaRapido(tipo) {
 
   const oggi = new Date();
   if (tipo === "oggi") {
+    setModalAssenzaTipo("singolo");
     inpInizio.value = formatYMD(oggi);
     inpFine.value = formatYMD(oggi);
   } else if (tipo === "domani") {
+    setModalAssenzaTipo("singolo");
     const d = new Date(oggi);
     d.setDate(d.getDate() + 1);
     inpInizio.value = formatYMD(d);
     inpFine.value = formatYMD(d);
+  } else if (tipo === "mercoledi") {
+    setModalAssenzaTipo("singolo");
+    const merc = new Date(oggi);
+    const day = merc.getDay(); // 0 = Dom, 3 = Mer
+    const distMerc = (3 - day + 7) % 7;
+    merc.setDate(merc.getDate() + (distMerc === 0 ? 0 : distMerc));
+    inpInizio.value = formatYMD(merc);
+    inpFine.value = formatYMD(merc);
+  } else if (tipo === "sabato") {
+    setModalAssenzaTipo("singolo");
+    const sab = new Date(oggi);
+    const day = sab.getDay();
+    const distSab = (6 - day + 7) % 7;
+    sab.setDate(sab.getDate() + (distSab === 0 ? 0 : distSab));
+    inpInizio.value = formatYMD(sab);
+    inpFine.value = formatYMD(sab);
+  } else if (tipo === "domenica") {
+    setModalAssenzaTipo("singolo");
+    const dom = new Date(oggi);
+    const day = dom.getDay();
+    const distDom = (7 - day) % 7;
+    dom.setDate(dom.getDate() + (distDom === 0 ? 0 : distDom));
+    inpInizio.value = formatYMD(dom);
+    inpFine.value = formatYMD(dom);
   } else if (tipo === "weekend") {
+    setModalAssenzaTipo("periodo");
     const sab = new Date(oggi);
     const day = sab.getDay();
     const distSab = (6 - day + 7) % 7;
@@ -10974,6 +11271,7 @@ function impostaIntervalloAssenzaRapido(tipo) {
     inpInizio.value = formatYMD(sab);
     inpFine.value = formatYMD(dom);
   } else if (tipo === "settimana") {
+    setModalAssenzaTipo("periodo");
     const f = new Date(oggi);
     f.setDate(oggi.getDate() + 6);
     inpInizio.value = formatYMD(oggi);
@@ -10983,8 +11281,8 @@ function impostaIntervalloAssenzaRapido(tipo) {
 window.impostaIntervalloAssenzaRapido = impostaIntervalloAssenzaRapido;
 
 function toggleOpzioniPastiAssenza(checked) {
-  const el = document.getElementById("assenza-dettagli-pasti");
-  if (el) el.style.display = checked ? "flex" : "none";
+  const el = document.getElementById("assenza-pasti-selector-container") || document.getElementById("assenza-dettagli-pasti");
+  if (el) el.style.display = checked ? "block" : "none";
 }
 window.toggleOpzioniPastiAssenza = toggleOpzioniPastiAssenza;
 
@@ -11035,10 +11333,10 @@ window.handleSalvaSegnalazioneAssenza = async function(event) {
   const nome = trovaNomeUtente(email);
 
   const dataInizio = document.getElementById("assenza-data-inizio")?.value;
-  const dataFine = document.getElementById("assenza-data-fine")?.value || dataInizio;
+  const dataFine = (modalAssenzaTipo === "singolo" ? dataInizio : (document.getElementById("assenza-data-fine")?.value || dataInizio));
 
   if (!dataInizio) {
-    mostraToast("Inserisci la data di inizio dell'assenza", "warning");
+    mostraToast("Inserisci la data dell'assenza", "warning");
     return;
   }
   if (dataFine < dataInizio) {
@@ -11052,8 +11350,14 @@ window.handleSalvaSegnalazioneAssenza = async function(event) {
 
   const pasti = [];
   if (sospendiMensa) {
-    if (document.getElementById("assenza-pasto-pranzo")?.checked) pasti.push("pranzo");
-    if (document.getElementById("assenza-pasto-cena")?.checked) pasti.push("cena");
+    const chkPranzo = document.getElementById("assenza-pasto-pranzo")?.checked;
+    const chkCena = document.getElementById("assenza-pasto-cena")?.checked;
+    if (chkPranzo) pasti.push("pranzo");
+    if (chkCena) pasti.push("cena");
+    if (pasti.length === 0) {
+      mostraToast("Seleziona almeno un pasto da sospendere (Pranzo e/o Cena)", "warning");
+      return;
+    }
   }
 
   const payload = {

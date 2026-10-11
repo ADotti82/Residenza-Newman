@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di revisione e consolidamento pre-lancio: sblocco modali assenze e appuntamenti, gestione buste e menu 14 giorni, sostituzione icona ospiti e ottimizzazione del contrasto per visione notturna (Dark Mode).",
-  "updatedAt":  "2026-10-08T19:24:47.728239881Z",
+  "summary":  "Piano di implementazione per la risoluzione dei problemi di segnalazione assenza pasti (disaccoppiamento sabato/domenica e gestione singoli pasti pranzo/cena) e introduzione del blocco automatico istituzionale per Lodi (06:30-06:45) e Santa Messa (06:45-07:15) dal lunedì al venerdì (escluso giovedì).",
+  "updatedAt":  "2026-10-11T20:23:44.662331215Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

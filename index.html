@@ -2980,22 +2980,31 @@
           </select>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
-          <div class="form-group" style="margin: 0;">
-            <label for="assenza-data-inizio" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Data Inizio:</label>
+        <!-- Scelta tipologia assenza: Giorno Singolo vs Periodo -->
+        <div style="display: flex; gap: 8px; margin-bottom: 12px; background: #f1f5f9; padding: 4px; border-radius: 8px;">
+          <button type="button" id="btn-mode-assenza-singolo" class="btn btn-sm" onclick="setModalAssenzaTipo('singolo')" style="flex: 1; font-weight: 700; border-radius: 6px; background: #4f46e5; color: #fff; border: none; padding: 6px 10px; font-size: 12px;">📅 Giorno Singolo</button>
+          <button type="button" id="btn-mode-assenza-periodo" class="btn btn-sm" onclick="setModalAssenzaTipo('periodo')" style="flex: 1; font-weight: 700; border-radius: 6px; background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 6px 10px; font-size: 12px;">📆 Più Giorni (Periodo)</button>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;" id="grid-assenza-date">
+          <div class="form-group" style="margin: 0;" id="wrap-assenza-data-inizio">
+            <label for="assenza-data-inizio" id="lbl-assenza-data-inizio" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Data Assenza:</label>
             <input type="date" id="assenza-data-inizio" class="input-text" required onchange="onCambioDataInizioAssenza(this.value)" style="padding: 8px 10px; font-size: 13px;">
           </div>
-          <div class="form-group" style="margin: 0;">
-            <label for="assenza-data-fine" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Data Fine:</label>
-            <input type="date" id="assenza-data-fine" class="input-text" required style="padding: 8px 10px; font-size: 13px;">
+          <div class="form-group" style="margin: 0; display: none;" id="wrap-assenza-data-fine">
+            <label for="assenza-data-fine" id="lbl-assenza-data-fine" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Data Fine:</label>
+            <input type="date" id="assenza-data-fine" class="input-text" required onchange="onCambioDataFineAssenza(this.value)" style="padding: 8px 10px; font-size: 13px;">
           </div>
         </div>
 
-        <!-- Scorciatoie rapide date -->
+        <!-- Scorciatoie rapide date puntuali -->
         <div style="display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;">
-          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('oggi')" style="font-size: 11px; padding: 3px 8px;">Oggi (1 giorno)</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('oggi')" style="font-size: 11px; padding: 3px 8px;">Oggi</button>
           <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('domani')" style="font-size: 11px; padding: 3px 8px;">Domani</button>
-          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('weekend')" style="font-size: 11px; padding: 3px 8px;">Questo Weekend</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('mercoledi')" style="font-size: 11px; padding: 3px 8px; font-weight: 700; color: #4338ca; border-color: #c7d2fe;">Mercoledì</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('sabato')" style="font-size: 11px; padding: 3px 8px; font-weight: 700; color: #4338ca; border-color: #c7d2fe;">Sabato</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('domenica')" style="font-size: 11px; padding: 3px 8px; font-weight: 700; color: #4338ca; border-color: #c7d2fe;">Domenica</button>
+          <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('weekend')" style="font-size: 11px; padding: 3px 8px;">Weekend (Sab-Dom)</button>
           <button type="button" class="btn btn-sm btn-outline" onclick="impostaIntervalloAssenzaRapido('settimana')" style="font-size: 11px; padding: 3px 8px;">7 Giorni</button>
         </div>
 
@@ -3021,7 +3030,7 @@
 
         <!-- BOX SINCRONIZZAZIONE MENSA -->
         <div id="assenza-box-mensa" style="background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 12px; margin-bottom: 16px;">
-          <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 8px;">
+          <div style="display: flex; align-items: flex-start; gap: 8px; margin-bottom: 10px;">
             <input type="checkbox" id="assenza-sospendi-mensa" checked onchange="toggleOpzioniPastiAssenza(this.checked)" style="margin-top: 3px; accent-color: #ea580c; width: 16px; height: 16px; cursor: pointer;">
             <div>
               <label for="assenza-sospendi-mensa" style="font-size: 13px; font-weight: 800; color: #9a3412; cursor: pointer;">
@@ -3033,13 +3042,23 @@
             </div>
           </div>
 
-          <div id="assenza-dettagli-pasti" style="padding-left: 24px; display: flex; gap: 16px; font-size: 12.5px; font-weight: 700; color: #9a3412;">
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-              <input type="checkbox" id="assenza-pasto-pranzo" checked style="accent-color: #ea580c; width: 15px; height: 15px;"> Pranzo
-            </label>
-            <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
-              <input type="checkbox" id="assenza-pasto-cena" checked style="accent-color: #ea580c; width: 15px; height: 15px;"> Cena
-            </label>
+          <!-- Pulsanti rapidi scelta pasto -->
+          <div id="assenza-pasti-selector-container" style="padding-left: 24px;">
+            <div style="font-size: 11.5px; font-weight: 700; color: #9a3412; margin-bottom: 6px;">Quali pasti desideri sospendere?</div>
+            <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px;">
+              <button type="button" id="btn-assenza-pasto-pranzo" class="btn btn-sm btn-outline" onclick="selezionaSoloPastoAssenza('pranzo')" style="font-size: 11.5px; padding: 4px 10px; font-weight: 700;">☀️ Solo Pranzo</button>
+              <button type="button" id="btn-assenza-pasto-cena" class="btn btn-sm btn-outline" onclick="selezionaSoloPastoAssenza('cena')" style="font-size: 11.5px; padding: 4px 10px; font-weight: 700;">🌙 Solo Cena</button>
+              <button type="button" id="btn-assenza-pasto-entrambi" class="btn btn-sm" onclick="selezionaSoloPastoAssenza('entrambi')" style="font-size: 11.5px; padding: 4px 10px; font-weight: 700; background: #ea580c; color: #fff; border-color: #ea580c;">🍽️ Entrambi</button>
+            </div>
+
+            <div id="assenza-dettagli-pasti" style="display: flex; gap: 16px; font-size: 12.5px; font-weight: 700; color: #9a3412;">
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" id="assenza-pasto-pranzo" checked onchange="aggiornaPulsantiPastiAssenza()" style="accent-color: #ea580c; width: 15px; height: 15px;"> Pranzo
+              </label>
+              <label style="display: flex; align-items: center; gap: 6px; cursor: pointer;">
+                <input type="checkbox" id="assenza-pasto-cena" checked onchange="aggiornaPulsantiPastiAssenza()" style="accent-color: #ea580c; width: 15px; height: 15px;"> Cena
+              </label>
+            </div>
           </div>
         </div>
 
@@ -3254,8 +3273,16 @@
         const oggi = new Date().toISOString().slice(0, 10);
         const di = document.getElementById("assenza-data-inizio");
         const df = document.getElementById("assenza-data-fine");
-        if (di && !di.value) di.value = (prefillData && prefillData.date) || oggi;
-        if (df && !df.value) df.value = (prefillData && (prefillData.endDate || prefillData.date)) || oggi;
+        const dTarget = (prefillData && prefillData.date) || oggi;
+        const dEndTarget = (prefillData && (prefillData.endDate || prefillData.date)) || dTarget;
+        if (di) di.value = dTarget;
+        if (df) df.value = dEndTarget;
+        if (typeof window.setModalAssenzaTipo === "function") {
+          window.setModalAssenzaTipo(dTarget === dEndTarget ? "singolo" : "periodo");
+        }
+        if (prefillData && prefillData.pasto && typeof window.selezionaSoloPastoAssenza === "function") {
+          window.selezionaSoloPastoAssenza(prefillData.pasto);
+        }
       }
     };
     window.chiudiModalSegnalaAssenza = window.chiudiModalSegnalaAssenza || function() {
