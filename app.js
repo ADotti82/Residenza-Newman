@@ -373,6 +373,10 @@ const appState = {
   cucinaModalState: { pasto: "pranzo", dataYMD: "", filtro: "tutti", search: "" },
   cucinaSelectedDate: "",
   cucinaFilterPranzo: "tutti",
+  cucinaFilterCena: "tutti",
+  consultaMenuState: { settimana: "settimana1" },
+  modificaMenuState: { settimana: "settimana1", giorno: "lunedi" },
+  gestioneBusteMasterState: { dataYMD: "", search: "", filtro: "tutti" },
   calendarioFiltroAmbiente: "tutti",
   calendarioFiltroPeriodo: "prossimi",
   calendarioSearchText: "",
@@ -6849,17 +6853,22 @@ window.handleSalvaVariazioneMenu = async function(e) {
 window.apriModalVariazioneCuoca = function(dataStr, tipoPasto) {
   const modal = document.getElementById("modal-variazione-cuoca");
   if (!modal) return;
+  modal.style.display = "flex";
+  modal.style.zIndex = "9999";
   const inputData = document.getElementById("cuoca-modal-data");
   const selectPasto = document.getElementById("cuoca-modal-pasto");
   const textareaTesto = document.getElementById("cuoca-modal-testo");
-  const targetDate = dataStr || formatYMD(appState.selectedDateMensa || new Date());
+  const targetDate = dataStr || appState.cucinaSelectedDate || (typeof formatYMD === "function" ? formatYMD(appState.selectedDateMensa || new Date()) : new Date().toISOString().slice(0, 10));
   if (inputData) inputData.value = targetDate;
   if (selectPasto) selectPasto.value = tipoPasto || "pranzo";
   const pastoCorrente = selectPasto ? selectPasto.value : tipoPasto;
-  const testoEsistente = getVariazioneCuocaPerData(targetDate, pastoCorrente) || "";
-  if (textareaTesto) { textareaTesto.value = testoEsistente; setTimeout(() => textareaTesto.focus(), 60); }
-  modal.style.display = "flex";
+  const testoEsistente = (typeof getVariazioneCuocaPerData === "function") ? (getVariazioneCuocaPerData(targetDate, pastoCorrente) || "") : "";
+  if (textareaTesto) {
+    textareaTesto.value = testoEsistente;
+    setTimeout(() => textareaTesto.focus(), 60);
+  }
 };
+window._realApriModalVariazioneCuoca = window.apriModalVariazioneCuoca;
 
 window.onCuocaModalDataChange = function() {
   const inputData = document.getElementById("cuoca-modal-data");
@@ -8188,6 +8197,7 @@ window.renderCucinaView = function() {
     if (f === "in_sala") return lista.filter(x => !x.busta && !x.ritardo);
     if (f === "busta") return lista.filter(x => Boolean(x.busta));
     if (f === "ritardo") return lista.filter(x => Boolean(x.ritardo));
+    if (f === "ospiti") return lista.filter(x => Boolean(x.ospiti && x.ospiti > 0));
     if (f === "note") return lista.filter(x => Boolean(x.note && x.note.trim()));
     return lista;
   }
@@ -8196,9 +8206,11 @@ window.renderCucinaView = function() {
   const filteredCena = applicaFiltro(listaCena, filterCena);
   const countBustePranzo = statsPranzo.buste;
   const countRitardiPranzo = statsPranzo.ritardi;
+  const countOspitiPranzo = statsPranzo.ospitiTotali || 0;
   const countNotePranzo = listaPranzo.filter(m => m.note && m.note.trim()).length;
   const countBusteCena = statsCena.buste;
   const countRitardiCena = statsCena.ritardi;
+  const countOspitiCena = statsCena.ospitiTotali || 0;
   const countNoteCena = listaCena.filter(m => m.note && m.note.trim()).length;
 
   const prossimiGiorni = [];
@@ -8354,93 +8366,241 @@ window.renderCucinaView = function() {
       </div>
 
       <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+        <!-- SCHEDA PRANZO -->
         <div class="card" style="border-top: 4px solid #f97316; padding: 14px;">
           <div class="flex-between" style="border-bottom: 1px solid #fed7aa; padding-bottom: 10px; margin-bottom: 10px;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 24px;">☀️</span>
-              <div><h3 style="margin: 0; font-size: 17px; color: #c2410c; font-weight: 800;">Pranzo (14:30)</h3></div>
+              <span style="font-size: 26px;">☀️</span>
+              <div>
+                <h3 style="margin: 0; font-size: 17.5px; color: #c2410c; font-weight: 800;">Pranzo (14:30)</h3>
+                <div style="font-size: 12px; color: #7c2d12; font-weight: 600; margin-top: 2px;">
+                  🍲 <strong>${statsPranzo.totale}</strong> porzioni totali (${statsPranzo.inSala} sala, ${statsPranzo.buste} buste)
+                  ${countOspitiPranzo > 0 ? `<span style="background: #fef3c7; color: #78350f; font-weight: 800; padding: 1px 6px; border-radius: 4px; margin-left: 4px; border: 1px solid #fde68a;">👥 +${countOspitiPranzo} ospiti</span>` : ''}
+                  ${countRitardiPranzo > 0 ? `<span style="background: #fee2e2; color: #991b1b; font-weight: 800; padding: 1px 6px; border-radius: 4px; margin-left: 4px; border: 1px solid #fecaca;">⏰ ${countRitardiPranzo} ritardi</span>` : ''}
+                </div>
+              </div>
             </div>
-            <div style="background: #fff7ed; border: 2px solid #f97316; border-radius: 20px; padding: 4px 14px; cursor: pointer;" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'pranzo')">
-              <span style="font-size: 20px; font-weight: 900; color: #c2410c;">${listaPranzo.length}</span>
-              <span style="font-size: 11px; font-weight: 700; color: #9a3412; display: block;">PRESENTI 🔍</span>
+            <div style="background: #fff7ed; border: 2px solid #f97316; border-radius: 12px; padding: 5px 14px; cursor: pointer; text-align: center; box-shadow: 0 2px 4px rgba(249,115,22,0.12);" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'pranzo')" title="Apri registro dettagliato">
+              <span style="font-size: 20px; font-weight: 900; color: #c2410c;">${statsPranzo.totale}</span>
+              <span style="font-size: 10.5px; font-weight: 800; color: #9a3412; display: block; text-transform: uppercase;">PORZIONI 🔍</span>
             </div>
           </div>
+
+          ${(countRitardiPranzo > 0 || countOspitiPranzo > 0) ? `
+            <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef2f2 100%); border: 1.5px solid #f59e0b; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
+              ${countRitardiPranzo > 0 ? `
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #dc2626;">
+                  <span style="font-size: 16px;">⏰</span>
+                  <span>AVVISO CUOCA: <strong>${countRitardiPranzo} ${countRitardiPranzo === 1 ? 'residente arriva in RITARDO' : 'residenti arrivano in RITARDO'}</strong> (conservare la porzione al caldo!)</span>
+                </div>
+              ` : ''}
+              ${countOspitiPranzo > 0 ? `
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #92400e;">
+                  <span style="font-size: 16px;">👥</span>
+                  <span>AVVISO CUOCA: <strong>+${countOspitiPranzo} ${countOspitiPranzo === 1 ? 'OSPITE aggiuntivo confermato' : 'OSPITI aggiuntivi confermati'}</strong> da preparare!</span>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+
           <div class="no-print" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; background: #fff7ed; padding: 6px; border-radius: 6px;">
             <button type="button" class="btn btn-sm ${filterPranzo === 'tutti' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'tutti')" style="padding: 3px 8px; font-size: 11px;">Tutti (${listaPranzo.length})</button>
             <button type="button" class="btn btn-sm ${filterPranzo === 'busta' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'busta')" style="padding: 3px 8px; font-size: 11px;">🥪 (${countBustePranzo})</button>
-            <button type="button" class="btn btn-sm ${filterPranzo === 'ritardo' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'ritardo')" style="padding: 3px 8px; font-size: 11px;">⏰ (${countRitardiPranzo})</button>
+            <button type="button" class="btn btn-sm ${filterPranzo === 'ritardo' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'ritardo')" style="padding: 3px 8px; font-size: 11px; ${countRitardiPranzo > 0 ? 'font-weight: 800; color: #dc2626; border-color: #f87171;' : ''}">⏰ Ritardi (${countRitardiPranzo})</button>
+            ${countOspitiPranzo > 0 ? `
+              <button type="button" class="btn btn-sm ${filterPranzo === 'ospiti' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'ospiti')" style="padding: 3px 8px; font-size: 11px; font-weight: 800; color: #78350f; border-color: #f59e0b;">👥 Ospiti (+${countOspitiPranzo})</button>
+            ` : ''}
           </div>
+
           <div style="max-height: 480px; overflow-y: auto;">
-            ${filteredPranzo.length === 0 ? `<div style="text-align: center; padding: 32px 16px; color: #94a3b8;"><span style="font-size: 32px; display: block;">🍽️</span>Nessuna presenza.</div>` : `
-              <div style="display: flex; flex-direction: column; gap: 6px;">
+            ${filteredPranzo.length === 0 ? `<div style="text-align: center; padding: 32px 16px; color: #94a3b8;"><span style="font-size: 32px; display: block;">🍽️</span>Nessuna presenza trovata con questo filtro.</div>` : `
+              <div style="display: flex; flex-direction: column; gap: 8px;">
                 ${filteredPranzo.map((p, idx) => {
                   const checkKey = `pranzo_${p.email}`;
                   const isChecked = Boolean(spuntati[checkKey]);
                   const nome = (p.nome || p.email.split('@')[0]).replace(/\./g, ' ');
                   const capitalizedNome = nome.charAt(0).toUpperCase() + nome.slice(1);
-                  return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: ${isChecked ? '#f1f5f9' : '#ffffff'}; border: 1px solid ${isChecked ? '#cbd5e1' : '#e2e8f0'}; border-radius: 6px; opacity: ${isChecked ? '0.6' : '1'};">
-                    <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                      <span style="font-size: 11px; font-weight: 700; color: #94a3b8; width: 18px;">${idx + 1}.</span>
-                      <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntato('${checkKey}')" style="width: 18px; height: 18px; cursor: pointer; accent-color: #ea580c;">
-                      <div>
-                        <span style="font-weight: 700; font-size: 13.5px; text-decoration: ${isChecked ? 'line-through' : 'none'};">${escapeHtml(capitalizedNome)}</span>
-                        <span class="text-xs text-muted" style="display: block;">${escapeHtml(p.email)}</span>
-                        ${p.note ? `<div style="margin-top: 3px; font-size: 12px; font-weight: 700; color: #c2410c;">💬 ${escapeHtml(p.note)}</div>` : ''}
+                  const haOspiti = Boolean(p.ospiti && p.ospiti > 0);
+                  const haRitardo = Boolean(p.ritardo);
+
+                  let cardBg = isChecked ? '#f1f5f9' : '#ffffff';
+                  let cardBorder = isChecked ? '1px solid #cbd5e1' : '1px solid #e2e8f0';
+                  let borderLeft = '4px solid #cbd5e1';
+
+                  if (!isChecked) {
+                    if (haRitardo && haOspiti) {
+                      cardBg = '#fff7ed';
+                      cardBorder = '1.5px solid #ea580c';
+                      borderLeft = '6px solid #dc2626';
+                    } else if (haRitardo) {
+                      cardBg = '#fef2f2';
+                      cardBorder = '1.5px solid #f87171';
+                      borderLeft = '6px solid #dc2626';
+                    } else if (haOspiti) {
+                      cardBg = '#fefce8';
+                      cardBorder = '1.5px solid #f59e0b';
+                      borderLeft = '6px solid #d97706';
+                    } else if (p.busta) {
+                      borderLeft = '4px solid #f59e0b';
+                    } else {
+                      borderLeft = '4px solid #ea580c';
+                    }
+                  }
+
+                  return `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: ${cardBg}; border: ${cardBorder}; border-left: ${borderLeft}; border-radius: 8px; opacity: ${isChecked ? '0.55' : '1'}; transition: all 0.15s ease; box-shadow: ${(!isChecked && (haRitardo || haOspiti)) ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'};">
+                      <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1;">
+                        <span style="font-size: 11px; font-weight: 700; color: #94a3b8; width: 18px; margin-top: 3px;">${idx + 1}.</span>
+                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntato('${checkKey}')" style="width: 20px; height: 20px; cursor: pointer; accent-color: #ea580c; margin-top: 2px;">
+                        <div style="flex: 1;">
+                          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-weight: 800; font-size: 14px; text-decoration: ${isChecked ? 'line-through' : 'none'}; color: #0f172a;">${escapeHtml(capitalizedNome)}</span>
+                            ${haOspiti ? `<span class="badge" style="background: #78350f; color: #fef08a; font-weight: 900; font-size: 11.5px; padding: 2px 7px; border: 1px solid #b45309;">👥 +${p.ospiti} ${p.ospiti === 1 ? 'OSPITE' : 'OSPITI'} (Tot: ${1 + p.ospiti})</span>` : ''}
+                            ${haRitardo ? `<span class="badge" style="background: #dc2626; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 2px 7px; box-shadow: 0 1px 3px rgba(220,38,38,0.25);">⏰ RITARDO CONFERMATO</span>` : ''}
+                          </div>
+                          <span class="text-xs text-muted" style="display: block; margin-top: 1px;">${escapeHtml(p.email)}</span>
+                          
+                          ${haRitardo ? `
+                            <div style="margin-top: 5px; font-size: 12px; font-weight: 800; color: #991b1b; background: #fee2e2; border-radius: 6px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #fecaca;">
+                              <span>⏰</span>
+                              <span>${p.note ? `Arrivo/Nota: <strong>"${escapeHtml(p.note)}"</strong>` : 'Arrivo posticipato'} • <em>Conservare porzione al caldo</em></span>
+                            </div>
+                          ` : (p.note ? `<div style="margin-top: 4px; font-size: 12px; font-weight: 700; color: #c2410c;">💬 Nota: ${escapeHtml(p.note)}</div>` : '')}
+
+                          ${(haOspiti && !haRitardo) ? `
+                            <div style="margin-top: 4px; font-size: 11.5px; font-weight: 800; color: #92400e; background: #fef3c7; border-radius: 4px; padding: 3px 6px; display: inline-block;">
+                              🍲 Preparare <strong>${1 + p.ospiti} porzioni</strong> (1 residente + ${p.ospiti} ${p.ospiti === 1 ? 'ospite' : 'ospiti'})
+                            </div>
+                          ` : ''}
+                        </div>
+                      </div>
+                      <div style="display: flex; align-items: center; gap: 6px; margin-left: 8px;">
+                        ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11.5px; padding: 4px 8px;">🥪 Busta</span>' : ''}
+                        <button type="button" class="btn btn-outline btn-sm no-print" onclick="masterToggleBustaResidente('${escapeHtml(p.email)}', '${dataFiltroYMD}', ${!p.busta})" style="padding: 3px 8px; font-size: 11px; font-weight: 700; ${p.busta ? 'color: #c2410c; border-color: #fed7aa; background: #fff7ed;' : 'color: #475569;'}" title="${p.busta ? 'Revoca busta (riporta in sala)' : 'Assegna busta da asporto'}">
+                          ${p.busta ? '✕ Busta' : '+ Busta 🥪'}
+                        </button>
                       </div>
                     </div>
-                    <div style="display: flex; align-items: center; gap: 4px;">
-                      ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11px;">🥪 Busta</span>' : ''}
-                      ${p.ritardo ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 800; font-size: 11px;">⏰</span>' : ''}
-                      <button type="button" class="btn btn-outline btn-sm no-print" onclick="masterToggleBustaResidente('${escapeHtml(p.email)}', '${dataFiltroYMD}', ${!p.busta})" style="padding: 2px 7px; font-size: 11px; font-weight: 700; ${p.busta ? 'color: #c2410c; border-color: #fed7aa; background: #fff7ed;' : 'color: #475569;'}" title="${p.busta ? 'Revoca busta (riporta in sala)' : 'Assegna busta da asporto'}">
-                        ${p.busta ? '✕ Busta' : '+ Busta 🥪'}
-                      </button>
-                    </div>
-                  </div>`;
+                  `;
                 }).join("")}
               </div>
             `}
           </div>
         </div>
 
+        <!-- SCHEDA CENA -->
         <div class="card" style="border-top: 4px solid #2563eb; padding: 14px;">
           <div class="flex-between" style="border-bottom: 1px solid #bfdbfe; padding-bottom: 10px; margin-bottom: 10px;">
             <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="font-size: 24px;">🌙</span>
-              <div><h3 style="margin: 0; font-size: 17px; color: #1d4ed8; font-weight: 800;">Cena (19:30)</h3></div>
+              <span style="font-size: 26px;">🌙</span>
+              <div>
+                <h3 style="margin: 0; font-size: 17.5px; color: #1d4ed8; font-weight: 800;">Cena (19:30)</h3>
+                <div style="font-size: 12px; color: #1e40af; font-weight: 600; margin-top: 2px;">
+                  🍲 <strong>${statsCena.totale}</strong> porzioni totali (${statsCena.inSala} sala, ${statsCena.buste} buste)
+                  ${countOspitiCena > 0 ? `<span style="background: #fef3c7; color: #78350f; font-weight: 800; padding: 1px 6px; border-radius: 4px; margin-left: 4px; border: 1px solid #fde68a;">👥 +${countOspitiCena} ospiti</span>` : ''}
+                  ${countRitardiCena > 0 ? `<span style="background: #fee2e2; color: #991b1b; font-weight: 800; padding: 1px 6px; border-radius: 4px; margin-left: 4px; border: 1px solid #fecaca;">⏰ ${countRitardiCena} ritardi</span>` : ''}
+                </div>
+              </div>
             </div>
-            <div style="background: #eff6ff; border: 2px solid #2563eb; border-radius: 20px; padding: 4px 14px; cursor: pointer;" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'cena')">
-              <span style="font-size: 20px; font-weight: 900; color: #1d4ed8;">${listaCena.length}</span>
-              <span style="font-size: 11px; font-weight: 700; color: #1e40af; display: block;">PRESENTI 🔍</span>
+            <div style="background: #eff6ff; border: 2px solid #2563eb; border-radius: 12px; padding: 5px 14px; cursor: pointer; text-align: center; box-shadow: 0 2px 4px rgba(37,99,235,0.12);" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'cena')" title="Apri registro dettagliato">
+              <span style="font-size: 20px; font-weight: 900; color: #1d4ed8;">${statsCena.totale}</span>
+              <span style="font-size: 10.5px; font-weight: 800; color: #1e40af; display: block; text-transform: uppercase;">PORZIONI 🔍</span>
             </div>
           </div>
+
+          ${(countRitardiCena > 0 || countOspitiCena > 0) ? `
+            <div style="background: linear-gradient(135deg, #fffbeb 0%, #eff6ff 100%); border: 1.5px solid #3b82f6; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
+              ${countRitardiCena > 0 ? `
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #dc2626;">
+                  <span style="font-size: 16px;">⏰</span>
+                  <span>AVVISO CUOCA: <strong>${countRitardiCena} ${countRitardiCena === 1 ? 'residente arriva in RITARDO' : 'residenti arrivano in RITARDO'}</strong> (conservare la porzione al caldo!)</span>
+                </div>
+              ` : ''}
+              ${countOspitiCena > 0 ? `
+                <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #1e40af;">
+                  <span style="font-size: 16px;">👥</span>
+                  <span>AVVISO CUOCA: <strong>+${countOspitiCena} ${countOspitiCena === 1 ? 'OSPITE aggiuntivo confermato' : 'OSPITI aggiuntivi confermati'}</strong> da preparare!</span>
+                </div>
+              ` : ''}
+            </div>
+          ` : ''}
+
           <div class="no-print" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; background: #eff6ff; padding: 6px; border-radius: 6px;">
             <button type="button" class="btn btn-sm ${filterCena === 'tutti' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('cena', 'tutti')" style="padding: 3px 8px; font-size: 11px;">Tutti (${listaCena.length})</button>
             <button type="button" class="btn btn-sm ${filterCena === 'busta' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('cena', 'busta')" style="padding: 3px 8px; font-size: 11px;">🥪 (${countBusteCena})</button>
-            <button type="button" class="btn btn-sm ${filterCena === 'ritardo' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('cena', 'ritardo')" style="padding: 3px 8px; font-size: 11px;">⏰ (${countRitardiCena})</button>
+            <button type="button" class="btn btn-sm ${filterCena === 'ritardo' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('cena', 'ritardo')" style="padding: 3px 8px; font-size: 11px; ${countRitardiCena > 0 ? 'font-weight: 800; color: #dc2626; border-color: #f87171;' : ''}">⏰ Ritardi (${countRitardiCena})</button>
+            ${countOspitiCena > 0 ? `
+              <button type="button" class="btn btn-sm ${filterCena === 'ospiti' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('cena', 'ospiti')" style="padding: 3px 8px; font-size: 11px; font-weight: 800; color: #1e40af; border-color: #93c5fd;">👥 Ospiti (+${countOspitiCena})</button>
+            ` : ''}
           </div>
+
           <div style="max-height: 480px; overflow-y: auto;">
-            ${filteredCena.length === 0 ? `<div style="text-align: center; padding: 32px 16px; color: #94a3b8;"><span style="font-size: 32px; display: block;">🌙</span>Nessuna presenza.</div>` : `
-              <div style="display: flex; flex-direction: column; gap: 6px;">
+            ${filteredCena.length === 0 ? `<div style="text-align: center; padding: 32px 16px; color: #94a3b8;"><span style="font-size: 32px; display: block;">🌙</span>Nessuna presenza trovata con questo filtro.</div>` : `
+              <div style="display: flex; flex-direction: column; gap: 8px;">
                 ${filteredCena.map((p, idx) => {
                   const checkKey = `cena_${p.email}`;
                   const isChecked = Boolean(spuntati[checkKey]);
                   const nome = (p.nome || p.email.split('@')[0]).replace(/\./g, ' ');
                   const capitalizedNome = nome.charAt(0).toUpperCase() + nome.slice(1);
-                  return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 10px; background: ${isChecked ? '#f1f5f9' : '#ffffff'}; border: 1px solid ${isChecked ? '#cbd5e1' : '#e2e8f0'}; border-radius: 6px; opacity: ${isChecked ? '0.6' : '1'};">
-                    <div style="display: flex; align-items: center; gap: 8px; flex: 1;">
-                      <span style="font-size: 11px; font-weight: 700; color: #94a3b8; width: 18px;">${idx + 1}.</span>
-                      <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntato('${checkKey}')" style="width: 18px; height: 18px; cursor: pointer; accent-color: #2563eb;">
-                      <div>
-                        <span style="font-weight: 700; font-size: 13.5px; text-decoration: ${isChecked ? 'line-through' : 'none'};">${escapeHtml(capitalizedNome)}</span>
-                        <span class="text-xs text-muted" style="display: block;">${escapeHtml(p.email)}</span>
-                        ${p.note ? `<div style="margin-top: 3px; font-size: 12px; font-weight: 700; color: #1d4ed8;">💬 ${escapeHtml(p.note)}</div>` : ''}
+                  const haOspiti = Boolean(p.ospiti && p.ospiti > 0);
+                  const haRitardo = Boolean(p.ritardo);
+
+                  let cardBg = isChecked ? '#f1f5f9' : '#ffffff';
+                  let cardBorder = isChecked ? '1px solid #cbd5e1' : '1px solid #e2e8f0';
+                  let borderLeft = '4px solid #cbd5e1';
+
+                  if (!isChecked) {
+                    if (haRitardo && haOspiti) {
+                      cardBg = '#eff6ff';
+                      cardBorder = '1.5px solid #2563eb';
+                      borderLeft = '6px solid #dc2626';
+                    } else if (haRitardo) {
+                      cardBg = '#fef2f2';
+                      cardBorder = '1.5px solid #f87171';
+                      borderLeft = '6px solid #dc2626';
+                    } else if (haOspiti) {
+                      cardBg = '#fefce8';
+                      cardBorder = '1.5px solid #f59e0b';
+                      borderLeft = '6px solid #d97706';
+                    } else if (p.busta) {
+                      borderLeft = '4px solid #f59e0b';
+                    } else {
+                      borderLeft = '4px solid #2563eb';
+                    }
+                  }
+
+                  return `
+                    <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: ${cardBg}; border: ${cardBorder}; border-left: ${borderLeft}; border-radius: 8px; opacity: ${isChecked ? '0.55' : '1'}; transition: all 0.15s ease; box-shadow: ${(!isChecked && (haRitardo || haOspiti)) ? '0 2px 6px rgba(0,0,0,0.06)' : 'none'};">
+                      <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1;">
+                        <span style="font-size: 11px; font-weight: 700; color: #94a3b8; width: 18px; margin-top: 3px;">${idx + 1}.</span>
+                        <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntato('${checkKey}')" style="width: 20px; height: 20px; cursor: pointer; accent-color: #2563eb; margin-top: 2px;">
+                        <div style="flex: 1;">
+                          <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                            <span style="font-weight: 800; font-size: 14px; text-decoration: ${isChecked ? 'line-through' : 'none'}; color: #0f172a;">${escapeHtml(capitalizedNome)}</span>
+                            ${haOspiti ? `<span class="badge" style="background: #78350f; color: #fef08a; font-weight: 900; font-size: 11.5px; padding: 2px 7px; border: 1px solid #b45309;">👥 +${p.ospiti} ${p.ospiti === 1 ? 'OSPITE' : 'OSPITI'} (Tot: ${1 + p.ospiti})</span>` : ''}
+                            ${haRitardo ? `<span class="badge" style="background: #dc2626; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 2px 7px; box-shadow: 0 1px 3px rgba(220,38,38,0.25);">⏰ RITARDO CONFERMATO</span>` : ''}
+                          </div>
+                          <span class="text-xs text-muted" style="display: block; margin-top: 1px;">${escapeHtml(p.email)}</span>
+                          
+                          ${haRitardo ? `
+                            <div style="margin-top: 5px; font-size: 12px; font-weight: 800; color: #991b1b; background: #fee2e2; border-radius: 6px; padding: 4px 8px; display: inline-flex; align-items: center; gap: 4px; border: 1px solid #fecaca;">
+                              <span>⏰</span>
+                              <span>${p.note ? `Arrivo/Nota: <strong>"${escapeHtml(p.note)}"</strong>` : 'Arrivo posticipato'} • <em>Conservare porzione al caldo</em></span>
+                            </div>
+                          ` : (p.note ? `<div style="margin-top: 4px; font-size: 12px; font-weight: 700; color: #1d4ed8;">💬 Nota: ${escapeHtml(p.note)}</div>` : '')}
+
+                          ${(haOspiti && !haRitardo) ? `
+                            <div style="margin-top: 4px; font-size: 11.5px; font-weight: 800; color: #1e40af; background: #dbeafe; border-radius: 4px; padding: 3px 6px; display: inline-block;">
+                              🍲 Preparare <strong>${1 + p.ospiti} porzioni</strong> (1 residente + ${p.ospiti} ${p.ospiti === 1 ? 'ospite' : 'ospiti'})
+                            </div>
+                          ` : ''}
+                        </div>
+                      </div>
+                      <div style="display: flex; align-items: center; gap: 6px; margin-left: 8px;">
+                        ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11.5px; padding: 4px 8px;">🥪 Busta</span>' : ''}
                       </div>
                     </div>
-                    <div style="display: flex; gap: 4px;">
-                      ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11px;">🥪</span>' : ''}
-                      ${p.ritardo ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 800; font-size: 11px;">⏰</span>' : ''}
-                    </div>
-                  </div>`;
+                  `;
                 }).join("")}
               </div>
             `}
@@ -8521,13 +8681,18 @@ window.renderContenutoModalCucina = function() {
   const countInSala = statsPasto.inSala;
   const totalePasti = statsPasto.totale;
 
-  if (sottotitoloEl) sottotitoloEl.innerHTML = `📅 <strong>${dataEstesa}</strong> • Totale: <strong>${totalePasti}</strong> (${countInSala} sala, ${countBuste} buste${statsPasto.ospitiTotali > 0 ? `, +${statsPasto.ospitiTotali} ospiti` : ''})`;
+  const countOspiti = statsPasto.ospitiTotali || 0;
+
+  if (sottotitoloEl) sottotitoloEl.innerHTML = `📅 <strong>${dataEstesa}</strong> • Totale: <strong>${totalePasti}</strong> (${countInSala} sala, ${countBuste} buste${countOspiti > 0 ? `, <strong>+${countOspiti} ospiti</strong>` : ''}${countRitardi > 0 ? `, <strong>${countRitardi} ritardi</strong>` : ''})`;
   if (filtriContainer) {
     filtriContainer.innerHTML = `
       <button type="button" class="btn btn-sm ${filtro === 'tutti' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('tutti')" style="padding: 3px 8px; font-size: 11px;">Tutti (${prenotati.length})</button>
       <button type="button" class="btn btn-sm ${filtro === 'in_sala' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('in_sala')" style="padding: 3px 8px; font-size: 11px;">🍽️ Sala (${countInSala})</button>
       <button type="button" class="btn btn-sm ${filtro === 'busta' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('busta')" style="padding: 3px 8px; font-size: 11px;">🥪 Buste (${countBuste})</button>
-      <button type="button" class="btn btn-sm ${filtro === 'ritardo' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('ritardo')" style="padding: 3px 8px; font-size: 11px;">⏰ (${countRitardi})</button>
+      <button type="button" class="btn btn-sm ${filtro === 'ritardo' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('ritardo')" style="padding: 3px 8px; font-size: 11px; ${countRitardi > 0 ? 'font-weight: 800; color: #dc2626; border-color: #f87171;' : ''}">⏰ Ritardi (${countRitardi})</button>
+      ${countOspiti > 0 ? `
+        <button type="button" class="btn btn-sm ${filtro === 'ospiti' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('ospiti')" style="padding: 3px 8px; font-size: 11px; font-weight: 800; color: #78350f; border-color: #f59e0b;">👥 Ospiti (+${countOspiti})</button>
+      ` : ''}
       ${countNote > 0 ? `<button type="button" class="btn btn-sm ${filtro === 'note' ? 'btn-primary' : 'btn-outline'}" onclick="applicaFiltriModalCucina('note')" style="padding: 3px 8px; font-size: 11px;">💬 (${countNote})</button>` : ''}
     `;
   }
@@ -8536,6 +8701,7 @@ window.renderContenutoModalCucina = function() {
   if (filtro === "in_sala") list = list.filter(p => !p.busta && !p.ritardo);
   if (filtro === "busta") list = list.filter(p => p.busta);
   if (filtro === "ritardo") list = list.filter(p => p.ritardo);
+  if (filtro === "ospiti") list = list.filter(p => p.ospiti && p.ospiti > 0);
   if (filtro === "note") list = list.filter(p => p.note && p.note.trim());
   if (search) list = list.filter(p => p.nomeVisualizzato.toLowerCase().includes(search) || p.email.toLowerCase().includes(search) || (p.note && p.note.toLowerCase().includes(search)));
 
@@ -8544,28 +8710,69 @@ window.renderContenutoModalCucina = function() {
 
   if (elencoContainer) {
     if (list.length === 0) {
-      elencoContainer.innerHTML = `<div style="text-align: center; padding: 36px 16px; color: #94a3b8;"><span style="font-size: 36px; display: block; margin-bottom: 8px;">🍽️</span><div style="font-size: 14px; font-weight: 700; color: #64748b;">Nessun residente trovato</div></div>`;
+      elencoContainer.innerHTML = `<div style="text-align: center; padding: 36px 16px; color: #94a3b8;"><span style="font-size: 36px; display: block; margin-bottom: 8px;">🍽️</span><div style="font-size: 14px; font-weight: 700; color: #64748b;">Nessun residente trovato con questo filtro</div></div>`;
       return;
     }
     elencoContainer.innerHTML = `
-      <div style="display: flex; flex-direction: column; gap: 6px;">
+      <div style="display: flex; flex-direction: column; gap: 8px;">
         ${list.map((p, idx) => {
           const checkKey = `${tipoPasto}_${p.email}`;
           const isChecked = Boolean(spuntati[checkKey]);
-          return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; background: ${isChecked ? '#f1f5f9' : '#ffffff'}; border: 1px solid ${isChecked ? '#cbd5e1' : '#e2e8f0'}; border-radius: 6px; opacity: ${isChecked ? '0.65' : '1'};">
-            <div style="display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0;">
-              <span style="font-size: 12px; font-weight: 800; color: #94a3b8; width: 22px; flex-shrink: 0;">${idx + 1}.</span>
-              <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntatoModal('${checkKey}')" style="width: 19px; height: 19px; cursor: pointer; accent-color: ${isPranzo ? '#ea580c' : '#2563eb'}; flex-shrink: 0;">
-              <div style="min-width: 0;">
-                <div style="font-weight: 700; font-size: 14px; text-decoration: ${isChecked ? 'line-through' : 'none'}; word-break: break-word;">${escapeHtml(p.nomeVisualizzato)}</div>
-                <div class="text-xs text-muted" style="word-break: break-all;">${escapeHtml(p.email)}</div>
-                ${p.note ? `<div style="margin-top: 3px; font-size: 11.5px; font-weight: 700; color: ${isPranzo ? '#c2410c' : '#1d4ed8'};">💬 ${escapeHtml(p.note)}</div>` : ''}
+          const haRitardo = Boolean(p.ritardo);
+          const haOspiti = Boolean(p.ospiti && p.ospiti > 0);
+
+          let rowBg = isChecked ? '#f1f5f9' : '#ffffff';
+          let rowBorder = isChecked ? '1px solid #cbd5e1' : '1px solid #e2e8f0';
+          let borderLeft = '4px solid #cbd5e1';
+
+          if (!isChecked) {
+            if (haRitardo && haOspiti) {
+              rowBg = '#fff7ed';
+              rowBorder = '1.5px solid #ea580c';
+              borderLeft = '6px solid #dc2626';
+            } else if (haRitardo) {
+              rowBg = '#fef2f2';
+              rowBorder = '1.5px solid #f87171';
+              borderLeft = '6px solid #dc2626';
+            } else if (haOspiti) {
+              rowBg = '#fefce8';
+              rowBorder = '1.5px solid #f59e0b';
+              borderLeft = '6px solid #d97706';
+            } else if (p.busta) {
+              borderLeft = '4px solid #f59e0b';
+            } else {
+              borderLeft = '4px solid ' + (isPranzo ? '#ea580c' : '#2563eb');
+            }
+          }
+
+          return `<div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; background: ${rowBg}; border: ${rowBorder}; border-left: ${borderLeft}; border-radius: 8px; opacity: ${isChecked ? '0.55' : '1'}; transition: all 0.15s ease;">
+            <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1; min-width: 0;">
+              <span style="font-size: 12px; font-weight: 800; color: #94a3b8; width: 22px; flex-shrink: 0; margin-top: 3px;">${idx + 1}.</span>
+              <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntatoModal('${checkKey}')" style="width: 20px; height: 20px; cursor: pointer; accent-color: ${isPranzo ? '#ea580c' : '#2563eb'}; flex-shrink: 0; margin-top: 2px;">
+              <div style="min-width: 0; flex: 1;">
+                <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
+                  <span style="font-weight: 800; font-size: 14px; text-decoration: ${isChecked ? 'line-through' : 'none'}; color: #0f172a;">${escapeHtml(p.nomeVisualizzato)}</span>
+                  ${haOspiti ? `<span class="badge" style="background: #78350f; color: #fef08a; font-weight: 900; font-size: 11px; padding: 2px 7px; border: 1px solid #b45309;">👥 +${p.ospiti} ${p.ospiti === 1 ? 'OSPITE' : 'OSPITI'} (Tot: ${1 + p.ospiti})</span>` : ''}
+                  ${haRitardo ? `<span class="badge" style="background: #dc2626; color: #ffffff; font-weight: 900; font-size: 11px; padding: 2px 7px;">⏰ RITARDO</span>` : ''}
+                </div>
+                <div class="text-xs text-muted" style="word-break: break-all; margin-top: 1px;">${escapeHtml(p.email)}</div>
+                
+                ${haRitardo ? `
+                  <div style="margin-top: 5px; font-size: 11.5px; font-weight: 800; color: #991b1b; background: #fee2e2; border-radius: 4px; padding: 3px 6px; display: inline-block;">
+                    ⏰ Orario/Nota: <strong>"${escapeHtml(p.note || 'Arrivo posticipato')}"</strong> • <em>Tenere porzione al caldo</em>
+                  </div>
+                ` : (p.note ? `<div style="margin-top: 3px; font-size: 11.5px; font-weight: 700; color: ${isPranzo ? '#c2410c' : '#1d4ed8'};">💬 Nota: ${escapeHtml(p.note)}</div>` : '')}
+
+                ${(haOspiti && !haRitardo) ? `
+                  <div style="margin-top: 4px; font-size: 11.5px; font-weight: 800; color: #92400e; background: #fef3c7; border-radius: 4px; padding: 2px 6px; display: inline-block;">
+                    🍲 Servire <strong>${1 + p.ospiti} porzioni</strong> (1 residente + ${p.ospiti} ${p.ospiti === 1 ? 'ospite' : 'ospiti'})
+                  </div>
+                ` : ''}
               </div>
             </div>
-            <div style="display: flex; gap: 4px;">
-              ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11px;">🥪</span>' : ''}
-              ${p.ritardo ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 800; font-size: 11px;">⏰</span>' : ''}
-              ${(!p.busta && !p.ritardo) ? '<span class="badge" style="background: #dcfce7; color: #166534; font-weight: 700; font-size: 11px;">🍽️</span>' : ''}
+            <div style="display: flex; gap: 4px; margin-left: 8px;">
+              ${p.busta ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-weight: 800; font-size: 11px;">🥪 Busta</span>' : ''}
+              ${(!p.busta && !p.ritardo && !haOspiti) ? '<span class="badge" style="background: #dcfce7; color: #166534; font-weight: 700; font-size: 11px;">🍽️ Sala</span>' : ''}
             </div>
           </div>`;
         }).join("")}
@@ -8659,15 +8866,18 @@ appState.consultaMenuState = {
 window.apriModalConsultaMenu = function(settimanaPredefinita) {
   const modal = document.getElementById("modal-consulta-menu");
   if (!modal) return;
+  if (!appState.consultaMenuState) appState.consultaMenuState = { settimana: "settimana1" };
   if (settimanaPredefinita && (settimanaPredefinita === "settimana1" || settimanaPredefinita === "settimana2")) {
     appState.consultaMenuState.settimana = settimanaPredefinita;
   } else {
     // Rileva ciclo corrente dalla data odierna
-    appState.consultaMenuState.settimana = getSettimanaMenu(new Date());
+    appState.consultaMenuState.settimana = (typeof getSettimanaMenu === "function") ? getSettimanaMenu(new Date()) : "settimana1";
   }
   modal.style.display = "flex";
+  modal.style.zIndex = "9999";
   selezionaSettimanaConsultaMenu(appState.consultaMenuState.settimana);
 };
+window._realApriModalConsultaMenu = window.apriModalConsultaMenu;
 
 window.chiudiModalConsultaMenu = function() {
   const modal = document.getElementById("modal-consulta-menu");
@@ -8785,6 +8995,8 @@ function apriModalModificaMenu(settimana, giorno) {
   modal.style.display = "flex";
   modal.style.zIndex = "9999";
 
+  if (!appState.modificaMenuState) appState.modificaMenuState = { settimana: "settimana1", giorno: "lunedi" };
+
   if (settimana && (settimana === "settimana1" || settimana === "settimana2")) {
     appState.modificaMenuState.settimana = settimana;
   }
@@ -8794,6 +9006,7 @@ function apriModalModificaMenu(settimana, giorno) {
   cambiaSettimanaModificaMenu(appState.modificaMenuState.settimana);
 }
 window.apriModalModificaMenu = apriModalModificaMenu;
+window._realApriModalModificaMenu = apriModalModificaMenu;
 
 function chiudiModalModificaMenu() {
   const modal = document.getElementById("modal-modifica-menu");
@@ -9003,6 +9216,10 @@ function apriModalGestioneBusteMaster(dataYMD) {
   modal.style.display = "flex";
   modal.style.zIndex = "9999";
 
+  if (!appState.gestioneBusteMasterState) {
+    appState.gestioneBusteMasterState = { dataYMD: "", search: "", filtro: "tutti" };
+  }
+
   let targetDate = dataYMD || appState.cucinaSelectedDate || (typeof formatYMD === "function" ? formatYMD(new Date()) : new Date().toISOString().slice(0, 10));
 
   // Se la data scelta non è un martedì o un giovedì, proponi automaticamente il prossimo martedì
@@ -9028,6 +9245,7 @@ function apriModalGestioneBusteMaster(dataYMD) {
   renderContenutoGestioneBusteMaster();
 }
 window.apriModalGestioneBusteMaster = apriModalGestioneBusteMaster;
+window._realApriModalGestioneBusteMaster = apriModalGestioneBusteMaster;
 
 function chiudiModalGestioneBusteMaster() {
   const modal = document.getElementById("modal-gestione-buste-master");

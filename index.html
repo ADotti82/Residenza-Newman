@@ -3305,39 +3305,62 @@
       if (m) m.style.display = "none";
     };
 
-    window.apriModalGestioneBusteMaster = window.apriModalGestioneBusteMaster || function(dataYMD) {
+    window.apriModalGestioneBusteMaster = function(dataYMD) {
+      if (window._realApriModalGestioneBusteMaster) return window._realApriModalGestioneBusteMaster(dataYMD);
       const m = document.getElementById("modal-gestione-buste-master");
       if (m) {
         m.style.display = "flex";
         m.style.zIndex = "9999";
+        if (typeof renderContenutoGestioneBusteMaster === "function") renderContenutoGestioneBusteMaster();
       }
     };
-    window.chiudiModalGestioneBusteMaster = window.chiudiModalGestioneBusteMaster || function() {
+    window.chiudiModalGestioneBusteMaster = function() {
       const m = document.getElementById("modal-gestione-buste-master");
       if (m) m.style.display = "none";
     };
 
-    window.apriModalConsultaMenu = window.apriModalConsultaMenu || function(settimana) {
+    window.apriModalConsultaMenu = function(settimana) {
+      if (window._realApriModalConsultaMenu) return window._realApriModalConsultaMenu(settimana);
       const m = document.getElementById("modal-consulta-menu");
       if (m) {
         m.style.display = "flex";
         m.style.zIndex = "9999";
+        if (typeof selezionaSettimanaConsultaMenu === "function") selezionaSettimanaConsultaMenu(settimana || "settimana1");
       }
     };
-    window.chiudiModalConsultaMenu = window.chiudiModalConsultaMenu || function() {
+    window.chiudiModalConsultaMenu = function() {
       const m = document.getElementById("modal-consulta-menu");
       if (m) m.style.display = "none";
     };
 
-    window.apriModalModificaMenu = window.apriModalModificaMenu || function(settimana, giorno) {
+    window.apriModalModificaMenu = function(settimana, giorno) {
+      if (window._realApriModalModificaMenu) return window._realApriModalModificaMenu(settimana, giorno);
       const m = document.getElementById("modal-modifica-menu");
       if (m) {
         m.style.display = "flex";
         m.style.zIndex = "9999";
+        if (typeof cambiaSettimanaModificaMenu === "function") cambiaSettimanaModificaMenu(settimana || "settimana1");
       }
     };
-    window.chiudiModalModificaMenu = window.chiudiModalModificaMenu || function() {
+    window.chiudiModalModificaMenu = function() {
       const m = document.getElementById("modal-modifica-menu");
+      if (m) m.style.display = "none";
+    };
+
+    window.apriModalVariazioneCuoca = function(dataStr, tipoPasto) {
+      if (window._realApriModalVariazioneCuoca) return window._realApriModalVariazioneCuoca(dataStr, tipoPasto);
+      const m = document.getElementById("modal-variazione-cuoca");
+      if (m) {
+        m.style.display = "flex";
+        m.style.zIndex = "9999";
+        const inputData = document.getElementById("cuoca-modal-data");
+        const selectPasto = document.getElementById("cuoca-modal-pasto");
+        if (inputData && dataStr) inputData.value = dataStr;
+        if (selectPasto && tipoPasto) selectPasto.value = tipoPasto;
+      }
+    };
+    window.chiudiModalVariazioneCuoca = function() {
+      const m = document.getElementById("modal-variazione-cuoca");
       if (m) m.style.display = "none";
     };
 
@@ -3348,6 +3371,6 @@
   </script>
 
   <!-- SCRIPT FRONTEND LOGICA (VANILLA JS) -->
-  <script type="module" src="/app.js?v=20261008-5"></script>
+  <script type="module" src="/app.js?v=20261012-cuoca-v3"></script>
 </body>
 </html>
