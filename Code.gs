@@ -160,7 +160,7 @@ function setupDatabase() {
     sConfig.appendRow(["Max_Ospiti_Mensa", "5"]);
     sConfig.appendRow([
       "Info_Regolamento",
-      "Benvenuti alla Residenza Card. Newman.\n• Rispetto degli orari di silenzio dalle 23:00 alle 07:30 del mattino in tutti i corridoi e le aree comuni.\n• Orari comunitari: S. Messa ore 07:00, Pranzo ore 14:30, Cena ore 19:30.\n• Prenotazione pasti: Pranzo entro le 09:00 del mattino, Cena entro le 14:30. Per martedì e giovedì la busta va prenotata entro le 14:00 del giorno prima.\n• Spazi Comuni: Le richieste per Chiesa e Sala TV a slot di 30 minuti sono soggette ad approvazione del Master. Si raccomanda di lasciare gli ambienti in perfetto ordine dopo l'uso."
+      "Benvenuti alla Residenza Card. Newman.\n• Rispetto degli orari di silenzio dalle 23:00 alle 07:30 del mattino in tutti i corridoi e le aree comuni.\n• Orari comunitari: S. Messa ore 06:30 - 07:30 e 19:00 - 19:30, Pranzo ore 14:30, Cena ore 19:30.\n• Prenotazione pasti: Pranzo entro le 09:00 del mattino, Cena entro le 14:30. Per martedì e giovedì la busta va prenotata entro le 14:00 del giorno prima.\n• Spazi Comuni: Le richieste per Chiesa e Sala TV a slot di 30 minuti sono soggette ad approvazione del Master. Si raccomanda di lasciare gli ambienti in perfetto ordine dopo l'uso."
     ]);
     sConfig.appendRow([
       "Info_Contatti",
@@ -1001,17 +1001,13 @@ function gestisciPrenotazioneSpazio(payload) {
 
   const targetDataStr = formattaDataGAS(data);
 
-  // Blocco istituzionale Chiesa per Lodi (06:30 - 06:45) e S. Messa (06:45 - 07:15) dal lunedì al venerdì tranne giovedì
+  // Blocco istituzionale Chiesa per Santa Messa comunitaria (06:30 - 07:30 ogni mattina e 19:00 - 19:30 ogni sera)
   if (risorsa === "Chiesa" && !isMaster) {
-    const dObj = new Date(targetDataStr + "T12:00:00");
-    const dayOfWeek = dObj.getDay(); // 1=Lun, 2=Mar, 3=Mer, 5=Ven
-    if (dayOfWeek === 1 || dayOfWeek === 2 || dayOfWeek === 3 || dayOfWeek === 5) {
-      if (slot_orario === "06:30 - 06:45" || slot_orario === "06:45 - 07:15") {
-        return rispostaJSON({
-          success: false,
-          error: "Questo slot è riservato alla preghiera comunitaria della Residenza (Lodi / S. Messa)."
-        });
-      }
+    if (slot_orario === "06:30 - 07:00" || slot_orario === "07:00 - 07:30" || slot_orario === "19:00 - 19:30" || slot_orario === "06:30 - 07:30") {
+      return rispostaJSON({
+        success: false,
+        error: "Questo slot è riservato alla celebrazione della Santa Messa comunitaria della Residenza (06:30-07:30 e 19:00-19:30)."
+      });
     }
   }
 

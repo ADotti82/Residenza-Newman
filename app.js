@@ -701,9 +701,10 @@ function mockBackendExecution(action, params) {
       const dataStr = formattaDataConfronto(data);
       const isMasterAction = Boolean(autoApprovaMaster) || String(email || "").startsWith("Master");
 
-      if (risorsa === "Chiesa" && typeof isGiornoLiturgiaComunitaria === "function" && isGiornoLiturgiaComunitaria(dataStr)) {
-        if ((slot_orario === "06:30 - 06:45" || slot_orario === "06:45 - 07:15") && !isMasterAction) {
-          return { success: false, error: "Questo slot orario è riservato alla preghiera comunitaria della Residenza (Lodi / S. Messa)." };
+      if (risorsa === "Chiesa") {
+        const isSlotBloccato = (slot_orario === "06:30 - 07:00" || slot_orario === "07:00 - 07:30" || slot_orario === "19:00 - 19:30" || slot_orario === "06:30 - 07:30");
+        if (isSlotBloccato && !isMasterAction) {
+          return { success: false, error: "Questo slot orario è riservato alla Santa Messa comunitaria della Residenza (06:30-07:30 e 19:00-19:30)." };
         }
       }
 
@@ -1849,13 +1850,11 @@ function renderBachecaView() {
         <div class="liturgy-saint" style="font-size: 14.5px; font-weight: 600; color: #ffffff; margin-top: 5px; line-height: 1.4;">
           ⛪ ${escapeHtml(cal.santo)}
         </div>
-        ${isGiornoLiturgiaComunitaria(dataYMD) ? `
-          <div style="margin-top: 8px; padding: 6px 10px; background: rgba(255,255,255,0.18); border-radius: 6px; font-size: 12px; color: #f8fafc; display: flex; flex-direction: column; gap: 3px;">
-            <div style="font-weight: 700; color: #fef08a;">✝️ Preghiera Comunitaria in Chiesa:</div>
-            <div>📖 <strong>06:30 - 06:45:</strong> Lodi Mattutine Comunitarie</div>
-            <div>⛪ <strong>06:45 - 07:15:</strong> Santa Messa Comunitaria</div>
-          </div>
-        ` : ''}
+        <div style="margin-top: 8px; padding: 6px 10px; background: rgba(255,255,255,0.18); border-radius: 6px; font-size: 12px; color: #f8fafc; display: flex; flex-direction: column; gap: 3px;">
+          <div style="font-weight: 700; color: #fef08a;">✝️ S. Messa Comunitaria in Chiesa:</div>
+          <div>⛪ <strong>06:30 - 07:30:</strong> Santa Messa Comunitaria Mattutina</div>
+          <div>⛪ <strong>19:00 - 19:30:</strong> Santa Messa Comunitaria Serale</div>
+        </div>
       </div>
       <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; align-items: center;">
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
@@ -3690,34 +3689,30 @@ window.cambiaDataSpazio = function(dateStr) { if (!dateStr) return; appState.sel
 window.cambiaFasciaSpazio = function(fascia) { appState.selectedSpazioFascia = fascia; renderSpaziView(); };
 
 function isGiornoLiturgiaComunitaria(dataInput) {
-  if (!dataInput) return false;
-  const dStr = formattaDataConfronto(dataInput);
-  if (!dStr) return false;
-  const d = new Date(dStr + "T12:00:00");
-  const day = d.getDay(); // 0 = Dom, 1 = Lun, 2 = Mar, 3 = Mer, 4 = Gio, 5 = Ven, 6 = Sab
-  // Dal lunedì al venerdì tranne giovedì: 1 (Lun), 2 (Mar), 3 (Mer), 5 (Ven)
-  return day === 1 || day === 2 || day === 3 || day === 5;
+  // Santa Messa comunitaria celebrata ogni giorno (06:30-07:30 e 19:00-19:30)
+  return true;
 }
 window.isGiornoLiturgiaComunitaria = isGiornoLiturgiaComunitaria;
 
 function getBloccoComunitarioChiesa(slot, dataYmd) {
-  if (!slot || !dataYmd) return null;
-  if (!isGiornoLiturgiaComunitaria(dataYmd)) return null;
-  if (slot === "06:30 - 06:45") {
-    return {
-      titolo: "Lodi Mattutine Comunitarie",
-      icona: "📖",
-      dettaglio: "Preghiera comunitaria della Residenza (06:30 - 06:45)",
-      badge: "📖 Lodi Comunitarie",
-      bloccato: true
-    };
-  }
-  if (slot === "06:45 - 07:15") {
+  if (!slot) return null;
+  // Blocco Santa Messa comunitaria ogni mattina (06:30 - 07:30: due slot 06:30-07:00 e 07:00-07:30)
+  if (slot === "06:30 - 07:00" || slot === "07:00 - 07:30" || slot === "06:30 - 07:30") {
     return {
       titolo: "Santa Messa Comunitaria",
       icona: "⛪",
-      dettaglio: "Celebrazione eucaristica comunitaria (06:45 - 07:15)",
-      badge: "⛪ S. Messa Comunitaria",
+      dettaglio: "Messa comunitaria del mattino (06:30 - 07:30)",
+      badge: "⛪ S. Messa Mattutina",
+      bloccato: true
+    };
+  }
+  // Blocco Santa Messa comunitaria serale (19:00 - 19:30)
+  if (slot === "19:00 - 19:30") {
+    return {
+      titolo: "Santa Messa Comunitaria (Sera)",
+      icona: "⛪",
+      dettaglio: "Messa comunitaria della sera (19:00 - 19:30)",
+      badge: "⛪ S. Messa Serale",
       bloccato: true
     };
   }
@@ -3727,31 +3722,10 @@ window.getBloccoComunitarioChiesa = getBloccoComunitarioChiesa;
 
 function getTuttiSlotOrari30Min(risorsa, dataStr) {
   const slots = [];
-  const isChiesa = (!risorsa || risorsa === "Chiesa");
-  if (isChiesa) {
-    // Per la Chiesa supportiamo gli slot mattutini dedicati alla liturgia comunitaria
-    slots.push("06:30 - 06:45");
-    slots.push("06:45 - 07:15");
-    let currentHour = 7;
-    let currentMin = 15;
-    while (currentHour < 23 || (currentHour === 23 && currentMin <= 30)) {
-      const startH = String(currentHour).padStart(2, "0");
-      const startM = String(currentMin).padStart(2, "0");
-      let endHour = currentHour;
-      let endMin = currentMin + 30;
-      if (endMin >= 60) { endHour++; endMin = endMin - 60; }
-      const endH = String(endHour).padStart(2, "0");
-      const endM = String(endMin).padStart(2, "0");
-      slots.push(`${startH}:${startM} - ${endH}:${endM}`);
-      currentHour = endHour;
-      currentMin = endMin;
-    }
-    return slots;
-  }
-
+  // Tutti gli orari fissi standard a intervalli di 30 minuti che iniziano con :00 o :30
   let currentHour = 6;
   let currentMin = 30;
-  while (currentHour < 23 || (currentHour === 23 && currentMin <= 30)) {
+  while (currentHour < 23 || (currentHour === 23 && currentMin <= 0)) {
     const startH = String(currentHour).padStart(2, "0");
     const startM = String(currentMin).padStart(2, "0");
     let endHour = currentHour;
@@ -7219,32 +7193,30 @@ window.renderCalendarioGlobaleView = function() {
     const dCheck = new Date(oggiDate);
     dCheck.setDate(oggiDate.getDate() + offset);
     const dStrCheck = formatYMD(dCheck);
-    if (typeof isGiornoLiturgiaComunitaria === "function" && isGiornoLiturgiaComunitaria(dStrCheck)) {
-      items.push({
-        id: `LODI_${dStrCheck}`,
-        origine: "istituzionale",
-        tipo: "chiesa",
-        categoria: "Chiesa",
-        data: dStrCheck,
-        orario: "06:30 - 06:45",
-        titolo: "📖 Lodi Mattutine Comunitarie",
-        descrizione: "Preghiera comunitaria della Residenza (Lodi)",
-        autore: "Comunità Residenza",
-        stato: "Istituzionale"
-      });
-      items.push({
-        id: `MESSA_${dStrCheck}`,
-        origine: "istituzionale",
-        tipo: "chiesa",
-        categoria: "Chiesa",
-        data: dStrCheck,
-        orario: "06:45 - 07:15",
-        titolo: "⛪ Santa Messa Comunitaria",
-        descrizione: "Celebrazione eucaristica comunitaria (dal lunedì al venerdì tranne giovedì)",
-        autore: "Comunità Residenza",
-        stato: "Istituzionale"
-      });
-    }
+    items.push({
+      id: `MESSA_MATTINA_${dStrCheck}`,
+      origine: "istituzionale",
+      tipo: "chiesa",
+      categoria: "Chiesa",
+      data: dStrCheck,
+      orario: "06:30 - 07:30",
+      titolo: "⛪ Santa Messa Comunitaria Mattutina",
+      descrizione: "Celebrazione eucaristica comunitaria del mattino (06:30 - 07:30)",
+      autore: "Comunità Residenza",
+      stato: "Istituzionale"
+    });
+    items.push({
+      id: `MESSA_SERA_${dStrCheck}`,
+      origine: "istituzionale",
+      tipo: "chiesa",
+      categoria: "Chiesa",
+      data: dStrCheck,
+      orario: "19:00 - 19:30",
+      titolo: "⛪ Santa Messa Comunitaria Serale",
+      descrizione: "Celebrazione eucaristica comunitaria della sera (19:00 - 19:30)",
+      autore: "Comunità Residenza",
+      stato: "Istituzionale"
+    });
   }
 
   const oggiYMD = formatYMD(new Date());
