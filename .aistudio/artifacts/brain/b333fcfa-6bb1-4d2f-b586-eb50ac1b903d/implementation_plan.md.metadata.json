@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di implementazione per applicare le rifiniture emerse durante l'audit funzionale e collaudare l'app:\n1. Allineamento elemento feedback per il test di connessione Google Apps Script sia in 'master-gas-test-result' che in 'gas-test-result'.\n2. Ottimizzazione mobile per il modal della guida, garantendo scrolling fluido del corpo e ancoraggio fisso della barra di chiusura.\n3. Salvaguardia delle note e preferenze pre-esistenti dell'utente durante il ripristino di una presenza a seguito di cancellazione dell'assenza programmata.\n4. Verifica e compilazione finale dell'applicazione.",
-  "updatedAt":  "2026-10-11T22:55:59.824208135Z",
-  "requestFeedback":  true,
-  "userFacing":  true
+  "summary": "Piano di risoluzione definitiva per il ritardo di rendering e visualizzazione delle modali su Chrome Android (Segnala Assenza, Menù e tasti principali). Rimuove il blocco di compositing GPU causato da backdrop-filter e animazioni transform, forza il reflow istantaneo e garantisce la comparsa immediata al primo tocco senza dover toccare la barra in alto.",
+  "updatedAt": "2026-10-14T23:00:47.730326909Z",
+  "requestFeedback": true,
+  "userFacing": true
 }

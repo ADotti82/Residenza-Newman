@@ -191,6 +191,9 @@
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+    button, a, input, select, textarea, .mode-tab-btn, .bottom-nav-item, .btn, .user-pill, .day-pill {
+      touch-action: manipulation;
+    }
     
     body {
       font-family: var(--font-family);
@@ -291,21 +294,15 @@
       overflow-x: hidden;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
-      contain: layout paint;
     }
     
-    .view-container { display: none; animation: fadeIn 0.25s ease-out forwards; }
+    .view-container { display: none; }
     .view-container.active-view { display: block; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(4px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
 
     .card {
       background-color: var(--surface); border: 1px solid var(--border);
       border-radius: var(--radius-lg); padding: 18px; margin-bottom: 16px;
       box-shadow: var(--shadow-sm); transition: var(--transition);
-      contain: content;
     }
     .card-inner {
       background-color: var(--surface-alt); border: 1px solid var(--border);
@@ -380,7 +377,6 @@
     .weekly-day-card {
       background: #ffffff; border-radius: var(--radius-md); border: 1px solid var(--border);
       overflow: hidden; box-shadow: var(--shadow-sm); transition: var(--transition);
-      contain: content;
     }
     .weekly-day-card.is-today { border: 2px solid var(--accent); box-shadow: 0 4px 12px rgba(217, 119, 6, 0.15); }
     .weekly-day-card.is-selected { border-color: var(--primary); }
@@ -478,7 +474,7 @@
     .liturgic-saint-name { font-size: 13.5px; font-weight: 700; color: #ffffff; line-height: 1.35; }
 
     .bacheca-section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
-    .bacheca-card { background: #ffffff; border-radius: var(--radius-md); border: 1px solid var(--border); border-left: 4px solid var(--primary); padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow-sm); transition: var(--transition); position: relative; contain: content; }
+    .bacheca-card { background: #ffffff; border-radius: var(--radius-md); border: 1px solid var(--border); border-left: 4px solid var(--primary); padding: 14px; margin-bottom: 12px; box-shadow: var(--shadow-sm); transition: var(--transition); position: relative; }
     .bacheca-card:hover { box-shadow: var(--shadow-md); }
     .bacheca-card.tipo-compleanno { border-left-color: #d97706; background: linear-gradient(180deg, #fffbeb 0%, #ffffff 40%); }
     .bacheca-card.tipo-anniversario { border-left-color: #7c3aed; background: linear-gradient(180deg, #f5f3ff 0%, #ffffff 40%); }
@@ -520,7 +516,7 @@
     .time-filter-chip.active { background: var(--primary); color: #ffffff; border-color: var(--primary); }
 
     .slots-grid-v2 { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 8px; max-height: 380px; overflow-y: auto; padding-right: 4px; }
-    .slot-card-v2 { border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; transition: var(--transition); position: relative; contain: content; }
+    .slot-card-v2 { border-radius: var(--radius-sm); border: 1px solid var(--border); padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; transition: var(--transition); position: relative; }
     .slot-card-v2.slot-available { background: #ffffff; cursor: pointer; }
     .slot-card-v2.slot-available:hover { border-color: #16a34a; background: #f0fdf4; transform: translateY(-1px); box-shadow: 0 2px 6px rgba(22, 163, 74, 0.15); }
     .slot-card-v2.slot-mine { background: #eff6ff; border-color: #3b82f6; box-shadow: 0 2px 6px rgba(59, 130, 246, 0.15); }
@@ -749,7 +745,29 @@
     .bottom-nav-item.active { color: var(--primary); }
     .bottom-nav-item.active svg { transform: translateY(-2px); stroke: var(--accent); }
 
-    .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); z-index: 100; display: flex; align-items: center; justify-content: center; padding: 16px; overflow-y: auto; -webkit-overflow-scrolling: touch; animation: fadeIn 0.2s ease; }
+    .modal-overlay {
+      position: fixed !important;
+      inset: 0 !important;
+      top: 0 !important;
+      left: 0 !important;
+      right: 0 !important;
+      bottom: 0 !important;
+      width: 100vw !important;
+      height: 100dvh !important;
+      margin: 0 !important;
+      background-color: rgba(15, 23, 42, 0.75) !important;
+      z-index: 999999 !important;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+      box-sizing: border-box;
+      opacity: 1 !important;
+      transform: none !important;
+    }
     .modal-card { width: 100%; max-width: 420px; max-height: 92vh; max-height: 92dvh; background: #ffffff; border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-lg); position: relative; overflow-y: auto; -webkit-overflow-scrolling: touch; box-sizing: border-box; margin: auto; }
     .modal-header { margin-bottom: 18px; text-align: center; }
     .modal-brand-badge { width: 48px; height: 48px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--accent); margin: 0 auto 12px auto; }
@@ -758,7 +776,7 @@
     .quick-logins-box { margin-top: 18px; padding: 12px; background: var(--surface-alt); border-radius: var(--radius-md); font-size: 12px; }
     .quick-btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
     .quick-login-btn { background: #ffffff; border: 1px solid var(--border-dark); padding: 4px 8px; border-radius: 14px; font-size: 11px; cursor: pointer; }
-    .toast-container { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 200; display: flex; flex-direction: column; gap: 8px; width: 90%; max-width: 380px; pointer-events: none; }
+    .toast-container { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 1000000 !important; display: flex; flex-direction: column; gap: 8px; width: 90%; max-width: 380px; pointer-events: none; }
     .toast { padding: 10px 16px; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; color: #ffffff; box-shadow: var(--shadow-md); display: flex; align-items: center; justify-content: space-between; pointer-events: auto; }
     .toast-info { background-color: var(--primary); }
     .toast-success { background-color: var(--success); }
@@ -932,25 +950,53 @@
 
     @media (max-width: 600px) {
       .modal-overlay {
-        padding: 6px !important;
+        position: fixed !important;
+        inset: 0 !important;
+        top: 0 !important;
+        left: 0 !important;
+        right: 0 !important;
+        bottom: 0 !important;
+        width: 100vw !important;
+        height: 100dvh !important;
+        margin: 0 !important;
+        z-index: 999999 !important;
+        background-color: rgba(15, 23, 42, 0.75) !important;
+        padding: 10px 8px calc(24px + env(safe-area-inset-bottom)) 8px !important;
+        align-items: flex-start !important;
+        justify-content: center !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+        overscroll-behavior: contain !important;
+        box-sizing: border-box !important;
+        opacity: 1 !important;
+        transform: none !important;
       }
       .modal-card {
         width: 100% !important;
         max-width: 100% !important;
-        padding: 14px 12px !important;
-        border-radius: 12px !important;
-        max-height: 96vh !important;
-        max-height: 96dvh !important;
+        padding: 16px 14px !important;
+        border-radius: 14px !important;
+        max-height: min(94dvh, calc(100dvh - 20px)) !important;
+        margin: 4px auto !important;
         overflow-y: auto !important;
         -webkit-overflow-scrolling: touch !important;
         box-sizing: border-box !important;
+      }
+      #modal-consulta-menu .modal-card,
+      #modal-modifica-menu .modal-card,
+      #modal-gestione-buste-master .modal-card,
+      #modal-elenco-pasti-cucina .modal-card,
+      #modal-segnala-assenza .modal-card,
+      #modal-dettaglio-giorno-assenze .modal-card {
+        display: flex !important;
+        flex-direction: column !important;
+        max-height: min(94dvh, calc(100dvh - 20px)) !important;
       }
       #modal-prenota-spazio .modal-card,
       .modal-spazio-responsive {
         width: 100% !important;
         max-width: 100% !important;
-        max-height: 94vh !important;
-        max-height: 94dvh !important;
+        max-height: calc(100dvh - 24px) !important;
         padding: 0 !important;
         overflow: hidden !important;
         border-radius: 12px !important;
@@ -1356,7 +1402,7 @@
   </div>
 
   <!-- SEZIONE MODALI (MANTENUTE COME DA ORIGINALE) -->
-  <div class="modal-overlay" id="modal-nuova-accoglienza" style="display: none;" onclick="if(event.target === this) chiudiModalNuovaAccoglienza()">
+  <div class="modal-overlay" id="modal-nuova-accoglienza" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalNuovaAccoglienza)">
     <div class="modal-card" style="max-width: 500px;">
       <div class="flex-between" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px;">
         <div class="flex-align" style="gap: 10px;">
@@ -1421,7 +1467,7 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-autorizza1-accoglienza" style="display: none;" onclick="if(event.target === this) chiudiModalAutorizza1Accoglienza()">
+  <div class="modal-overlay" id="modal-autorizza1-accoglienza" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalAutorizza1Accoglienza)">
     <div class="modal-card" style="max-width: 480px;">
       <div class="flex-between" style="border-bottom: 1px solid var(--border); padding-bottom: 12px; margin-bottom: 14px;">
         <div class="flex-align" style="gap: 10px;">
@@ -1524,7 +1570,7 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-settings" style="display: none;" onclick="if(event.target === this) chiudiModalSettings()">
+  <div class="modal-overlay" id="modal-settings" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalSettings)">
     <div class="modal-card" style="max-width: 440px; max-height: 90vh; max-height: 90dvh; display: flex; flex-direction: column; overflow: hidden; padding: 0;">
       <!-- Header fisso -->
       <div class="flex-between" style="padding: 14px 18px 10px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface);">
@@ -1748,8 +1794,8 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-variazione-cuoca" style="display: none;">
-    <div class="modal-card">
+  <div class="modal-overlay" id="modal-variazione-cuoca" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalVariazioneCuoca)">
+    <div class="modal-card" onclick="event.stopPropagation()">
       <div class="flex-between" style="margin-bottom: 14px;">
         <div class="flex-align">
           <span style="font-size: 24px; margin-right: 8px;">👨‍🍳</span>
@@ -1791,8 +1837,8 @@
   </div>
 
   <!-- MODAL CONSULTA MENU 14 GIORNI -->
-  <div class="modal-overlay" id="modal-consulta-menu" style="display: none;" onclick="if(event.target === this) chiudiModalConsultaMenu()">
-    <div class="modal-card" style="max-width: 740px; max-height: 92vh; display: flex; flex-direction: column;">
+  <div class="modal-overlay" id="modal-consulta-menu" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalConsultaMenu)">
+    <div class="modal-card" style="max-width: 740px; max-height: 92vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
       <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0; border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;">
         <div class="flex-align" style="gap: 8px;">
           <span style="font-size: 26px;">📖</span>
@@ -1832,8 +1878,8 @@
   </div>
 
   <!-- MODAL MODIFICA MENU 2 SETTIMANE -->
-  <div class="modal-overlay" id="modal-modifica-menu" style="display: none;" onclick="if(event.target === this) chiudiModalModificaMenu()">
-    <div class="modal-card" style="max-width: 740px; max-height: 92vh; display: flex; flex-direction: column;">
+  <div class="modal-overlay" id="modal-modifica-menu" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalModificaMenu)">
+    <div class="modal-card" style="max-width: 740px; max-height: 92vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
       <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0; border-bottom: 1px solid #fed7aa; padding-bottom: 10px;">
         <div class="flex-align" style="gap: 8px;">
           <span style="font-size: 26px;">✏️</span>
@@ -1953,8 +1999,8 @@
   </div>
 
   <!-- MODAL GESTIONE BUSTE MASTER -->
-  <div class="modal-overlay" id="modal-gestione-buste-master" style="display: none;" onclick="if(event.target === this) chiudiModalGestioneBusteMaster()">
-    <div class="modal-card" style="max-width: 700px; max-height: 92vh; display: flex; flex-direction: column;">
+  <div class="modal-overlay" id="modal-gestione-buste-master" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalGestioneBusteMaster)">
+    <div class="modal-card" style="max-width: 700px; max-height: 92vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
       <div class="flex-between" style="margin-bottom: 12px; flex-shrink: 0; border-bottom: 1px solid #fed7aa; padding-bottom: 10px;">
         <div class="flex-align" style="gap: 8px;">
           <span style="font-size: 26px;">🥪</span>
@@ -2153,7 +2199,7 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-prenota-spazio" style="display: none;" onclick="if(event.target === this) chiudiModalPrenotaSpazio()">
+  <div class="modal-overlay" id="modal-prenota-spazio" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalPrenotaSpazio)">
     <div class="modal-card modal-spazio-responsive" style="max-width: 480px; width: 100%;">
       <!-- Header fisso -->
       <div class="flex-between spazio-modal-header" style="padding: 14px 18px 10px 18px; border-bottom: 1px solid var(--border); flex-shrink: 0; background: var(--surface);">
@@ -2295,7 +2341,7 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-master-nuovo-appuntamento" style="display: none;" onclick="if(event.target === this) chiudiModalMasterAppuntamento()">
+  <div class="modal-overlay" id="modal-master-nuovo-appuntamento" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalMasterAppuntamento)">
     <div class="modal-card" style="max-width: 540px;">
       <div class="flex-between" style="margin-bottom: 14px;">
         <div class="flex-align" style="gap: 8px;">
@@ -2418,8 +2464,8 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-elenco-pasti-cucina" style="display: none;">
-    <div class="modal-card" style="max-width: 580px; max-height: 90vh; display: flex; flex-direction: column;">
+  <div class="modal-overlay" id="modal-elenco-pasti-cucina" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalElencoPastiCucina)">
+    <div class="modal-card" style="max-width: 580px; max-height: 90vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
       <div class="flex-between" style="margin-bottom: 10px; flex-shrink: 0; padding-bottom: 8px; border-bottom: 1px solid #e2e8f0;">
         <div class="flex-align" style="gap: 10px;">
           <span id="modal-cucina-icon" style="font-size: 28px;">🍽️</span>
@@ -2454,7 +2500,7 @@
   </div>
 
   <!-- MODAL INVIO EMAIL AMMINISTRAZIONE (MANUTENZIONE) -->
-  <div class="modal-overlay" id="modal-email-amministrazione" style="display: none;" onclick="if(event.target === this) chiudiModalEmailAmministrazione()">
+  <div class="modal-overlay" id="modal-email-amministrazione" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalEmailAmministrazione)">
     <div class="modal-card" style="max-width: 620px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; padding: 18px 20px; border-radius: 12px;">
       <div class="modal-header flex-between" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 10px; margin-bottom: 12px; flex-shrink: 0;">
         <div class="flex-align" style="gap: 10px;">
@@ -2516,7 +2562,7 @@
     </div>
   </div>
 
-  <div class="modal-overlay" id="modal-guida-app" style="display: none;" onclick="if(event.target === this) chiudiModalGuida()">
+  <div class="modal-overlay" id="modal-guida-app" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalGuida)">
     <div class="modal-card" style="max-width: 660px; max-height: 85vh; display: flex; flex-direction: column; overflow: hidden; padding: 18px 20px; border-radius: 14px;">
       <div class="flex-between" style="border-bottom: 1px solid #e2e8f0; padding-bottom: 12px; flex-shrink: 0;">
         <div class="flex-align" style="gap: 10px;">
@@ -2640,7 +2686,7 @@
   </div>
 
   <!-- MODAL PRESENTAZIONE COMMITTENTI, GUIDA UTENTE & RELAZIONE TECNICA -->
-  <div class="modal-overlay" id="modal-presentazione-committenti" style="display: none;" onclick="if(event.target === this) chiudiModalPresentazioneCommittenti()">
+  <div class="modal-overlay" id="modal-presentazione-committenti" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalPresentazioneCommittenti)">
     <div class="modal-card modal-presentazione-responsive" id="modal-pres-card">
       <!-- Header Istituzionale -->
       <div class="pres-header-row flex-between" style="border-bottom: 2px solid #0284c7; padding-bottom: 12px; flex-shrink: 0; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap;">
@@ -2965,8 +3011,8 @@
   </div>
 
   <!-- MODAL SEGNALA ASSENZA PROGRAMMATA -->
-  <div class="modal-overlay" id="modal-segnala-assenza" style="display: none;" onclick="if(event.target === this) chiudiModalSegnalaAssenza()">
-    <div class="modal-card" style="max-width: 460px;">
+  <div class="modal-overlay" id="modal-segnala-assenza" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalSegnalaAssenza)">
+    <div class="modal-card" style="max-width: 460px;" onclick="event.stopPropagation()">
       <div class="modal-header" style="position: relative; margin-bottom: 16px;">
         <button type="button" onclick="chiudiModalSegnalaAssenza()" style="position: absolute; top: 0; right: 0; border: none; background: #f1f5f9; color: #475569; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Chiudi">✕</button>
         <div class="modal-brand-badge" style="background: #4f46e5; color: #ffffff;">📅</div>
@@ -3066,7 +3112,7 @@
         </div>
 
         <!-- Azioni -->
-        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+        <div style="display: flex; gap: 8px; justify-content: flex-end; padding-top: 12px; margin-top: 14px; border-top: 1px solid #e2e8f0; position: sticky; bottom: -2px; background: #ffffff; z-index: 5;">
           <button type="button" class="btn btn-secondary" onclick="chiudiModalSegnalaAssenza()" style="font-weight: 600;">Annulla</button>
           <button type="submit" class="btn btn-primary" id="btn-submit-assenza" style="background: #4f46e5; border-color: #4338ca; font-weight: 700; padding: 8px 16px;">
             💾 Salva Assenza
@@ -3077,8 +3123,8 @@
   </div>
 
   <!-- MODAL DETTAGLIO GIORNO ASSENZE -->
-  <div class="modal-overlay" id="modal-dettaglio-giorno-assenze" style="display: none;" onclick="if(event.target === this) chiudiModalDettaglioGiornoAssenze()">
-    <div class="modal-card" style="max-width: 520px;">
+  <div class="modal-overlay" id="modal-dettaglio-giorno-assenze" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalDettaglioGiornoAssenze)">
+    <div class="modal-card" style="max-width: 520px;" onclick="event.stopPropagation()">
       <div class="flex-between" style="border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 14px;">
         <div>
           <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6366f1; font-weight: 800;">Registro Presenze &amp; Assenze</span>
@@ -3249,6 +3295,40 @@
       if (btnInstall) btnInstall.classList.add('hidden');
     });
 
+    // Prevenzione ghost-click e gestione sicura tocco mobile su backdrop modali
+    window._modalOpenedTimestamp = 0;
+    window.gestisciClickBackdrop = function(event, chiudiFn) {
+      if (event.target !== event.currentTarget) return;
+      if (Date.now() - (window._modalOpenedTimestamp || 0) < 400) {
+        return; // Ignora chiusure accidentali immediate generate dall'evento touch/click
+      }
+      if (typeof chiudiFn === "function") chiudiFn();
+    };
+
+    // Helper universale di apertura istantanea con forzatura reflow sincrono GPU/Blink
+    window.mostraModaleIstantanea = function(modalOrId) {
+      window._modalOpenedTimestamp = Date.now();
+      const m = typeof modalOrId === "string" ? document.getElementById(modalOrId) : modalOrId;
+      if (!m) return null;
+      m.style.setProperty("display", "flex", "important");
+      m.style.setProperty("z-index", "999999", "important");
+      m.style.setProperty("visibility", "visible", "important");
+      m.style.setProperty("opacity", "1", "important");
+      m.style.setProperty("transform", "none", "important");
+      m.scrollTop = 0;
+      const card = m.querySelector(".modal-card");
+      if (card) card.scrollTop = 0;
+      void m.offsetHeight; // Flush sincrono immediato del pipeline grafico Chromium/WebKit
+      void document.body.offsetHeight; // Flush sincrono globale compositor
+      if (window.requestAnimationFrame) {
+        window.requestAnimationFrame(() => {
+          void m.offsetHeight;
+          void document.body.offsetHeight;
+        });
+      }
+      return m;
+    };
+
     // Fallback immediati globali su window per garantire reattività al tocco
     window.switchTab = window.switchTab || function(tabId) {
       document.querySelectorAll(".bottom-nav-item").forEach(item => {
@@ -3268,11 +3348,11 @@
       }
     };
 
-    window.apriModalSegnalaAssenza = window.apriModalSegnalaAssenza || function(prefillData) {
-      const m = document.getElementById("modal-segnala-assenza");
+    window.apriModalSegnalaAssenza = function(prefillData) {
+      window._modalOpenedTimestamp = Date.now();
+      if (window._realApriModalSegnalaAssenza) return window._realApriModalSegnalaAssenza(prefillData);
+      const m = window.mostraModaleIstantanea("modal-segnala-assenza");
       if (m) {
-        m.style.display = "flex";
-        m.style.zIndex = "9999";
         const oggi = new Date().toISOString().slice(0, 10);
         const di = document.getElementById("assenza-data-inizio");
         const df = document.getElementById("assenza-data-fine");
@@ -3288,31 +3368,24 @@
         }
       }
     };
-    window.chiudiModalSegnalaAssenza = window.chiudiModalSegnalaAssenza || function() {
+    window.chiudiModalSegnalaAssenza = function() {
       const m = document.getElementById("modal-segnala-assenza");
       if (m) m.style.display = "none";
     };
 
-    window.apriModalMasterAppuntamento = window.apriModalMasterAppuntamento || function(risorsaDefault, dataDefault) {
-      const m = document.getElementById("modal-master-nuovo-appuntamento");
-      if (m) {
-        m.style.display = "flex";
-        m.style.zIndex = "9999";
-      }
+    window.apriModalMasterAppuntamento = function(risorsaDefault, dataDefault) {
+      window.mostraModaleIstantanea("modal-master-nuovo-appuntamento");
     };
-    window.chiudiModalMasterAppuntamento = window.chiudiModalMasterAppuntamento || function() {
+    window.chiudiModalMasterAppuntamento = function() {
       const m = document.getElementById("modal-master-nuovo-appuntamento");
       if (m) m.style.display = "none";
     };
 
     window.apriModalGestioneBusteMaster = function(dataYMD) {
+      window._modalOpenedTimestamp = Date.now();
       if (window._realApriModalGestioneBusteMaster) return window._realApriModalGestioneBusteMaster(dataYMD);
-      const m = document.getElementById("modal-gestione-buste-master");
-      if (m) {
-        m.style.display = "flex";
-        m.style.zIndex = "9999";
-        if (typeof renderContenutoGestioneBusteMaster === "function") renderContenutoGestioneBusteMaster();
-      }
+      const m = window.mostraModaleIstantanea("modal-gestione-buste-master");
+      if (m && typeof renderContenutoGestioneBusteMaster === "function") renderContenutoGestioneBusteMaster();
     };
     window.chiudiModalGestioneBusteMaster = function() {
       const m = document.getElementById("modal-gestione-buste-master");
@@ -3320,13 +3393,10 @@
     };
 
     window.apriModalConsultaMenu = function(settimana) {
+      window._modalOpenedTimestamp = Date.now();
       if (window._realApriModalConsultaMenu) return window._realApriModalConsultaMenu(settimana);
-      const m = document.getElementById("modal-consulta-menu");
-      if (m) {
-        m.style.display = "flex";
-        m.style.zIndex = "9999";
-        if (typeof selezionaSettimanaConsultaMenu === "function") selezionaSettimanaConsultaMenu(settimana || "settimana1");
-      }
+      const m = window.mostraModaleIstantanea("modal-consulta-menu");
+      if (m && typeof selezionaSettimanaConsultaMenu === "function") selezionaSettimanaConsultaMenu(settimana || "settimana1");
     };
     window.chiudiModalConsultaMenu = function() {
       const m = document.getElementById("modal-consulta-menu");
@@ -3334,13 +3404,10 @@
     };
 
     window.apriModalModificaMenu = function(settimana, giorno) {
+      window._modalOpenedTimestamp = Date.now();
       if (window._realApriModalModificaMenu) return window._realApriModalModificaMenu(settimana, giorno);
-      const m = document.getElementById("modal-modifica-menu");
-      if (m) {
-        m.style.display = "flex";
-        m.style.zIndex = "9999";
-        if (typeof cambiaSettimanaModificaMenu === "function") cambiaSettimanaModificaMenu(settimana || "settimana1");
-      }
+      const m = window.mostraModaleIstantanea("modal-modifica-menu");
+      if (m && typeof cambiaSettimanaModificaMenu === "function") cambiaSettimanaModificaMenu(settimana || "settimana1");
     };
     window.chiudiModalModificaMenu = function() {
       const m = document.getElementById("modal-modifica-menu");
@@ -3348,11 +3415,10 @@
     };
 
     window.apriModalVariazioneCuoca = function(dataStr, tipoPasto) {
+      window._modalOpenedTimestamp = Date.now();
       if (window._realApriModalVariazioneCuoca) return window._realApriModalVariazioneCuoca(dataStr, tipoPasto);
-      const m = document.getElementById("modal-variazione-cuoca");
+      const m = window.mostraModaleIstantanea("modal-variazione-cuoca");
       if (m) {
-        m.style.display = "flex";
-        m.style.zIndex = "9999";
         const inputData = document.getElementById("cuoca-modal-data");
         const selectPasto = document.getElementById("cuoca-modal-pasto");
         if (inputData && dataStr) inputData.value = dataStr;
@@ -3364,6 +3430,33 @@
       if (m) m.style.display = "none";
     };
 
+    window.apriModalVariazione = function(dataStr, tipoPasto) {
+      return window.apriModalVariazioneCuoca(dataStr, tipoPasto);
+    };
+    window.chiudiModalVariazione = function() {
+      return window.chiudiModalVariazioneCuoca();
+    };
+
+    window.apriModalElencoPastiCucina = function(dataYMD, tipoPasto) {
+      window._modalOpenedTimestamp = Date.now();
+      if (window._realApriModalElencoPastiCucina) return window._realApriModalElencoPastiCucina(dataYMD, tipoPasto);
+      window.mostraModaleIstantanea("modal-elenco-pasti-cucina");
+    };
+    window.chiudiModalElencoPastiCucina = function() {
+      const m = document.getElementById("modal-elenco-pasti-cucina");
+      if (m) m.style.display = "none";
+    };
+
+    window.apriModalDettaglioGiornoAssenze = function(ymdStr) {
+      window._modalOpenedTimestamp = Date.now();
+      if (typeof window.apriDettaglioGiornoAssenze === "function") return window.apriDettaglioGiornoAssenze(ymdStr);
+      window.mostraModaleIstantanea("modal-dettaglio-giorno-assenze");
+    };
+    window.chiudiModalDettaglioGiornoAssenze = function() {
+      const m = document.getElementById("modal-dettaglio-giorno-assenze");
+      if (m) m.style.display = "none";
+    };
+
     // Helper globale di emergenza per sbloccare la UI in caso di modali bloccate
     window.chiudiTutteLeModali = function() {
       document.querySelectorAll(".modal-overlay").forEach(m => m.style.display = "none");
@@ -3371,6 +3464,6 @@
   </script>
 
   <!-- SCRIPT FRONTEND LOGICA (VANILLA JS) -->
-  <script type="module" src="/app.js?v=20261012-cuoca-v3"></script>
+  <script type="module" src="/app.js?v=20261014-v4-instant-paint-fix"></script>
 </body>
 </html>

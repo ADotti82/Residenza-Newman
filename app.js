@@ -2970,6 +2970,7 @@ function renderMensaView() {
       <div class="mensa-view-mode-tabs" style="display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
         <button type="button" class="mode-tab-btn ${mode === 'settimana' ? 'active' : ''}" onclick="setMensaViewMode('settimana')">📅 Settimana Completa</button>
         <button type="button" class="mode-tab-btn ${mode === 'giorno' ? 'active' : ''}" onclick="setMensaViewMode('giorno')">☀️ Vista Giorno</button>
+        <button type="button" class="mode-tab-btn" style="background: #f0fdf4; color: #166534; border: 1px solid #bbf7d0; font-weight: 700;" onclick="apriModalConsultaMenu()">📖 Menù 14 Giorni</button>
         ${haPermessiMasterMensa() ? `
           <button type="button" class="mode-tab-btn" style="background: #fff7ed; color: #c2410c; border: 1px solid #fdba74; font-weight: 700;" onclick="switchTab('cucina')">👩‍🍳 Vista Cuoca</button>
           <button type="button" class="mode-tab-btn" style="background: #f0f9ff; color: #0369a1; border: 1px solid #bae6fd; font-weight: 700;" onclick="switchTab('statistiche-mensa')">📊 Statistiche Mensili</button>
@@ -3075,6 +3076,8 @@ function renderWeeklyScrollView(lunediDate) {
                 <span class="meal-status-pill not-booked">Non prenotata</span>
               `)}
               ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">Pasti: <span class="count-num">${countPranzoInfo.totale}</span></span>` : ''}
+              ${countPranzoInfo.ritardi > 0 ? `<span class="badge" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; font-weight: 800; padding: 2px 6px;">⏰ ${countPranzoInfo.ritardi} ${countPranzoInfo.ritardi === 1 ? 'ritardo' : 'ritardi'}</span>` : ''}
+              ${countPranzoInfo.ospitiTotali > 0 ? `<span class="badge" style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; font-size: 10px; font-weight: 800; padding: 2px 6px;">👥 +${countPranzoInfo.ospitiTotali} ${countPranzoInfo.ospitiTotali === 1 ? 'ospite' : 'ospiti'}</span>` : ''}
             </div>
             <span class="badge ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'Chiuso' : 'Aperto'}</span>
           </div>
@@ -3143,6 +3146,8 @@ function renderWeeklyScrollView(lunediDate) {
                 <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoCena.isDefault ? '<small style="font-weight:600; opacity:0.85;">(Default)</small>' : ''} ${statoCena.ospiti > 0 ? `(+${statoCena.ospiti} osp.)` : ''} ${statoCena.isRitardo ? '(Ritardo)' : ''}</span>
               `}
               ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">Pasti: <span class="count-num">${countCenaInfo.totale}</span></span>` : ''}
+              ${countCenaInfo.ritardi > 0 ? `<span class="badge" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 10px; font-weight: 800; padding: 2px 6px;">⏰ ${countCenaInfo.ritardi} ${countCenaInfo.ritardi === 1 ? 'ritardo' : 'ritardi'}</span>` : ''}
+              ${countCenaInfo.ospitiTotali > 0 ? `<span class="badge" style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; font-size: 10px; font-weight: 800; padding: 2px 6px;">👥 +${countCenaInfo.ospitiTotali} ${countCenaInfo.ospitiTotali === 1 ? 'ospite' : 'ospiti'}</span>` : ''}
             </div>
             <span class="badge ${cenaLocked ? 'badge-danger' : 'badge-success'}" style="font-size: 10px;">${cenaLocked ? 'Chiuso' : 'Aperto'}</span>
           </div>
@@ -3225,6 +3230,8 @@ function renderDailyDetailedView(dataSel) {
           <span class="meal-status-pill not-booked">Non prenotata</span>
         `)}
         ${isMaster ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">Pasti: <span class="count-num">${countPranzoInfo.totale}</span></span>` : ''}
+        ${countPranzoInfo.ritardi > 0 ? `<span class="badge" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 11px; font-weight: 800; padding: 2px 7px;">⏰ ${countPranzoInfo.ritardi} ${countPranzoInfo.ritardi === 1 ? 'ritardo' : 'ritardi'}</span>` : ''}
+        ${countPranzoInfo.ospitiTotali > 0 ? `<span class="badge" style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; font-size: 11px; font-weight: 800; padding: 2px 7px;">👥 +${countPranzoInfo.ospitiTotali} ${countPranzoInfo.ospitiTotali === 1 ? 'ospite' : 'ospiti'}</span>` : ''}
         <span class="badge ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'badge-danger' : 'badge-success'}">${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'Chiuso' : 'Aperto'}</span>
       </div>
 
@@ -3265,6 +3272,17 @@ function renderDailyDetailedView(dataSel) {
         `}
         ${variazionePranzo ? `<div class="cuoca-var-box has-var" style="margin-top: 10px;"><div class="flex-between"><div class="flex-align"><span style="font-size: 18px;">👩‍🍳</span><strong style="color: #92400e; font-size: 13px;">Variazione Pranzo:</strong></div>${isMaster ? `<button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">Modifica</button>` : ''}</div><p style="margin: 6px 0 0 0; font-size: 13px; color: #78350f; line-height: 1.4;">${escapeHtml(variazionePranzo)}</p></div>` : (isMaster ? `<div style="margin-top: 8px; text-align: right;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">👩‍🍳 + Variazione Pranzo</button></div>` : '')}
       </div>
+
+      ${(countPranzoInfo.ritardi > 0 || countPranzoInfo.ospitiTotali > 0) ? `
+        <div style="margin: 8px 0; background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+          <div style="font-size: 12px; color: #9a3412;">
+            <strong>🍽️ Presenze Pranzo:</strong> Totale <strong>${countPranzoInfo.totale}</strong> porzioni
+            ${countPranzoInfo.ritardi > 0 ? `• <span style="color: #dc2626; font-weight: 800;">⏰ ${countPranzoInfo.ritardi} ${countPranzoInfo.ritardi === 1 ? 'ritardo' : 'ritardi'}</span>` : ''}
+            ${countPranzoInfo.ospitiTotali > 0 ? `• <span style="color: #b45309; font-weight: 800;">👥 +${countPranzoInfo.ospitiTotali} ${countPranzoInfo.ospitiTotali === 1 ? 'ospite' : 'ospiti'}</span>` : ''}
+          </div>
+          ${isMaster ? `<button type="button" class="btn btn-outline btn-sm" onclick="apriModalElencoPastiCucina('${dStr}', 'pranzo')" style="font-size: 11px; font-weight: 700; color: #c2410c; border-color: #fdba74; padding: 2px 8px;">Dettaglio 🔍</button>` : ''}
+        </div>
+      ` : ''}
 
       <form id="form-prenota-pranzo" onsubmit="handlePrenotazioneMensa(event, 'pranzo')">
         <div class="checkbox-group">
@@ -3320,6 +3338,8 @@ function renderDailyDetailedView(dataSel) {
           <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoCena.isDefault ? '(Default)' : ''}</span>
         `}
         ${(haPermessiMaster() || (appState.user && appState.user.perm_mensa)) ? `<span class="master-attendees-badge" onclick="switchTab('master')" title="Dettaglio contatore pasti">Pasti: <span class="count-num">${countCenaInfo.totale}</span></span>` : ''}
+        ${countCenaInfo.ritardi > 0 ? `<span class="badge" style="background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; font-size: 11px; font-weight: 800; padding: 2px 7px;">⏰ ${countCenaInfo.ritardi} ${countCenaInfo.ritardi === 1 ? 'ritardo' : 'ritardi'}</span>` : ''}
+        ${countCenaInfo.ospitiTotali > 0 ? `<span class="badge" style="background: #fef3c7; color: #b45309; border: 1px solid #fde68a; font-size: 11px; font-weight: 800; padding: 2px 7px;">👥 +${countCenaInfo.ospitiTotali} ${countCenaInfo.ospitiTotali === 1 ? 'ospite' : 'ospiti'}</span>` : ''}
         <span class="badge ${cenaLocked ? 'badge-danger' : 'badge-success'}">${cenaLocked ? 'Chiuso' : 'Aperto'}</span>
       </div>
       <div class="meal-menu-body">
@@ -3331,6 +3351,17 @@ function renderDailyDetailedView(dataSel) {
         </div>
         ${variazioneCena ? `<div class="cuoca-var-box has-var" style="margin-top: 10px;"><div class="flex-between"><div class="flex-align"><span style="font-size: 18px;">👩‍🍳</span><strong style="color: #92400e; font-size: 13px;">Variazione Cena:</strong></div>${isMaster ? `<button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="apriModalVariazioneCuoca('${dStr}', 'cena')">Modifica</button>` : ''}</div><p style="margin: 6px 0 0 0; font-size: 13px; color: #78350f; line-height: 1.4;">${escapeHtml(variazioneCena)}</p></div>` : (isMaster ? `<div style="margin-top: 8px; text-align: right;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'cena')">👩‍🍳 + Variazione Cena</button></div>` : '')}
       </div>
+
+      ${(countCenaInfo.ritardi > 0 || countCenaInfo.ospitiTotali > 0) ? `
+        <div style="margin: 8px 0; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
+          <div style="font-size: 12px; color: #1e40af;">
+            <strong>🍽️ Riepilogo Servizio Cena:</strong> Totale <strong>${countCenaInfo.totale}</strong> porzioni
+            ${countCenaInfo.ritardi > 0 ? `• <span style="color: #dc2626; font-weight: 800;">⏰ ${countCenaInfo.ritardi} ${countCenaInfo.ritardi === 1 ? 'ritardo' : 'ritardi'}</span>` : ''}
+            ${countCenaInfo.ospitiTotali > 0 ? `• <span style="color: #b45309; font-weight: 800;">👥 +${countCenaInfo.ospitiTotali} ${countCenaInfo.ospitiTotali === 1 ? 'ospite' : 'ospiti'}</span>` : ''}
+          </div>
+          ${isMaster ? `<button type="button" class="btn btn-outline btn-sm" onclick="apriModalElencoPastiCucina('${dStr}', 'cena')" style="font-size: 11px; font-weight: 700; color: #1d4ed8; border-color: #bfdbfe; padding: 2px 8px;">Dettaglio 🔍</button>` : ''}
+        </div>
+      ` : ''}
       <form id="form-prenota-cena" onsubmit="handlePrenotazioneMensa(event, 'cena')">
         <div class="checkbox-group">
           <label class="custom-checkbox"><input type="checkbox" id="cena-ritardo" ${statoCena.isRitardo ? 'checked' : ''} ${cenaLocked ? 'disabled' : ''}><span>Arrivo in Ritardo</span></label>
@@ -5468,7 +5499,18 @@ function haPermessiMaster() {
 
 function haPermessiMasterMensa() {
   if (!appState.user) return false;
-  return Boolean(appState.user.perm_mensa || appState.user.perm_admin);
+  const em = String(appState.user.email || "").toLowerCase();
+  const ruolo = String(appState.user.ruolo || "").toLowerCase();
+  return Boolean(
+    appState.user.perm_mensa ||
+    appState.user.perm_admin ||
+    ruolo === "cuoca" ||
+    ruolo === "cuoco" ||
+    ruolo === "master" ||
+    em.includes("cuoca") ||
+    em.includes("cucina") ||
+    em.includes("dotti")
+  );
 }
 
 function haPermessiMasterManutenzione() {
@@ -5571,6 +5613,7 @@ window.cambiaSchedaMaster = function(tabId) {
   renderMasterSection();
   const el = document.getElementById(`master-tab-btn-${tabId}`);
   if (el) el.scrollIntoView({ behavior: 'smooth', inline: 'nearest', block: 'nearest' });
+  void document.body.offsetHeight;
 };
 
 window.navigaSchedaMaster = function(step) {
@@ -6219,6 +6262,7 @@ function renderMasterSection() {
     const countCena = statsCena.totale;
     const countBuste = statsPranzo.buste + statsCena.buste;
     const countRitardi = statsPranzo.ritardi + statsCena.ritardi;
+    const countOspitiTotali = (statsPranzo.ospitiTotali || 0) + (statsCena.ospitiTotali || 0);
     const totalePresentiGiorno = countPranzo + countCena;
 
     // Unisci elenco presenti con etichetta pasto
@@ -6239,12 +6283,32 @@ function renderMasterSection() {
             <input type="date" class="input-date" style="padding: 3px 8px; font-size: 12px;" value="${dataFiltroYMD}" onchange="cambiaDataMasterMensa(this.value)">
           </div>
         </div>
-        <div class="metrics-grid">
+        <div class="metrics-grid" style="grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));">
           <div class="metric-card" style="border-top: 3px solid var(--primary); cursor: pointer;" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'pranzo')"><span class="metric-val" style="color: var(--primary);">${countPranzo} 🔍</span><span class="metric-lbl">Pranzo (14:30)</span></div>
           <div class="metric-card" style="border-top: 3px solid #2563eb; cursor: pointer;" onclick="apriModalElencoPastiCucina('${dataFiltroYMD}', 'cena')"><span class="metric-val" style="color: #2563eb;">${countCena} 🔍</span><span class="metric-lbl">Cena (19:30)</span></div>
           <div class="metric-card" style="border-top: 3px solid #d97706; cursor: pointer;" onclick="apriModalGestioneBusteMaster('${dataFiltroYMD}')"><span class="metric-val" style="color: #d97706;">${countBuste} 🔍</span><span class="metric-lbl">Buste</span></div>
-          <div class="metric-card" style="border-top: 3px solid #475569;"><span class="metric-val" style="color: #475569;">${countRitardi}</span><span class="metric-lbl">Ritardi</span></div>
+          <div class="metric-card" style="border-top: 3px solid #dc2626; cursor: pointer;" onclick="switchTab('cucina')"><span class="metric-val" style="color: #dc2626;">${countRitardi} ⏰</span><span class="metric-lbl">Ritardi</span></div>
+          <div class="metric-card" style="border-top: 3px solid #b45309; cursor: pointer;" onclick="switchTab('cucina')"><span class="metric-val" style="color: #b45309;">+${countOspitiTotali} 👥</span><span class="metric-lbl">Ospiti Esterni</span></div>
         </div>
+
+        ${(countRitardi > 0 || countOspitiTotali > 0) ? `
+          <div class="sub-section" style="margin-top: 14px; background: linear-gradient(135deg, #fff7ed 0%, #fef2f2 100%); border: 2px solid #ea580c; border-radius: 8px; padding: 12px 14px;">
+            <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+              <strong style="color: #9a3412; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                <span>⚠️</span> ATTENZIONE RITARDI &amp; OSPITI (${dataFiltroYMD}):
+              </strong>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                ${countRitardi > 0 ? `<span class="badge" style="background: #dc2626; color: #fff; font-weight: 900; font-size: 11px; padding: 2px 8px;">⏰ ${countRitardi} ${countRitardi === 1 ? 'RITARDO' : 'RITARDI'}</span>` : ''}
+                ${countOspitiTotali > 0 ? `<span class="badge" style="background: #d97706; color: #fff; font-weight: 900; font-size: 11px; padding: 2px 8px;">👥 +${countOspitiTotali} ${countOspitiTotali === 1 ? 'OSPITE' : 'OSPITI'}</span>` : ''}
+                <button type="button" class="btn btn-sm btn-outline" onclick="switchTab('cucina')" style="padding: 2px 8px; font-size: 11px; font-weight: 700; color: #9a3412; border-color: #fdba74;">Apri Cucina 👩‍🍳</button>
+              </div>
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px;">
+              ${countRitardi > 0 ? `<div style="font-size: 12px; color: #991b1b; background: #fee2e2; padding: 6px 10px; border-radius: 6px; flex: 1; min-width: 220px; border: 1px solid #fecaca;"><strong>⏰ In ritardo:</strong> ${listaPresenzeMaster.filter(p => p.ritardo).map(p => `${p.nome || p.email.split('@')[0]} (${p.tipo_pasto === 'pranzo' ? 'Pranzo' : 'Cena'}${p.note ? ': ' + p.note : ''})`).join(', ')}</div>` : ''}
+              ${countOspitiTotali > 0 ? `<div style="font-size: 12px; color: #92400e; background: #fef3c7; padding: 6px 10px; border-radius: 6px; flex: 1; min-width: 220px; border: 1px solid #fde68a;"><strong>👥 Con ospiti:</strong> ${listaPresenzeMaster.filter(p => p.ospiti > 0).map(p => `${p.nome || p.email.split('@')[0]} (+${p.ospiti} a ${p.tipo_pasto === 'pranzo' ? 'Pranzo' : 'Cena'})`).join(', ')}</div>` : ''}
+            </div>
+          </div>
+        ` : ''}
 
         <!-- BOX INFORMATIVO GESTIONE BUSTE MASTER -->
         <div class="sub-section" style="margin-top: 14px; background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 8px; padding: 12px 14px;">
@@ -6283,7 +6347,19 @@ function renderMasterSection() {
               <thead><tr><th>Residente</th><th>Pasto</th><th>Busta</th><th>Ritardo</th><th>Ospiti</th><th>Stato</th></tr></thead>
               <tbody>
                 ${listaPresenzeMaster.length === 0 ? `<tr><td colspan="6" style="text-align:center; padding: 18px;">Nessuna presenza calcolata.</td></tr>` : ''}
-                ${listaPresenzeMaster.map(p => `<tr><td><strong>${escapeHtml(p.nome || p.email)}</strong><div class="text-xs text-muted">${escapeHtml(p.email)}</div></td><td><span class="badge ${p.tipo_pasto === 'pranzo' ? 'badge-accent' : 'badge-primary'}">${p.tipo_pasto === 'pranzo' ? '☀️ Pranzo' : '🌙 Cena'}</span></td><td>${p.busta ? '🥪 Sì' : '—'}</td><td>${p.ritardo ? '⏰ Sì' : '—'}</td><td>${p.ospiti > 0 ? `<span class="badge badge-warning">+${p.ospiti} ospiti</span>` : '—'}</td><td><span class="badge badge-success">${p.defaultPresence ? 'Default (Presente)' : 'Confermato'}</span></td></tr>`).join("")}
+                ${listaPresenzeMaster.map(p => {
+                  const rowBg = p.ritardo ? '#fef2f2' : (p.ospiti > 0 ? '#fffbeb' : '');
+                  return `
+                    <tr style="${rowBg ? 'background: ' + rowBg + ';' : ''}">
+                      <td><strong>${escapeHtml(p.nome || p.email)}</strong><div class="text-xs text-muted">${escapeHtml(p.email)}</div></td>
+                      <td><span class="badge ${p.tipo_pasto === 'pranzo' ? 'badge-accent' : 'badge-primary'}">${p.tipo_pasto === 'pranzo' ? '☀️ Pranzo' : '🌙 Cena'}</span></td>
+                      <td>${p.busta ? '🥪 Sì' : '—'}</td>
+                      <td>${p.ritardo ? '<span class="badge" style="background:#dc2626; color:#fff; font-weight:800;">⏰ Sì</span>' : '—'}</td>
+                      <td>${p.ospiti > 0 ? `<span class="badge" style="background:#d97706; color:#fff; font-weight:800;">👥 +${p.ospiti} ospiti</span>` : '—'}</td>
+                      <td><span class="badge badge-success">${p.defaultPresence ? 'Default (Presente)' : 'Confermato'}</span></td>
+                    </tr>
+                  `;
+                }).join("")}
               </tbody>
             </table>
           </div>
@@ -6851,17 +6927,30 @@ window.handleSalvaVariazioneMenu = async function(e) {
 };
 
 window.apriModalVariazioneCuoca = function(dataStr, tipoPasto) {
-  const modal = document.getElementById("modal-variazione-cuoca");
+  window._modalOpenedTimestamp = Date.now();
+  const modal = (typeof window.mostraModaleIstantanea === "function")
+    ? window.mostraModaleIstantanea("modal-variazione-cuoca")
+    : document.getElementById("modal-variazione-cuoca");
   if (!modal) return;
-  modal.style.display = "flex";
-  modal.style.zIndex = "9999";
+  modal.style.setProperty("display", "flex", "important");
+  modal.style.setProperty("z-index", "999999", "important");
+  modal.style.setProperty("visibility", "visible", "important");
+  modal.style.setProperty("opacity", "1", "important");
+  modal.style.setProperty("transform", "none", "important");
+  void modal.offsetHeight;
+  void document.body.offsetHeight;
+
   const inputData = document.getElementById("cuoca-modal-data");
   const selectPasto = document.getElementById("cuoca-modal-pasto");
   const textareaTesto = document.getElementById("cuoca-modal-testo");
-  const targetDate = dataStr || appState.cucinaSelectedDate || (typeof formatYMD === "function" ? formatYMD(appState.selectedDateMensa || new Date()) : new Date().toISOString().slice(0, 10));
+
+  let targetDate = (dataStr && dataStr !== "undefined") ? dataStr : (appState.cucinaSelectedDate || (typeof formatYMD === "function" ? formatYMD(appState.selectedDateMensa || new Date()) : new Date().toISOString().slice(0, 10)));
   if (inputData) inputData.value = targetDate;
-  if (selectPasto) selectPasto.value = tipoPasto || "pranzo";
-  const pastoCorrente = selectPasto ? selectPasto.value : tipoPasto;
+
+  const pastoVal = (tipoPasto === "cena" || tipoPasto === "entrambi") ? tipoPasto : "pranzo";
+  if (selectPasto) selectPasto.value = pastoVal;
+
+  const pastoCorrente = selectPasto ? selectPasto.value : pastoVal;
   const testoEsistente = (typeof getVariazioneCuocaPerData === "function") ? (getVariazioneCuocaPerData(targetDate, pastoCorrente) || "") : "";
   if (textareaTesto) {
     textareaTesto.value = testoEsistente;
@@ -6869,6 +6958,11 @@ window.apriModalVariazioneCuoca = function(dataStr, tipoPasto) {
   }
 };
 window._realApriModalVariazioneCuoca = window.apriModalVariazioneCuoca;
+window.apriModalVariazione = window.apriModalVariazioneCuoca;
+window.chiudiModalVariazione = function() {
+  const m = document.getElementById("modal-variazione-cuoca");
+  if (m) m.style.display = "none";
+};
 
 window.onCuocaModalDataChange = function() {
   const inputData = document.getElementById("cuoca-modal-data");
@@ -6886,7 +6980,10 @@ window.onCuocaModalPastoChange = function() {
   textareaTesto.value = getVariazioneCuocaPerData(inputData.value, selectPasto ? selectPasto.value : "pranzo") || "";
 };
 
-window.chiudiModalVariazioneCuoca = function() { const m = document.getElementById("modal-variazione-cuoca"); if (m) m.style.display = "none"; };
+window.chiudiModalVariazioneCuoca = function() {
+  const m = document.getElementById("modal-variazione-cuoca");
+  if (m) m.style.display = "none";
+};
 
 window.handleSalvaVariazioneCuocaModal = async function(e) {
   e.preventDefault();
@@ -6901,6 +6998,7 @@ window.handleSalvaVariazioneCuocaModal = async function(e) {
       chiudiModalVariazioneCuoca();
       verificaAlertVariazione();
       renderMensaView();
+      if (appState.currentTab === "cucina" && typeof renderCucinaView === "function") renderCucinaView();
       if (appState.currentTab === "master") renderMasterSection();
       mostraToast(`Variazione salvata!`, "success");
     } else mostraToast("Errore", "error");
@@ -6917,7 +7015,7 @@ window.handleCancellaVariazioneCuocaModal = async function() {
       chiudiModalVariazioneCuoca();
       verificaAlertVariazione();
       renderMensaView();
-      // ✅ FIX: renderMasterSection invece di renderMasterView
+      if (appState.currentTab === "cucina" && typeof renderCucinaView === "function") renderCucinaView();
       if (appState.currentTab === "master") renderMasterSection();
       mostraToast("Variazione rimossa", "info");
     }
@@ -7142,6 +7240,7 @@ function switchTab(tabId) {
     renderSintesiManutenzioniView();
   }
   if (tabId === "calendario") renderCalendarioGlobaleView();
+  void document.body.offsetHeight;
 }
 
 window.switchTab = switchTab;
@@ -7664,6 +7763,7 @@ function escapeHtml(text) {
   const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
   return String(text).replace(/[&<>"']/g, (m) => map[m]);
 }
+window.escapeHtml = escapeHtml;
 
 function mostraToast(messaggio, tipo = "info") {
   const container = document.getElementById("toast-container");
@@ -7686,7 +7786,9 @@ function apriModalMasterAppuntamento(risorsaDefault, dataDefault) {
   const modal = document.getElementById("modal-master-nuovo-appuntamento");
   if (!modal) return;
   modal.style.display = "flex";
-  modal.style.zIndex = "9999";
+  modal.style.zIndex = "999999";
+  modal.style.visibility = "visible";
+  modal.style.opacity = "1";
 
   try {
     const ambSelect = document.getElementById("master-app-ambiente");
@@ -8245,11 +8347,11 @@ window.renderCucinaView = function() {
           </div>
           <div style="display: flex; gap: 6px; flex-wrap: wrap;" class="no-print">
             <button type="button" class="btn btn-outline btn-sm" onclick="switchTab('mensa')" style="font-weight: 700;">← Mensa</button>
-            <button type="button" class="btn btn-sm" onclick="apriModalConsultaMenu('${cicloSettimana}')" style="background: #0369a1; color: #fff; border-color: #0369a1; font-weight: 700; padding: 6px 12px; font-size: 11.5px;">📖 Menù 14 Giorni</button>
-            <button type="button" class="btn btn-sm" onclick="apriModalModificaMenu('${cicloSettimana}', '${giornoKey}')" style="background: #7c3aed; color: #fff; border-color: #7c3aed; font-weight: 700; padding: 6px 12px; font-size: 11.5px;">✏️ Modifica Menù</button>
-            <button type="button" class="btn btn-sm" onclick="apriModalGestioneBusteMaster('${dataFiltroYMD}')" style="background: #d97706; color: #fff; border-color: #d97706; font-weight: 700; padding: 6px 12px; font-size: 11.5px;">🥪 Gestione Buste</button>
-            <button type="button" class="btn btn-sm" onclick="apriModalVariazioneCuoca('${dataFiltroYMD}', 'pranzo')" style="background: #ea580c; color: #fff; border-color: #ea580c; font-weight: 700; padding: 6px 12px; font-size: 11.5px;">📢 Variazione</button>
-            <button type="button" class="btn btn-sm" onclick="window.print()" style="background: #0f172a; color: #fff; font-weight: 700; padding: 6px 12px; font-size: 11.5px;">🖨️ Stampa</button>
+            <button type="button" id="btn-cucina-consulta-menu" class="btn btn-sm" onclick="apriModalConsultaMenu('${cicloSettimana}')" style="background: #0369a1; color: #fff; border-color: #0369a1; font-weight: 700; padding: 6px 12px; font-size: 11.5px; cursor: pointer;">📖 Menù 14 Giorni</button>
+            <button type="button" id="btn-cucina-modifica-menu" class="btn btn-sm" onclick="apriModalModificaMenu('${cicloSettimana}', '${giornoKey}')" style="background: #7c3aed; color: #fff; border-color: #7c3aed; font-weight: 700; padding: 6px 12px; font-size: 11.5px; cursor: pointer;">✏️ Modifica Menù</button>
+            <button type="button" id="btn-cucina-gestione-buste" class="btn btn-sm" onclick="apriModalGestioneBusteMaster('${dataFiltroYMD}')" style="background: #d97706; color: #fff; border-color: #d97706; font-weight: 700; padding: 6px 12px; font-size: 11.5px; cursor: pointer;">🥪 Gestione Buste</button>
+            <button type="button" id="btn-cucina-variazione" class="btn btn-sm" onclick="apriModalVariazioneCuoca('${dataFiltroYMD}', 'pranzo')" style="background: #ea580c; color: #fff; border-color: #ea580c; font-weight: 700; padding: 6px 12px; font-size: 11.5px; cursor: pointer;">📢 Variazione</button>
+            <button type="button" class="btn btn-sm" onclick="window.print()" style="background: #0f172a; color: #fff; font-weight: 700; padding: 6px 12px; font-size: 11.5px; cursor: pointer;">🖨️ Stampa</button>
           </div>
         </div>
 
@@ -8266,6 +8368,40 @@ window.renderCucinaView = function() {
         </div>
 
         ${haVariazioneOggi ? `<div style="margin-top: 12px; background: #fffbeb; border: 2px dashed #f59e0b; border-radius: 8px; padding: 10px 14px;"><span style="font-weight: 800; color: #b45309; font-size: 13px;">📢 Variazione (${pastoVar.toUpperCase()}):</span><div style="font-size: 14px; font-weight: 700; color: #78350f; margin-top: 2px;">"${escapeHtml(testoVar)}"</div></div>` : ''}
+
+        ${(countRitardiPranzo + countRitardiCena > 0 || countOspitiPranzo + countOspitiCena > 0) ? `
+          <div style="margin-top: 12px; background: linear-gradient(135deg, #fff7ed 0%, #fef2f2 100%); border: 2px solid #ea580c; border-radius: 10px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(234,88,12,0.12);">
+            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-bottom: 1px dashed #fdba74; padding-bottom: 8px; margin-bottom: 8px;">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 24px;">⚠️</span>
+                <div>
+                  <h3 style="margin: 0; font-size: 14.5px; color: #9a3412; font-weight: 800; text-transform: uppercase;">Segnalazioni Cucina di Oggi</h3>
+                  <div style="font-size: 12px; color: #7c2d12;">Verifica residenti con arrivo posticipato e porzioni ospiti extra</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                ${(countRitardiPranzo + countRitardiCena > 0) ? `<span class="badge" style="background: #dc2626; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px;">⏰ ${countRitardiPranzo + countRitardiCena} RITARDI (Pranzo: ${countRitardiPranzo}, Cena: ${countRitardiCena})</span>` : ''}
+                ${(countOspitiPranzo + countOspitiCena > 0) ? `<span class="badge" style="background: #d97706; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px;">👥 +${countOspitiPranzo + countOspitiCena} OSPITI (Pranzo: +${countOspitiPranzo}, Cena: +${countOspitiCena})</span>` : ''}
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px; font-size: 12px;">
+              ${(countRitardiPranzo > 0 || countOspitiPranzo > 0) ? `
+                <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 6px; padding: 6px 10px;">
+                  <strong style="color: #c2410c;">☀️ Pranzo (14:30):</strong>
+                  ${countRitardiPranzo > 0 ? `<div style="color: #991b1b; margin-top: 2px;">⏰ <strong>Ritardi (${countRitardiPranzo}):</strong> ${listaPranzo.filter(p => p.ritardo).map(p => escapeHtml(p.nome || p.email.split('@')[0])).join(', ')}</div>` : ''}
+                  ${countOspitiPranzo > 0 ? `<div style="color: #92400e; margin-top: 2px;">👥 <strong>Ospiti (+${countOspitiPranzo}):</strong> ${listaPranzo.filter(p => p.ospiti > 0).map(p => `${escapeHtml(p.nome || p.email.split('@')[0])} (+${p.ospiti})`).join(', ')}</div>` : ''}
+                </div>
+              ` : ''}
+              ${(countRitardiCena > 0 || countOspitiCena > 0) ? `
+                <div style="background: #ffffff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 10px;">
+                  <strong style="color: #1d4ed8;">🌙 Cena (19:30):</strong>
+                  ${countRitardiCena > 0 ? `<div style="color: #991b1b; margin-top: 2px;">⏰ <strong>Ritardi (${countRitardiCena}):</strong> ${listaCena.filter(p => p.ritardo).map(p => escapeHtml(p.nome || p.email.split('@')[0])).join(', ')}</div>` : ''}
+                  ${countOspitiCena > 0 ? `<div style="color: #1e40af; margin-top: 2px;">👥 <strong>Ospiti (+${countOspitiCena}):</strong> ${listaCena.filter(p => p.ospiti > 0).map(p => `${escapeHtml(p.nome || p.email.split('@')[0])} (+${p.ospiti})`).join(', ')}</div>` : ''}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        ` : ''}
       </div>
 
       <!-- SCHEDA MENÙ DEL GIORNO PER LA CUOCA / MASTER -->
@@ -8372,11 +8508,13 @@ window.renderCucinaView = function() {
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 26px;">☀️</span>
               <div>
-                <h3 style="margin: 0; font-size: 17.5px; color: #c2410c; font-weight: 800;">Pranzo (14:30)</h3>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <h3 style="margin: 0; font-size: 17.5px; color: #c2410c; font-weight: 800;">Pranzo (14:30)</h3>
+                  ${countRitardiPranzo > 0 ? `<span class="badge" style="background: #dc2626; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(220,38,38,0.25);">⏰ ${countRitardiPranzo} ${countRitardiPranzo === 1 ? 'RITARDO' : 'RITARDI'}</span>` : ''}
+                  ${countOspitiPranzo > 0 ? `<span class="badge" style="background: #d97706; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(217,119,6,0.25);">👥 +${countOspitiPranzo} ${countOspitiPranzo === 1 ? 'OSPITE' : 'OSPITI'}</span>` : ''}
+                </div>
                 <div style="font-size: 12px; color: #7c2d12; font-weight: 600; margin-top: 2px;">
                   🍲 <strong>${statsPranzo.totale}</strong> porzioni totali (${statsPranzo.inSala} sala, ${statsPranzo.buste} buste)
-                  ${countOspitiPranzo > 0 ? `<span style="background: #fef3c7; color: #78350f; font-weight: 800; padding: 1px 6px; border-radius: 4px; margin-left: 4px; border: 1px solid #fde68a;">👥 +${countOspitiPranzo} ospiti</span>` : ''}
-                  ${countRitardiPranzo > 0 ? `<span style="background: #fee2e2; color: #991b1b; font-weight: 800; padding: 1px 6px; border-radius: 4px; margin-left: 4px; border: 1px solid #fecaca;">⏰ ${countRitardiPranzo} ritardi</span>` : ''}
                 </div>
               </div>
             </div>
@@ -8387,17 +8525,42 @@ window.renderCucinaView = function() {
           </div>
 
           ${(countRitardiPranzo > 0 || countOspitiPranzo > 0) ? `
-            <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef2f2 100%); border: 1.5px solid #f59e0b; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="background: linear-gradient(135deg, #fffbeb 0%, #fef2f2 100%); border: 2px solid #ea580c; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 8px rgba(234,88,12,0.12);">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; border-bottom: 1px dashed #fdba74; padding-bottom: 6px;">
+                <strong style="color: #9a3412; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                  <span>⚠️</span> ATTENZIONE SERVIZIO CUCINA (PRANZO):
+                </strong>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  ${countRitardiPranzo > 0 ? `<span class="badge" style="background: #dc2626; color: #fff; font-weight: 900; font-size: 11px; padding: 2px 8px;">⏰ ${countRitardiPranzo} ${countRitardiPranzo === 1 ? 'RITARDO' : 'RITARDI'}</span>` : ''}
+                  ${countOspitiPranzo > 0 ? `<span class="badge" style="background: #d97706; color: #fff; font-weight: 900; font-size: 11px; padding: 2px 8px;">👥 +${countOspitiPranzo} ${countOspitiPranzo === 1 ? 'OSPITE' : 'OSPITI'}</span>` : ''}
+                </div>
+              </div>
+
               ${countRitardiPranzo > 0 ? `
-                <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #dc2626;">
-                  <span style="font-size: 16px;">⏰</span>
-                  <span>AVVISO CUOCA: <strong>${countRitardiPranzo} ${countRitardiPranzo === 1 ? 'residente arriva in RITARDO' : 'residenti arrivano in RITARDO'}</strong> (conservare la porzione al caldo!)</span>
+                <div style="font-size: 12px; color: #991b1b; background: #fee2e2; border-radius: 6px; padding: 8px 10px; border: 1px solid #fca5a5;">
+                  <div style="font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                    <span>⏰</span> Residenti in Ritardo a Pranzo (tenere da parte al caldo):
+                  </div>
+                  <ul style="margin: 0; padding-left: 18px; line-height: 1.5; font-weight: 700;">
+                    ${listaPranzo.filter(p => p.ritardo).map(p => {
+                      const nomeCap = (p.nome || p.email.split('@')[0]).replace(/\./g, ' ');
+                      return `<li><strong>${escapeHtml(nomeCap.charAt(0).toUpperCase() + nomeCap.slice(1))}</strong>${p.note ? ` <span style="font-weight: 500; font-style: italic; color: #7f1d1d;">("${escapeHtml(p.note)}")</span>` : ''}</li>`;
+                    }).join('')}
+                  </ul>
                 </div>
               ` : ''}
+
               ${countOspitiPranzo > 0 ? `
-                <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #92400e;">
-                  <span style="font-size: 16px;">👥</span>
-                  <span>AVVISO CUOCA: <strong>+${countOspitiPranzo} ${countOspitiPranzo === 1 ? 'OSPITE aggiuntivo confermato' : 'OSPITI aggiuntivi confermati'}</strong> da preparare!</span>
+                <div style="font-size: 12px; color: #92400e; background: #fef3c7; border-radius: 6px; padding: 8px 10px; border: 1px solid #fde68a;">
+                  <div style="font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                    <span>👥</span> Ospiti Esterni Aggiuntivi da Preparare (+${countOspitiPranzo}):
+                  </div>
+                  <ul style="margin: 0; padding-left: 18px; line-height: 1.5; font-weight: 700;">
+                    ${listaPranzo.filter(p => p.ospiti && p.ospiti > 0).map(p => {
+                      const nomeCap = (p.nome || p.email.split('@')[0]).replace(/\./g, ' ');
+                      return `<li><strong>${escapeHtml(nomeCap.charAt(0).toUpperCase() + nomeCap.slice(1))}</strong>: +${p.ospiti} ${p.ospiti === 1 ? 'ospite' : 'ospiti'} (Totale porzioni per lui: <strong>${1 + p.ospiti}</strong>)${p.note ? ` <span style="font-weight: 500; font-style: italic; color: #78350f;">("${escapeHtml(p.note)}")</span>` : ''}</li>`;
+                    }).join('')}
+                  </ul>
                 </div>
               ` : ''}
             </div>
@@ -8494,11 +8657,13 @@ window.renderCucinaView = function() {
             <div style="display: flex; align-items: center; gap: 8px;">
               <span style="font-size: 26px;">🌙</span>
               <div>
-                <h3 style="margin: 0; font-size: 17.5px; color: #1d4ed8; font-weight: 800;">Cena (19:30)</h3>
+                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                  <h3 style="margin: 0; font-size: 17.5px; color: #1d4ed8; font-weight: 800;">Cena (19:30)</h3>
+                  ${countRitardiCena > 0 ? `<span class="badge" style="background: #dc2626; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(220,38,38,0.25);">⏰ ${countRitardiCena} ${countRitardiCena === 1 ? 'RITARDO' : 'RITARDI'}</span>` : ''}
+                  ${countOspitiCena > 0 ? `<span class="badge" style="background: #d97706; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(217,119,6,0.25);">👥 +${countOspitiCena} ${countOspitiCena === 1 ? 'OSPITE' : 'OSPITI'}</span>` : ''}
+                </div>
                 <div style="font-size: 12px; color: #1e40af; font-weight: 600; margin-top: 2px;">
                   🍲 <strong>${statsCena.totale}</strong> porzioni totali (${statsCena.inSala} sala, ${statsCena.buste} buste)
-                  ${countOspitiCena > 0 ? `<span style="background: #fef3c7; color: #78350f; font-weight: 800; padding: 1px 6px; border-radius: 4px; margin-left: 4px; border: 1px solid #fde68a;">👥 +${countOspitiCena} ospiti</span>` : ''}
-                  ${countRitardiCena > 0 ? `<span style="background: #fee2e2; color: #991b1b; font-weight: 800; padding: 1px 6px; border-radius: 4px; margin-left: 4px; border: 1px solid #fecaca;">⏰ ${countRitardiCena} ritardi</span>` : ''}
                 </div>
               </div>
             </div>
@@ -8509,17 +8674,42 @@ window.renderCucinaView = function() {
           </div>
 
           ${(countRitardiCena > 0 || countOspitiCena > 0) ? `
-            <div style="background: linear-gradient(135deg, #fffbeb 0%, #eff6ff 100%); border: 1.5px solid #3b82f6; border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; display: flex; flex-direction: column; gap: 4px;">
+            <div style="background: linear-gradient(135deg, #fffbeb 0%, #eff6ff 100%); border: 2px solid #2563eb; border-radius: 10px; padding: 12px 14px; margin-bottom: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 2px 8px rgba(37,99,235,0.12);">
+              <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px; border-bottom: 1px dashed #93c5fd; padding-bottom: 6px;">
+                <strong style="color: #1e40af; font-size: 13.5px; display: flex; align-items: center; gap: 6px;">
+                  <span>⚠️</span> ATTENZIONE SERVIZIO CUCINA (CENA):
+                </strong>
+                <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                  ${countRitardiCena > 0 ? `<span class="badge" style="background: #dc2626; color: #fff; font-weight: 900; font-size: 11px; padding: 2px 8px;">⏰ ${countRitardiCena} ${countRitardiCena === 1 ? 'RITARDO' : 'RITARDI'}</span>` : ''}
+                  ${countOspitiCena > 0 ? `<span class="badge" style="background: #d97706; color: #fff; font-weight: 900; font-size: 11px; padding: 2px 8px;">👥 +${countOspitiCena} ${countOspitiCena === 1 ? 'OSPITE' : 'OSPITI'}</span>` : ''}
+                </div>
+              </div>
+
               ${countRitardiCena > 0 ? `
-                <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #dc2626;">
-                  <span style="font-size: 16px;">⏰</span>
-                  <span>AVVISO CUOCA: <strong>${countRitardiCena} ${countRitardiCena === 1 ? 'residente arriva in RITARDO' : 'residenti arrivano in RITARDO'}</strong> (conservare la porzione al caldo!)</span>
+                <div style="font-size: 12px; color: #991b1b; background: #fee2e2; border-radius: 6px; padding: 8px 10px; border: 1px solid #fca5a5;">
+                  <div style="font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                    <span>⏰</span> Residenti in Ritardo a Cena (tenere da parte al caldo):
+                  </div>
+                  <ul style="margin: 0; padding-left: 18px; line-height: 1.5; font-weight: 700;">
+                    ${listaCena.filter(p => p.ritardo).map(p => {
+                      const nomeCap = (p.nome || p.email.split('@')[0]).replace(/\./g, ' ');
+                      return `<li><strong>${escapeHtml(nomeCap.charAt(0).toUpperCase() + nomeCap.slice(1))}</strong>${p.note ? ` <span style="font-weight: 500; font-style: italic; color: #7f1d1d;">("${escapeHtml(p.note)}")</span>` : ''}</li>`;
+                    }).join('')}
+                  </ul>
                 </div>
               ` : ''}
+
               ${countOspitiCena > 0 ? `
-                <div style="display: flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 800; color: #1e40af;">
-                  <span style="font-size: 16px;">👥</span>
-                  <span>AVVISO CUOCA: <strong>+${countOspitiCena} ${countOspitiCena === 1 ? 'OSPITE aggiuntivo confermato' : 'OSPITI aggiuntivi confermati'}</strong> da preparare!</span>
+                <div style="font-size: 12px; color: #1e40af; background: #fef3c7; border-radius: 6px; padding: 8px 10px; border: 1px solid #fde68a;">
+                  <div style="font-weight: 800; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; color: #92400e;">
+                    <span>👥</span> Ospiti Esterni Aggiuntivi da Preparare (+${countOspitiCena}):
+                  </div>
+                  <ul style="margin: 0; padding-left: 18px; line-height: 1.5; font-weight: 700;">
+                    ${listaCena.filter(p => p.ospiti && p.ospiti > 0).map(p => {
+                      const nomeCap = (p.nome || p.email.split('@')[0]).replace(/\./g, ' ');
+                      return `<li><strong>${escapeHtml(nomeCap.charAt(0).toUpperCase() + nomeCap.slice(1))}</strong>: +${p.ospiti} ${p.ospiti === 1 ? 'ospite' : 'ospiti'} (Totale porzioni per lui: <strong>${1 + p.ospiti}</strong>)${p.note ? ` <span style="font-weight: 500; font-style: italic; color: #78350f;">("${escapeHtml(p.note)}")</span>` : ''}</li>`;
+                    }).join('')}
+                  </ul>
                 </div>
               ` : ''}
             </div>
@@ -8610,6 +8800,36 @@ window.renderCucinaView = function() {
     </div>
   `;
   container.innerHTML = html;
+
+  // Collegamento immediato e diretto per i 4 pulsanti di gestione cucina
+  const btnConsulta = document.getElementById("btn-cucina-consulta-menu");
+  if (btnConsulta) {
+    btnConsulta.onclick = (e) => {
+      e.preventDefault();
+      window.apriModalConsultaMenu(cicloSettimana);
+    };
+  }
+  const btnModifica = document.getElementById("btn-cucina-modifica-menu");
+  if (btnModifica) {
+    btnModifica.onclick = (e) => {
+      e.preventDefault();
+      window.apriModalModificaMenu(cicloSettimana, giornoKey);
+    };
+  }
+  const btnBuste = document.getElementById("btn-cucina-gestione-buste");
+  if (btnBuste) {
+    btnBuste.onclick = (e) => {
+      e.preventDefault();
+      window.apriModalGestioneBusteMaster(dataFiltroYMD);
+    };
+  }
+  const btnVar = document.getElementById("btn-cucina-variazione");
+  if (btnVar) {
+    btnVar.onclick = (e) => {
+      e.preventDefault();
+      window.apriModalVariazioneCuoca(dataFiltroYMD, "pranzo");
+    };
+  }
 };
 
 // ----------------------------------------------------------------------------
@@ -8617,20 +8837,30 @@ window.renderCucinaView = function() {
 // ----------------------------------------------------------------------------
 
 window.apriModalElencoPastiCucina = function(dataYMD, tipoPasto) {
+  window._modalOpenedTimestamp = Date.now();
   if (!haPermessiMasterMensa()) {
     mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
     return;
   }
-  const modal = document.getElementById("modal-elenco-pasti-cucina");
+  const modal = (typeof window.mostraModaleIstantanea === "function")
+    ? window.mostraModaleIstantanea("modal-elenco-pasti-cucina")
+    : document.getElementById("modal-elenco-pasti-cucina");
   if (!modal) return;
   const targetDate = dataYMD || appState.cucinaSelectedDate || formatYMD(new Date());
   const targetPasto = (tipoPasto || "pranzo").toLowerCase();
   appState.cucinaModalState = { isOpen: true, dataYMD: targetDate, tipoPasto: targetPasto, filtro: "tutti", search: "" };
   const searchInput = document.getElementById("modal-cucina-search");
   if (searchInput) searchInput.value = "";
-  modal.style.display = "flex";
+  modal.style.setProperty("display", "flex", "important");
+  modal.style.setProperty("z-index", "999999", "important");
+  modal.style.setProperty("visibility", "visible", "important");
+  modal.style.setProperty("opacity", "1", "important");
+  modal.style.setProperty("transform", "none", "important");
+  void modal.offsetHeight;
+  void document.body.offsetHeight;
   renderContenutoModalCucina();
 };
+window._realApriModalElencoPastiCucina = window.apriModalElencoPastiCucina;
 
 window.chiudiModalElencoPastiCucina = function() {
   const modal = document.getElementById("modal-elenco-pasti-cucina");
@@ -8864,18 +9094,31 @@ appState.consultaMenuState = {
 };
 
 window.apriModalConsultaMenu = function(settimanaPredefinita) {
-  const modal = document.getElementById("modal-consulta-menu");
+  window._modalOpenedTimestamp = Date.now();
+  const modal = (typeof window.mostraModaleIstantanea === "function")
+    ? window.mostraModaleIstantanea("modal-consulta-menu")
+    : document.getElementById("modal-consulta-menu");
   if (!modal) return;
+  modal.style.setProperty("display", "flex", "important");
+  modal.style.setProperty("z-index", "999999", "important");
+  modal.style.setProperty("visibility", "visible", "important");
+  modal.style.setProperty("opacity", "1", "important");
+  modal.style.setProperty("transform", "none", "important");
+  void modal.offsetHeight;
+  void document.body.offsetHeight;
+
   if (!appState.consultaMenuState) appState.consultaMenuState = { settimana: "settimana1" };
-  if (settimanaPredefinita && (settimanaPredefinita === "settimana1" || settimanaPredefinita === "settimana2")) {
-    appState.consultaMenuState.settimana = settimanaPredefinita;
-  } else {
-    // Rileva ciclo corrente dalla data odierna
-    appState.consultaMenuState.settimana = (typeof getSettimanaMenu === "function") ? getSettimanaMenu(new Date()) : "settimana1";
+  let sett = settimanaPredefinita;
+  if (!sett || (sett !== "settimana1" && sett !== "settimana2")) {
+    const curDate = (appState.cucinaSelectedDate) ? new Date(appState.cucinaSelectedDate + "T12:00:00") : new Date();
+    sett = (typeof getSettimanaMenu === "function") ? getSettimanaMenu(curDate) : "settimana1";
   }
-  modal.style.display = "flex";
-  modal.style.zIndex = "9999";
-  selezionaSettimanaConsultaMenu(appState.consultaMenuState.settimana);
+  appState.consultaMenuState.settimana = sett;
+  if (typeof selezionaSettimanaConsultaMenu === "function") {
+    selezionaSettimanaConsultaMenu(sett);
+  } else if (typeof renderContenutoConsultaMenu === "function") {
+    renderContenutoConsultaMenu();
+  }
 };
 window._realApriModalConsultaMenu = window.apriModalConsultaMenu;
 
@@ -8990,20 +9233,42 @@ appState.modificaMenuState = {
 };
 
 function apriModalModificaMenu(settimana, giorno) {
-  const modal = document.getElementById("modal-modifica-menu");
+  window._modalOpenedTimestamp = Date.now();
+  const modal = (typeof window.mostraModaleIstantanea === "function")
+    ? window.mostraModaleIstantanea("modal-modifica-menu")
+    : document.getElementById("modal-modifica-menu");
   if (!modal) return;
-  modal.style.display = "flex";
-  modal.style.zIndex = "9999";
+  modal.style.setProperty("display", "flex", "important");
+  modal.style.setProperty("z-index", "999999", "important");
+  modal.style.setProperty("visibility", "visible", "important");
+  modal.style.setProperty("opacity", "1", "important");
+  modal.style.setProperty("transform", "none", "important");
+  void modal.offsetHeight;
+  void document.body.offsetHeight;
 
   if (!appState.modificaMenuState) appState.modificaMenuState = { settimana: "settimana1", giorno: "lunedi" };
 
-  if (settimana && (settimana === "settimana1" || settimana === "settimana2")) {
-    appState.modificaMenuState.settimana = settimana;
+  let sett = settimana;
+  if (!sett || (sett !== "settimana1" && sett !== "settimana2")) {
+    const curDate = (appState.cucinaSelectedDate) ? new Date(appState.cucinaSelectedDate + "T12:00:00") : new Date();
+    sett = (typeof getSettimanaMenu === "function") ? getSettimanaMenu(curDate) : "settimana1";
   }
-  if (giorno) {
-    appState.modificaMenuState.giorno = giorno;
+  let gio = giorno;
+  const giorniValidi = ["lunedi", "martedi", "mercoledi", "giovedi", "venerdi", "sabato", "domenica"];
+  if (!gio || !giorniValidi.includes(gio)) {
+    const curDate = (appState.cucinaSelectedDate) ? new Date(appState.cucinaSelectedDate + "T12:00:00") : new Date();
+    gio = (typeof getNomeGiorno === "function") ? getNomeGiorno(curDate) : "lunedi";
   }
-  cambiaSettimanaModificaMenu(appState.modificaMenuState.settimana);
+
+  appState.modificaMenuState.settimana = sett;
+  appState.modificaMenuState.giorno = gio;
+
+  if (typeof cambiaSettimanaModificaMenu === "function") {
+    cambiaSettimanaModificaMenu(sett);
+  }
+  if (typeof selezionaGiornoModificaMenu === "function") {
+    selezionaGiornoModificaMenu(gio);
+  }
 }
 window.apriModalModificaMenu = apriModalModificaMenu;
 window._realApriModalModificaMenu = apriModalModificaMenu;
@@ -9211,25 +9476,33 @@ appState.gestioneBusteMasterState = {
 };
 
 function apriModalGestioneBusteMaster(dataYMD) {
-  const modal = document.getElementById("modal-gestione-buste-master");
+  window._modalOpenedTimestamp = Date.now();
+  const modal = (typeof window.mostraModaleIstantanea === "function")
+    ? window.mostraModaleIstantanea("modal-gestione-buste-master")
+    : document.getElementById("modal-gestione-buste-master");
   if (!modal) return;
-  modal.style.display = "flex";
-  modal.style.zIndex = "9999";
+  modal.style.setProperty("display", "flex", "important");
+  modal.style.setProperty("z-index", "999999", "important");
+  modal.style.setProperty("visibility", "visible", "important");
+  modal.style.setProperty("opacity", "1", "important");
+  modal.style.setProperty("transform", "none", "important");
+  void modal.offsetHeight;
+  void document.body.offsetHeight;
 
   if (!appState.gestioneBusteMasterState) {
     appState.gestioneBusteMasterState = { dataYMD: "", search: "", filtro: "tutti" };
   }
 
-  let targetDate = dataYMD || appState.cucinaSelectedDate || (typeof formatYMD === "function" ? formatYMD(new Date()) : new Date().toISOString().slice(0, 10));
+  let targetDate = (dataYMD && dataYMD !== "undefined") ? dataYMD : (appState.cucinaSelectedDate || (typeof formatYMD === "function" ? formatYMD(new Date()) : new Date().toISOString().slice(0, 10)));
 
   // Se la data scelta non è un martedì o un giovedì, proponi automaticamente il prossimo martedì
   const dObj = new Date(targetDate + "T12:00:00");
-  const giornoSett = dObj.getDay();
+  const giornoSett = isNaN(dObj.getTime()) ? new Date().getDay() : dObj.getDay();
   if (giornoSett !== 2 && giornoSett !== 4) {
     // Calcola il prossimo martedì
     const daysToTue = (2 - giornoSett + 7) % 7 || 7;
-    const proxTue = new Date(dObj);
-    proxTue.setDate(dObj.getDate() + daysToTue);
+    const proxTue = new Date(isNaN(dObj.getTime()) ? new Date() : dObj);
+    proxTue.setDate(proxTue.getDate() + daysToTue);
     targetDate = (typeof formatYMD === "function") ? formatYMD(proxTue) : proxTue.toISOString().slice(0, 10);
   }
 
@@ -9242,7 +9515,9 @@ function apriModalGestioneBusteMaster(dataYMD) {
   const filterSelect = document.getElementById("gestione-buste-filtro-stato");
   if (filterSelect) filterSelect.value = "tutti";
 
-  renderContenutoGestioneBusteMaster();
+  if (typeof renderContenutoGestioneBusteMaster === "function") {
+    renderContenutoGestioneBusteMaster();
+  }
 }
 window.apriModalGestioneBusteMaster = apriModalGestioneBusteMaster;
 window._realApriModalGestioneBusteMaster = apriModalGestioneBusteMaster;
@@ -11341,15 +11616,23 @@ function aggiornaPulsantiPastiAssenza() {
 window.aggiornaPulsantiPastiAssenza = aggiornaPulsantiPastiAssenza;
 
 function apriModalSegnalaAssenza(prefillData = {}) {
-  const modal = document.getElementById("modal-segnala-assenza");
+  window._modalOpenedTimestamp = Date.now();
+  const modal = (typeof window.mostraModaleIstantanea === "function")
+    ? window.mostraModaleIstantanea("modal-segnala-assenza")
+    : document.getElementById("modal-segnala-assenza");
   if (!modal) {
     console.error("Modale segnala assenza non trovata nel DOM");
     return;
   }
 
-  // 1. Apri subito la modale a schermo (visibilità garantita)
-  modal.style.display = "flex";
-  modal.style.zIndex = "9999";
+  // 1. Apri subito la modale a schermo (visibilità garantita in primo piano assoluto con reflow)
+  modal.style.setProperty("display", "flex", "important");
+  modal.style.setProperty("z-index", "999999", "important");
+  modal.style.setProperty("visibility", "visible", "important");
+  modal.style.setProperty("opacity", "1", "important");
+  modal.style.setProperty("transform", "none", "important");
+  void modal.offsetHeight;
+  void document.body.offsetHeight;
 
   // 2. Popola i dati e imposta opzioni in modalità protetta
   try {
@@ -11403,6 +11686,7 @@ function apriModalSegnalaAssenza(prefillData = {}) {
   }
 }
 window.apriModalSegnalaAssenza = apriModalSegnalaAssenza;
+window._realApriModalSegnalaAssenza = apriModalSegnalaAssenza;
 
 function chiudiModalSegnalaAssenza() {
   const modal = document.getElementById("modal-segnala-assenza");
@@ -11639,6 +11923,7 @@ window.handleSalvaSegnalazioneAssenza = async function(event) {
 };
 
 window.apriDettaglioGiornoAssenze = function(ymdStr) {
+  window._modalOpenedTimestamp = Date.now();
   if (!ymdStr) return;
   appState.dettaglioGiornoAssenzeData = ymdStr;
 
@@ -11716,13 +12001,22 @@ window.apriDettaglioGiornoAssenze = function(ymdStr) {
     `;
   }
 
-  modal.style.display = "flex";
+  modal.style.setProperty("display", "flex", "important");
+  modal.style.setProperty("z-index", "999999", "important");
+  modal.style.setProperty("visibility", "visible", "important");
+  modal.style.setProperty("opacity", "1", "important");
+  modal.style.setProperty("transform", "none", "important");
+  void modal.offsetHeight;
+  void document.body.offsetHeight;
 };
 
 window.chiudiModalDettaglioGiornoAssenze = function() {
   const modal = document.getElementById("modal-dettaglio-giorno-assenze");
   if (modal) modal.style.display = "none";
 };
+window.apriModalDettaglioGiornoAssenze = window.apriDettaglioGiornoAssenze;
+window._realApriModalDettaglioGiornoAssenze = window.apriDettaglioGiornoAssenze;
+window._realApriDettaglioGiornoAssenze = window.apriDettaglioGiornoAssenze;
 
 window.apriModalSegnalaAssenzaDaDettaglio = function() {
   const dt = appState.dettaglioGiornoAssenzeData;
