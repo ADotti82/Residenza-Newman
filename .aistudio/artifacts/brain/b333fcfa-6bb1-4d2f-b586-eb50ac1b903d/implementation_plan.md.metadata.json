@@ -1,6 +1,6 @@
 {
-  "summary": "Piano di risoluzione mirata per il ripristino immediato della cliccabilità e l'apertura istantanea delle modali su Chrome Android: eliminazione dei listener touchstart/is-touched che sopprimevano i click nativi, adozione di feedback :active con sola opacità (senza alterare la geometria di tocco), e riposizionamento forzato in appendChild(m) su document.body all'apertura per obbligare il motore Blink a renderizzare la finestra in primo piano al primo tocco.",
-  "updatedAt": "2026-10-15T05:30:27.836817419Z",
+  "summary": "Piano di implementazione per mostrare ritardi e ospiti nella sezione Prossimi Giorni del Registro Cucina, con icone compatte senza etichette di testo e suddivisi distintamente per pranzo e cena solo quando presenti.",
+  "updatedAt": "2026-10-15T07:45:36.213969063Z",
   "requestFeedback": true,
   "userFacing": true
 }

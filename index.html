@@ -3292,12 +3292,25 @@
     // Prevenzione ghost-click e gestione sicura tocco mobile su backdrop modali
     window._modalOpenedTimestamp = 0;
     window.gestisciClickBackdrop = function(event, chiudiFn) {
-      if (event.target !== event.currentTarget) return;
-      if (Date.now() - (window._modalOpenedTimestamp || 0) < 400) {
-        return; // Ignora chiusure accidentali immediate generate dall'evento touch/click
+      if (!event) return;
+      if (event.target !== event.currentTarget && !event.target.classList.contains("modal-overlay")) return;
+      if (Date.now() - (window._modalOpenedTimestamp || 0) < 150) {
+        return; // Protezione 150ms contro tap che oltrepassano dall'apertura
       }
-      if (typeof chiudiFn === "function") chiudiFn();
+      if (typeof chiudiFn === "function") {
+        try { chiudiFn(event); } catch(e) { console.error(e); }
+      } else {
+        const targetModal = (event.target && event.target.classList.contains("modal-overlay")) ? event.target : event.currentTarget;
+        if (targetModal) window.chiudiModale(targetModal);
+      }
     };
+
+    // Delegazione universale tocco/click su sfondo scuro per tutte le finestre modali
+    document.addEventListener("click", function(event) {
+      if (event.target && event.target.classList && event.target.classList.contains("modal-overlay")) {
+        window.gestisciClickBackdrop(event);
+      }
+    }, true);
 
     // Helper universale di apertura istantanea modali con registrazione stato .open
     window.mostraModaleIstantanea = function(modalOrId) {
@@ -3305,12 +3318,10 @@
       const m = typeof modalOrId === "string" ? document.getElementById(modalOrId) : modalOrId;
       if (!m) return null;
 
-      // Chiudi preventivamente tutte le altre modali aperte per evitare conflitti
-      document.querySelectorAll(".modal-overlay.open").forEach(other => {
-        if (other !== m) {
-          other.classList.remove("open");
-          other.style.display = "none";
-          other.style.removeProperty("display");
+      // Chiudi preventivamente tutte le altre modali aperte per evitare conflitti visivi o sovrapposizioni
+      document.querySelectorAll(".modal-overlay").forEach(other => {
+        if (other !== m && (other.classList.contains("open") || other.style.display === "flex")) {
+          window.chiudiModale(other);
         }
       });
 
@@ -3325,6 +3336,7 @@
       m.style.setProperty("z-index", "999999", "important");
       m.style.setProperty("visibility", "visible", "important");
       m.style.setProperty("opacity", "1", "important");
+      m.style.setProperty("pointer-events", "auto", "important");
       m.style.removeProperty("transform");
       m.scrollTop = 0;
       const card = m.querySelector(".modal-card");
@@ -3336,16 +3348,43 @@
       return m;
     };
 
+    // Helper universale di chiusura immediata modali con annullamento display !important
     window.chiudiModale = function(modalOrId) {
-      const m = typeof modalOrId === "string" ? document.getElementById(modalOrId) : modalOrId;
+      let m = null;
+      if (!modalOrId) {
+        m = document.querySelector(".modal-overlay.open") || document.querySelector(".modal-overlay[style*='flex']");
+      } else if (typeof modalOrId === "string") {
+        m = document.getElementById(modalOrId);
+      } else if (modalOrId instanceof Element) {
+        m = modalOrId.closest ? (modalOrId.closest(".modal-overlay") || modalOrId) : modalOrId;
+      } else if (modalOrId && modalOrId.target && modalOrId.target instanceof Element) {
+        m = modalOrId.target.closest ? (modalOrId.target.closest(".modal-overlay") || modalOrId.target) : null;
+      }
       if (m) {
         m.classList.remove("open");
-        m.style.display = "none";
-        m.style.removeProperty("display");
+        // Sovrascrive display con !important per annullare tassativamente display: flex !important
+        m.style.setProperty("display", "none", "important");
+        m.style.setProperty("visibility", "hidden", "important");
+        m.style.setProperty("opacity", "0", "important");
+        m.style.setProperty("pointer-events", "none", "important");
+        m.style.removeProperty("z-index");
+        
+        // Forza invalidazione e ridisegno immediato nel motore Blink
+        void m.offsetHeight;
       }
-      if (!document.querySelector(".modal-overlay.open")) {
+      
+      // Verifica e rimozione stato di blocco scroll del body se non vi sono altre modali aperte
+      const aperte = document.querySelectorAll(".modal-overlay.open, .modal-overlay[style*='display: flex']");
+      let haModaliAperte = false;
+      aperte.forEach(el => {
+        if (el !== m && el.style.display !== "none") haModaliAperte = true;
+      });
+      if (!haModaliAperte) {
         document.body.classList.remove("modal-is-open");
+        document.body.style.removeProperty("overflow");
+        void document.body.offsetHeight;
       }
+      return m;
     };
 
     // Fallback immediati globali su window per garantire reattività al tocco
@@ -3468,18 +3507,34 @@
       window.chiudiModale("modal-dettaglio-giorno-assenze");
     };
 
+    // Helper specifici di chiusura per tutte le finestre dell'applicazione
+    window.chiudiModalSettings = function() { window.chiudiModale("modal-settings"); };
+    window.chiudiModalBacheca = function() { window.chiudiModale("modal-bacheca"); };
+    window.chiudiModalEliminaBacheca = function() { window.chiudiModale("modal-conferma-elimina-bacheca"); };
+    window.chiudiModalImportaCalendarioCSV = function() { window.chiudiModale("modal-importa-calendario-csv"); };
+    window.chiudiModalPrenotaSpazio = function() { window.chiudiModale("modal-prenota-spazio"); };
+    window.chiudiModalCancellaSpazio = function() { window.chiudiModale("modal-cancella-spazio"); };
+    window.chiudiModalCodiceGas = function() { window.chiudiModale("modal-codice-gas"); };
+    window.chiudiModalEmailAmministrazione = function() { window.chiudiModale("modal-email-amministrazione"); };
+    window.chiudiModalGuida = function() { window.chiudiModale("modal-guida-app"); };
+    window.chiudiModalPresentazioneCommittenti = function() { window.chiudiModale("modal-presentazione-committenti"); };
+    window.chiudiModalNuovaAccoglienza = function() { window.chiudiModale("modal-nuova-accoglienza"); };
+    window.chiudiModalAutorizza1Accoglienza = function() { window.chiudiModale("modal-autorizza1-accoglienza"); };
+    window.chiudiModalMessaggioSupermaster = function() { window.chiudiModale("modal-messaggio-supermaster"); };
+    window.chiudiModalTestiResidenza = function() { window.chiudiModale("modal-testi-residenza"); };
+    window.chiudiModalAuth = function() { window.chiudiModale("modal-auth"); };
+
     // Helper globale di emergenza per sbloccare la UI in caso di modali bloccate
     window.chiudiTutteLeModali = function() {
       document.querySelectorAll(".modal-overlay").forEach(m => {
-        m.classList.remove("open");
-        m.style.display = "none";
-        m.style.removeProperty("display");
+        window.chiudiModale(m);
       });
       document.body.classList.remove("modal-is-open");
+      document.body.style.removeProperty("overflow");
     };
   </script>
 
   <!-- SCRIPT FRONTEND LOGICA (VANILLA JS) -->
-  <script type="module" src="/app.js?v=20261014-v7-touch-native-fix"></script>
+  <script type="module" src="/app.js?v=20261015-v2-prossimi-giorni-ritardi-ospiti"></script>
 </body>
 </html>

@@ -2219,7 +2219,8 @@ window.apriModalMessaggioSupermaster = function() {
   }
   const scadInput = document.getElementById("supermaster-scadenza");
   if (scadInput) scadInput.value = currentScad || "";
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+  else modal.style.display = "flex";
 };
 
 window.impostaPresetScadenzaSupermaster = function(giorni) {
@@ -2233,8 +2234,12 @@ window.impostaPresetScadenzaSupermaster = function(giorni) {
 };
 
 window.chiudiModalMessaggioSupermaster = function() {
-  const modal = document.getElementById("modal-messaggio-supermaster");
-  if (modal) modal.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-messaggio-supermaster");
+  } else {
+    const modal = document.getElementById("modal-messaggio-supermaster");
+    if (modal) modal.style.display = "none";
+  }
 };
 
 window.rimuoviMessaggioSupermasterConferma = async function() {
@@ -2333,12 +2338,17 @@ window.apriModalTestiResidenza = function() {
   const tCont = document.getElementById("textarea-contatti-edit");
   if (tReg) tReg.value = regText;
   if (tCont) tCont.value = contText;
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+  else modal.style.display = "flex";
 };
 
 window.chiudiModalTestiResidenza = function() {
-  const modal = document.getElementById("modal-testi-residenza");
-  if (modal) modal.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-testi-residenza");
+  } else {
+    const modal = document.getElementById("modal-testi-residenza");
+    if (modal) modal.style.display = "none";
+  }
 };
 
 window.salvaTestiResidenza = async function(event) {
@@ -2413,8 +2423,12 @@ window.modificaAvvisoBacheca = function(id) {
 };
 
 window.chiudiModalBacheca = function() {
-  const modal = document.getElementById("modal-bacheca");
-  if (modal) modal.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-bacheca");
+  } else {
+    const modal = document.getElementById("modal-bacheca");
+    if (modal) modal.style.display = "none";
+  }
 };
 
 window.handleSalvaAvvisoBacheca = async function(e) {
@@ -2459,12 +2473,19 @@ let avvisoIdDaEliminare = null;
 window.eliminaAvvisoBacheca = function(id) {
   avvisoIdDaEliminare = id;
   const modal = document.getElementById("modal-conferma-elimina-bacheca");
-  if (modal) modal.style.display = "flex";
+  if (modal) {
+    if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+    else modal.style.display = "flex";
+  }
 };
 
 window.chiudiModalEliminaBacheca = function() {
-  const modal = document.getElementById("modal-conferma-elimina-bacheca");
-  if (modal) modal.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-conferma-elimina-bacheca");
+  } else {
+    const modal = document.getElementById("modal-conferma-elimina-bacheca");
+    if (modal) modal.style.display = "none";
+  }
   avvisoIdDaEliminare = null;
 };
 
@@ -3900,14 +3921,22 @@ let slotInPrenotazione = null;
 let slotInCancellazione = null;
 
 window.chiudiModalPrenotaSpazio = function() {
-  const m = document.getElementById("modal-prenota-spazio");
-  if (m) m.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-prenota-spazio");
+  } else {
+    const m = document.getElementById("modal-prenota-spazio");
+    if (m) m.style.display = "none";
+  }
   slotInPrenotazione = null;
 };
 
 window.chiudiModalCancellaSpazio = function() {
-  const m = document.getElementById("modal-cancella-spazio");
-  if (m) m.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-cancella-spazio");
+  } else {
+    const m = document.getElementById("modal-cancella-spazio");
+    if (m) m.style.display = "none";
+  }
   slotInCancellazione = null;
 };
 
@@ -4328,7 +4357,8 @@ window.cancellaSlotSpazio = function(id, slot, isMasterAction) {
     if (isMasterAction) testo.innerHTML = `Come <strong>Master</strong>, liberare lo slot <strong>${escapeHtml(slot)}</strong> per <strong>${escapeHtml(nomeRisorsa)}</strong> del <strong>${escapeHtml(data)}</strong>?`;
     else testo.innerHTML = `Annullare la tua prenotazione per <strong>${escapeHtml(nomeRisorsa)}</strong> nello slot <strong>${escapeHtml(slot)}</strong>?`;
   }
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+  else modal.style.display = "flex";
 };
 
 window.eseguiCancellazioneSpazioConfermata = async function() {
@@ -4612,10 +4642,18 @@ function apriModalNuovaAccoglienza() {
   const inCheckout = document.getElementById("acc-checkout");
   if (inCheckin) { inCheckin.min = oggiYMD; if (!inCheckin.value) inCheckin.value = oggiYMD; }
   if (inCheckout) { const domani = new Date(); domani.setDate(domani.getDate() + 1); inCheckout.min = formatYMD(domani); if (!inCheckout.value) inCheckout.value = formatYMD(domani); }
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+  else modal.style.display = "flex";
 }
 
-function chiudiModalNuovaAccoglienza() { const m = document.getElementById("modal-nuova-accoglienza"); if (m) m.style.display = "none"; }
+function chiudiModalNuovaAccoglienza() {
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-nuova-accoglienza");
+  } else {
+    const m = document.getElementById("modal-nuova-accoglienza");
+    if (m) m.style.display = "none";
+  }
+}
 function aggiornaMinCheckout() {
   const inCheckin = document.getElementById("acc-checkin");
   const inCheckout = document.getElementById("acc-checkout");
@@ -4703,10 +4741,18 @@ function apriModalAutorizza1Accoglienza(id) {
       <div style="margin-top: 6px; font-size: 12px; color: #334155;">📅 <strong>Date:</strong> ${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)} (${notti} ${notti === 1 ? 'notte' : 'notti'})<br><strong>Ospiti:</strong> ${acc.numero_ospiti || 1}<br>${pref ? `🏷️ <strong>Preferenza:</strong> ${escapeHtml(pref)}<br>` : ''}${acc.note ? `💬 <strong>Note:</strong> ${escapeHtml(acc.note)}` : ''}</div>
     `;
   }
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+  else modal.style.display = "flex";
 }
 
-function chiudiModalAutorizza1Accoglienza() { const m = document.getElementById("modal-autorizza1-accoglienza"); if (m) m.style.display = "none"; }
+function chiudiModalAutorizza1Accoglienza() {
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-autorizza1-accoglienza");
+  } else {
+    const m = document.getElementById("modal-autorizza1-accoglienza");
+    if (m) m.style.display = "none";
+  }
+}
 
 async function handleConfermaAutorizza1(event) {
   if (event) event.preventDefault();
@@ -5364,12 +5410,17 @@ window.apriModalEmailAmministrazionePerGuasto = function(idSeg) {
     subtitolo.innerText = guastoObj ? `Inoltro segnalazione #${guastoObj.id} all'amministrazione` : `Comunicazione formale per interventi di manutenzione`;
   }
 
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+  else modal.style.display = "flex";
 };
 
 window.chiudiModalEmailAmministrazione = function() {
-  const modal = document.getElementById("modal-email-amministrazione");
-  if (modal) modal.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-email-amministrazione");
+  } else {
+    const modal = document.getElementById("modal-email-amministrazione");
+    if (modal) modal.style.display = "none";
+  }
   _correnteGuastoModalEmail = null;
 };
 
@@ -6989,8 +7040,12 @@ window.apriModalVariazioneCuoca = function(dataStr, tipoPasto) {
 window._realApriModalVariazioneCuoca = window.apriModalVariazioneCuoca;
 window.apriModalVariazione = window.apriModalVariazioneCuoca;
 window.chiudiModalVariazione = function() {
-  const m = document.getElementById("modal-variazione-cuoca");
-  if (m) m.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-variazione-cuoca");
+  } else {
+    const m = document.getElementById("modal-variazione-cuoca");
+    if (m) m.style.display = "none";
+  }
 };
 
 window.onCuocaModalDataChange = function() {
@@ -7010,8 +7065,12 @@ window.onCuocaModalPastoChange = function() {
 };
 
 window.chiudiModalVariazioneCuoca = function() {
-  const m = document.getElementById("modal-variazione-cuoca");
-  if (m) m.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-variazione-cuoca");
+  } else {
+    const m = document.getElementById("modal-variazione-cuoca");
+    if (m) m.style.display = "none";
+  }
 };
 
 window.handleSalvaVariazioneCuocaModal = async function(e) {
@@ -7768,14 +7827,19 @@ window.apriModalGuida = function() {
   }
   const modal = document.getElementById("modal-guida-app");
   if (!modal) return;
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+  else modal.style.display = "flex";
   // Reset filtri
   if (typeof filtraModalGuida === "function") filtraModalGuida("tutti");
 };
 
 window.chiudiModalGuida = function() {
-  const modal = document.getElementById("modal-guida-app");
-  if (modal) modal.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-guida-app");
+  } else {
+    const modal = document.getElementById("modal-guida-app");
+    if (modal) modal.style.display = "none";
+  }
 };
 
 window.filtraModalGuida = function(categoria) {
@@ -7884,8 +7948,12 @@ function apriModalMasterAppuntamento(risorsaDefault, dataDefault) {
 window.apriModalMasterAppuntamento = apriModalMasterAppuntamento;
 
 function chiudiModalMasterAppuntamento() {
-  const m = document.getElementById("modal-master-nuovo-appuntamento");
-  if (m) m.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-master-nuovo-appuntamento");
+  } else {
+    const m = document.getElementById("modal-master-nuovo-appuntamento");
+    if (m) m.style.display = "none";
+  }
 }
 window.chiudiModalMasterAppuntamento = chiudiModalMasterAppuntamento;
 
@@ -8055,10 +8123,18 @@ window.apriModalCodiceGas = async function() {
       else textarea.value = "// Consulta il file Code.gs nella radice del progetto.";
     } catch (e) { textarea.value = "// Consulta il file Code.gs nella radice del progetto."; }
   }
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+  else modal.style.display = "flex";
 };
 
-window.chiudiModalCodiceGas = function() { const m = document.getElementById("modal-codice-gas"); if (m) m.style.display = "none"; };
+window.chiudiModalCodiceGas = function() {
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-codice-gas");
+  } else {
+    const m = document.getElementById("modal-codice-gas");
+    if (m) m.style.display = "none";
+  }
+};
 
 window.copiaCodiceGasNegliAppunti = function() {
   const textarea = document.getElementById("gas-source-code-textarea");
@@ -8094,11 +8170,19 @@ window.apriModalImportaCalendarioCSV = function() {
   if (textEl) textEl.value = "";
   const fileEl = document.getElementById("input-file-csv-calendario");
   if (fileEl) fileEl.value = "";
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+  else modal.style.display = "flex";
   setupDropzoneCSV();
 };
 
-window.chiudiModalImportaCalendarioCSV = function() { const m = document.getElementById("modal-importa-calendario-csv"); if (m) m.style.display = "none"; };
+window.chiudiModalImportaCalendarioCSV = function() {
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-importa-calendario-csv");
+  } else {
+    const m = document.getElementById("modal-importa-calendario-csv");
+    if (m) m.style.display = "none";
+  }
+};
 
 window.toggleTextareaCSV = function() {
   const container = document.getElementById("container-textarea-csv");
@@ -8388,7 +8472,13 @@ window.renderCucinaView = function() {
       label: d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "numeric" }),
       pranzo: sP.totale,
       cena: sC.totale,
-      buste: sP.buste + sC.buste,
+      ritardiPranzo: sP.ritardi || 0,
+      ospitiPranzo: sP.ospitiTotali || 0,
+      bustePranzo: sP.buste || 0,
+      ritardiCena: sC.ritardi || 0,
+      ospitiCena: sC.ospitiTotali || 0,
+      busteCena: sC.buste || 0,
+      buste: (sP.buste || 0) + (sC.buste || 0),
       isSel: ymd === dataFiltroYMD
     });
   }
@@ -8552,10 +8642,18 @@ window.renderCucinaView = function() {
           ${prossimiGiorni.map(pg => `
             <div onclick="cambiaDataCucina('${pg.ymd}')" style="background: ${pg.isSel ? '#ffedd5' : '#ffffff'}; border: 1px solid ${pg.isSel ? '#f97316' : '#cbd5e1'}; border-radius: 6px; padding: 8px; cursor: pointer; text-align: center;">
               <div style="font-size: 11px; font-weight: 800; color: ${pg.isSel ? '#c2410c' : '#475569'}; text-transform: uppercase;">${pg.label}</div>
-              <div style="display: flex; justify-content: center; gap: 8px; margin-top: 4px; font-size: 12px;">
-                <span style="color: #ea580c; font-weight: 700;">☀️ ${pg.pranzo}</span>
-                <span style="color: #2563eb; font-weight: 700;">🌙 ${pg.cena}</span>
-                ${pg.buste > 0 ? `<span style="color: #d97706; font-weight: 700;">🥪 ${pg.buste}</span>` : ''}
+              <div style="display: flex; justify-content: center; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-top: 4px; font-size: 12px; line-height: 1.3;">
+                <span style="color: #ea580c; font-weight: 700; display: inline-flex; align-items: center; gap: 2.5px;" title="Pranzo">
+                  <span>☀️ ${pg.pranzo}</span>
+                  ${pg.ritardiPranzo > 0 ? `<span title="${pg.ritardiPranzo} ${pg.ritardiPranzo === 1 ? 'ritardo' : 'ritardi'} a pranzo" style="color: #dc2626; font-weight: 800; font-size: 11px;">⏰${pg.ritardiPranzo}</span>` : ''}
+                  ${pg.ospitiPranzo > 0 ? `<span title="${pg.ospitiPranzo} ${pg.ospitiPranzo === 1 ? 'ospite' : 'ospiti'} a pranzo" style="color: #d97706; font-weight: 800; font-size: 11px;">👥+${pg.ospitiPranzo}</span>` : ''}
+                </span>
+                <span style="color: #2563eb; font-weight: 700; display: inline-flex; align-items: center; gap: 2.5px;" title="Cena">
+                  <span>🌙 ${pg.cena}</span>
+                  ${pg.ritardiCena > 0 ? `<span title="${pg.ritardiCena} ${pg.ritardiCena === 1 ? 'ritardo' : 'ritardi'} a cena" style="color: #dc2626; font-weight: 800; font-size: 11px;">⏰${pg.ritardiCena}</span>` : ''}
+                  ${pg.ospitiCena > 0 ? `<span title="${pg.ospitiCena} ${pg.ospitiCena === 1 ? 'ospite' : 'ospiti'} a cena" style="color: #1d4ed8; font-weight: 800; font-size: 11px;">👥+${pg.ospitiCena}</span>` : ''}
+                </span>
+                ${pg.buste > 0 ? `<span title="${pg.buste} buste da asporto" style="color: #d97706; font-weight: 700; display: inline-flex; align-items: center; gap: 2px;"><span>🥪</span><span>${pg.buste}</span></span>` : ''}
               </div>
             </div>
           `).join("")}
@@ -8924,8 +9022,12 @@ window.apriModalElencoPastiCucina = function(dataYMD, tipoPasto) {
 window._realApriModalElencoPastiCucina = window.apriModalElencoPastiCucina;
 
 window.chiudiModalElencoPastiCucina = function() {
-  const modal = document.getElementById("modal-elenco-pasti-cucina");
-  if (modal) modal.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-elenco-pasti-cucina");
+  } else {
+    const modal = document.getElementById("modal-elenco-pasti-cucina");
+    if (modal) modal.style.display = "none";
+  }
   if (appState.cucinaModalState) appState.cucinaModalState.isOpen = false;
 };
 
@@ -9348,8 +9450,12 @@ window.apriModalModificaMenu = apriModalModificaMenu;
 window._realApriModalModificaMenu = apriModalModificaMenu;
 
 function chiudiModalModificaMenu() {
-  const modal = document.getElementById("modal-modifica-menu");
-  if (modal) modal.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-modifica-menu");
+  } else {
+    const modal = document.getElementById("modal-modifica-menu");
+    if (modal) modal.style.display = "none";
+  }
 }
 window.chiudiModalModificaMenu = chiudiModalModificaMenu;
 
@@ -9597,8 +9703,12 @@ window.apriModalGestioneBusteMaster = apriModalGestioneBusteMaster;
 window._realApriModalGestioneBusteMaster = apriModalGestioneBusteMaster;
 
 function chiudiModalGestioneBusteMaster() {
-  const modal = document.getElementById("modal-gestione-buste-master");
-  if (modal) modal.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-gestione-buste-master");
+  } else {
+    const modal = document.getElementById("modal-gestione-buste-master");
+    if (modal) modal.style.display = "none";
+  }
 }
 window.chiudiModalGestioneBusteMaster = chiudiModalGestioneBusteMaster;
 
@@ -9909,13 +10019,18 @@ appState.presentazioneTabAttiva = "committenti";
 window.apriModalPresentazioneCommittenti = function(tabIniziale) {
   const modal = document.getElementById("modal-presentazione-committenti");
   if (!modal) return;
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") window.mostraModaleIstantanea(modal);
+  else modal.style.display = "flex";
   selezionaTabPresentazione(tabIniziale || "committenti");
 };
 
 window.chiudiModalPresentazioneCommittenti = function() {
-  const modal = document.getElementById("modal-presentazione-committenti");
-  if (modal) modal.style.display = "none";
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-presentazione-committenti");
+  } else {
+    const modal = document.getElementById("modal-presentazione-committenti");
+    if (modal) modal.style.display = "none";
+  }
 };
 
 window.selezionaTabPresentazione = function(tabId) {

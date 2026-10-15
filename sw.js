@@ -16,7 +16,7 @@
  * ============================================================================
  */
 
-const CACHE_VERSION = 'newman-v21-touch-native-fix';
+const CACHE_VERSION = 'newman-v23-prossimi-giorni-ritardi-ospiti';
 
 // Asset minimi per la shell offline (pre-caching sicuro con allSettled)
 const PRECACHE_ASSETS = [

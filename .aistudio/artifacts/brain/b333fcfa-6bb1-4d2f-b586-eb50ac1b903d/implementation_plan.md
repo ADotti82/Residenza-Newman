@@ -1,56 +1,112 @@
-# Piano di Risoluzione: Ripristino Cliccabilità e Rendering Istantaneo Modali
+# Visualizzazione Ritardi e Ospiti nei "Prossimi Giorni" del Registro Cucina
 
-Piano di correzione immediata per ripristinare la piena operatività dei tocchi e garantire la visualizzazione a 0ms delle finestre modali su Google Chrome per Android.
-
----
-
-### Diagnosi Tecnica e Causa del Blocco Recente
-
-1. **Perché ora non si apriva neppure cliccando in alto?**
-   - Nel precedente aggiornamento era stato aggiunto un listener `touchstart` che applicava a runtime la classe `.is-touched` con `transform: scale(0.96) !important;`.
-   - In Google Chrome su Android, modificare la trasformazione geometrica (`scale`) di un elemento durante il `touchstart` ne riduce l'area di tocco sotto il polpastrello. Al momento del rilascio (`touchend`), l'algoritmo di hit-testing di Chrome determina che il tocco è "scivolato" o uscito dal bersaglio originale, **sopprimendo completamente l'evento nativo di `click`**. Di conseguenza, né i pulsanti normali né i badge dell'header ricevevano più l'evento `onclick`.
-
-2. **Perché prima le modali non apparivano subito ma solo toccando l'header?**
-   - I pulsanti di apertura si trovano dentro il contenitore con scroll `.main-content`.
-   - Le modali si trovano fuori da `.app-frame`, come nodi figli statici di `body`.
-   - In Chrome mobile, quando un'azione dentro un sotto-albero con scorrimento (`.main-content`) cambia lo stile di un nodo esterno, il motore Blink tende a differire il ridisegno del layer root finché non riceve un evento diretto sul root layer (come appunto l'header).
+Integrazione nella barra rapida "🛒 Prossimi Giorni" della vista Cucina dei conteggi per arrivi posticipati (ritardi) ed extra porzioni (ospiti), mostrati con indicatori iconici compatti solo quando presenti per pranzo e per cena.
 
 ---
 
-## 1. Modifiche Risolutive
+### User Review & Critical Decisions
 
-### A. Rimozione Completa del Listener Bloccante su `touchstart`
-- Rimuovere il listener `touchstart` / `touchend` che aggiungeva `.is-touched`.
-- Sostituire la regola CSS `:active` con un effetto che **non altera le dimensioni o la posizione** dell'elemento:
-  ```css
-  .mode-tab-btn:active, .btn:active, button:active, .user-pill:active, .day-pill:active, .bottom-nav-item:active {
-    opacity: 0.72 !important;
-  }
-  ```
-  In questo modo il browser registra il 100% dei click senza alcuna soppressione o ritardo, garantendo al contempo il feedback visivo al tocco.
-
-### B. Obbligo di Rendering Root Immediato con `document.body.appendChild(m)`
-- In `window.mostraModaleIstantanea`, prima di impostare la visibilità, eseguire:
-  ```javascript
-  document.body.appendChild(m);
-  ```
-  Nel DOM HTML, invocare `appendChild` su un elemento già esistente sposta il nodo in fondo all'albero del `body`. Questa mutazione strutturale obbliga il motore di layout di Chromium ad invalidare e ridisegnare all'istante il layer visivo, portando la modale in primissimo piano senza dover attendere ulteriori tocchi sull'header.
-
-### C. Ripristino dei Gestori di Chiusura e Pulizia Stili
-- Garantire che la chiusura tramite `chiudiModale` rimuova la classe `.open`, reimposti `style.display = "none"` e ripulisca la classe `modal-is-open` dal body.
-
-### D. Invalidazione Cache PWA e Query Param
-- Incrementare `CACHE_VERSION` in `sw.js` a `newman-v21-touch-native-fix`.
-- Aggiornare lo script frontend a `app.js?v=20261014-v7-touch-native-fix`.
+> [!IMPORTANT]
+> **Scelte confermate dall'utente nella fase di chiarimento**:
+> 1. **Stile di Visualizzazione**: *Icone compatte senza etichetta di testo* (es. `⏰2`, `👥+1`), preservando l'ingombro ridotto delle schede dei giorni senza appesantire la griglia.
+> 2. **Ripartizione dei Dati**: *Distinti separatamente tra pranzo e cena*, così che la cuoca e i master possano distinguere a colpo d'occhio se il ritardo o l'ospite è atteso a pranzo (☀️) o a cena (🌙).
+> 3. **Regola di Visibilità Condizionale**: Gli indicatori compaiono **esclusivamente se maggiori di zero** (`> 0`). Se un giorno o pasto non ha ritardi o ospiti registrati, la scheda rimane pulita con i soli numeri base di presenze.
 
 ---
 
-## 2. Piano di Verifica
+### 1. Overview & Core Concept
 
-1. **Ripristino Cliccabilità Header**:
-   - Tocco su "GAS Live" o sul nome utente in alto -> la finestra Impostazioni/Profilo deve aprirsi regolarmente.
-2. **Apertura Istantanea Segnala Assenza & Menù**:
-   - Tocco su "🧳 Segnala Assenza" -> la modale deve comparire all'istante al primo tocco, senza dover cliccare altrove.
-   - Tocco su "📖 Menù" -> apertura istantanea.
-3. **Verifica Compilazione**:
-   - Esecuzione di `compile_applet` per confermare l'integrità del codice.
+- **Cosa fa**: Arricchisce le schede dei 5 giorni futuri nel carosello `"🛒 Prossimi Giorni:"` del Registro Cucina. Oltre ai coperti ordinari di pranzo e cena (e alle buste nei giorni previsti), ogni scheda mostrerà l'icona dell'orologio `⏰` con il numero di ritardi e l'icona delle persone `👥` con il numero di ospiti, associati al rispettivo pasto.
+- **Utenti target**: Personale di cucina (cuoca) e Master della residenza, che consultano la pianificazione settimanale per preparare porzioni aggiuntive e piatti da conservare al caldo.
+- **Valore aggiunto**: Anticipare tempestivamente la preparazione dei pasti dei giorni a venire senza dover aprire il dettaglio di ogni singolo giorno.
+
+---
+
+### 2. User Experience & Visual Design
+
+#### Struttura Visiva della Scheda Giorno
+La scheda di ciascun giorno nella griglia `Prossimi Giorni` adotta un layout compatto e leggibile:
+
+```text
+┌─────────────────────────────────┐
+│           VEN 16/10             │
+│                                 │
+│  ☀️ 3  ⏰1  👥+1    🌙 3       │
+│               🥪 2              │
+└─────────────────────────────────┘
+```
+
+- **Riga Intestazione**: Giorno della settimana e data (es. `VEN 16/10`).
+- **Sezione Pranzo (☀️)**:
+  - Conteggio presenze sala/totali in arancione scuro (`#ea580c`).
+  - Se `ritardiPranzo > 0`: icona `⏰` con conteggio rosso scuro (`#dc2626`, `font-weight: 800`).
+  - Se `ospitiPranzo > 0`: icona `👥` con `+N` in ambra scuro (`#d97706`, `font-weight: 800`).
+- **Sezione Cena (🌙)**:
+  - Conteggio presenze cena in blu (`#2563eb`).
+  - Se `ritardiCena > 0`: icona `⏰` con conteggio in rosso (`#dc2626`).
+  - Se `ospitiCena > 0`: icona `👥` con `+N` in blu cobalto (`#1d4ed8`).
+- **Buste Asporto (🥪)**: Compare come badge separato solo nei giorni con buste attive (`> 0`).
+- **Accessibilità & Tooltip**: Ciascun indicatore compatto include un attributo `title` descrittivo (es. `title="1 ritardo a pranzo"`, `title="2 ospiti a cena"`).
+
+---
+
+### 3. Key Product Decisions & Trade-Offs
+
+- **Calcolo Dinamico dei Giorni Futuri**:
+  - *Approccio Scelto*: Riutilizzare la funzione esistente `calcolaContatoreMensa(ymd, "pranzo")` e `calcolaContatoreMensa(ymd, "cena")` già ottimizzata per estrarre `totale`, `buste`, `ritardi` e `ospitiTotali`.
+  - *Perché*: Garantisce coerenza al 100% tra quanto mostrato nelle mini-schede e quanto compare una volta selezionato il giorno nel dettaglio della schermata.
+- **Ripartizione Grafica Compatta**:
+  - *Approccio Scelto*: Raggruppare visivamente gli indicatori vicino al pasto di riferimento (☀️ per il pranzo, 🌙 per la cena) con spaziatura flessibile (`gap: 6px`) e wrapping naturale se lo schermo è molto stretto.
+
+---
+
+### 4. Technical Architecture & Data Strategy
+
+#### Diagramma di Flusso Dati
+
+```text
+┌────────────────────────────────────────────────────────┐
+│                   appState.mensaBookings               │
+│       (Prenotazioni, assenze, ritardi, ospiti)         │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│        Loop Prossimi Giorni (5 giorni futuri)          │
+│   • calcolaContatoreMensa(ymd, "pranzo")               │
+│     ➜ { totale, buste, ritardi, ospitiTotali }         │
+│   • calcolaContatoreMensa(ymd, "cena")                 │
+│     ➜ { totale, buste, ritardi, ospitiTotali }         │
+└──────────────────────────┬─────────────────────────────┘
+                           │
+                           ▼
+┌────────────────────────────────────────────────────────┐
+│             Render Scheda "Prossimi Giorni"            │
+│   ☀️ ${pg.pranzo} [⏰${pg.ritP}] [👥+${pg.ospP}]        │
+│   🌙 ${pg.cena}   [⏰${pg.ritC}] [👥+${pg.ospC}]        │
+│   [🥪 ${pg.buste}]                                     │
+└────────────────────────────────────────────────────────┘
+```
+
+#### File Interessati:
+1. `app.js`:
+   - Nella funzione `renderCucinaView`:
+     - Aggiornare il mapping di `prossimiGiorni` raccogliendo `ritardiPranzo`, `ospitiPranzo`, `ritardiCena`, `ospitiCena`, `bustePranzo`, `busteCena`.
+     - Aggiornare il template HTML delle card in `prossimiGiorni.map(...)` per mostrare le icone compatte condizionalmente.
+2. `sw.js` & `index.html`:
+   - Aggiornamento della versione di cache del Service Worker per la propagazione immediata dell'aggiornamento.
+
+---
+
+### 5. Piano di Verifica
+
+1. **Verifica Giorni Senza Ritardi/Ospiti**:
+   - Accertarsi che per le date senza ritardi o ospiti non compaiano icone vuote o numeri zero (`⏰0` o `👥+0` non devono mai apparire).
+2. **Verifica Presenza Ritardi**:
+   - Impostare una presenza con arrivo ritardato su una data futura e verificare la comparsa immediata di `⏰N` associata al corretto pasto (☀️ pranzo o 🌙 cena).
+3. **Verifica Presenza Ospiti**:
+   - Aggiungere un ospite su una data futura e controllare la comparsa di `👥+N`.
+4. **Test di Selezione & Cambio Data**:
+   - Cliccando su ciascuna scheda giorno, il giorno attivo deve cambiare regolarmente aggiornando il dettaglio sottostante.
+5. **Verifica Compilazione**:
+   - Esecuzione di `compile_applet` per confermare l'integrità sintattica e di build.
