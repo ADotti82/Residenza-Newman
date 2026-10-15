@@ -20,7 +20,24 @@ const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbys9aPfUH6PXGCm
 window.mostraModalAuth = function(mostra) {
   const modal = document.getElementById("modal-auth");
   if (!modal) return;
-  modal.style.display = mostra ? "flex" : "none";
+  if (mostra) {
+    if (typeof window.mostraModaleIstantanea === "function") {
+      window.mostraModaleIstantanea(modal);
+    } else {
+      modal.classList.add("open");
+      modal.style.display = "flex";
+      document.body.classList.add("modal-is-open");
+    }
+  } else {
+    if (typeof window.chiudiModale === "function") {
+      window.chiudiModale(modal);
+    } else {
+      modal.classList.remove("open");
+      modal.style.display = "none";
+      modal.style.removeProperty("display");
+      if (!document.querySelector(".modal-overlay.open")) document.body.classList.remove("modal-is-open");
+    }
+  }
   if (mostra) {
     document.getElementById("auth-step-email")?.classList.remove("hidden");
     document.getElementById("auth-step-register")?.classList.add("hidden");
@@ -2364,7 +2381,11 @@ window.apriModalBacheca = function(prefillData) {
   if (scadInput) scadInput.value = "";
   const autoreInput = document.getElementById("bacheca-modal-autore");
   if (autoreInput && appState.user) autoreInput.value = appState.user.nome || "Direzione";
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") {
+    window.mostraModaleIstantanea(modal);
+  } else {
+    modal.style.display = "flex";
+  }
 };
 
 window.modificaAvvisoBacheca = function(id) {
@@ -2384,7 +2405,11 @@ window.modificaAvvisoBacheca = function(id) {
   document.getElementById("bacheca-modal-scadenza").value = item.data_scadenza || "";
   document.getElementById("bacheca-modal-title-text").innerText = "✏️ Modifica Evento";
   document.getElementById("btn-submit-bacheca").innerText = "💾 Salva Modifiche";
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") {
+    window.mostraModaleIstantanea(modal);
+  } else {
+    modal.style.display = "flex";
+  }
 };
 
 window.chiudiModalBacheca = function() {
@@ -3424,7 +3449,11 @@ window.cambiaSettimanaMensa = function(offsetSettimane) {
   renderMensaView();
 };
 
-window.setMensaViewMode = function(mode) { appState.mensaViewMode = mode; renderMensaView(); };
+window.setMensaViewMode = function(mode) {
+  appState.mensaViewMode = mode;
+  renderMensaView();
+  void document.body.offsetHeight;
+};
 
 window.apriDettaglioGiornoMensa = function(ymd) {
   appState.selectedDateMensa = new Date(ymd + "T00:00:00");
@@ -7095,7 +7124,24 @@ window.segnaGuastoInLavorazione = async function(id) {
 function mostraModalAuth(mostra) {
   const modal = document.getElementById("modal-auth");
   if (!modal) return;
-  modal.style.display = mostra ? "flex" : "none";
+  if (mostra) {
+    if (typeof window.mostraModaleIstantanea === "function") {
+      window.mostraModaleIstantanea(modal);
+    } else {
+      modal.classList.add("open");
+      modal.style.display = "flex";
+      document.body.classList.add("modal-is-open");
+    }
+  } else {
+    if (typeof window.chiudiModale === "function") {
+      window.chiudiModale(modal);
+    } else {
+      modal.classList.remove("open");
+      modal.style.display = "none";
+      modal.style.removeProperty("display");
+      if (!document.querySelector(".modal-overlay.open")) document.body.classList.remove("modal-is-open");
+    }
+  }
   if (mostra) {
     document.getElementById("auth-step-email")?.classList.remove("hidden");
     document.getElementById("auth-step-register")?.classList.add("hidden");
@@ -7642,13 +7688,28 @@ function apriModalSettings() {
 
   aggiornaPulsantiTema();
   if (typeof window.aggiornaStatoUIPushNotifiche === "function") window.aggiornaStatoUIPushNotifiche();
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") {
+    window.mostraModaleIstantanea(modal);
+  } else {
+    modal.style.display = "flex";
+  }
 }
 window.apriModalSettings = apriModalSettings;
 
 function chiudiModalSettings() {
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-settings");
+    return;
+  }
   const modal = document.getElementById("modal-settings");
-  if (modal) modal.style.display = "none";
+  if (modal) {
+    modal.classList.remove("open");
+    modal.style.display = "none";
+    modal.style.removeProperty("display");
+  }
+  if (!document.querySelector(".modal-overlay.open")) {
+    document.body.classList.remove("modal-is-open");
+  }
 }
 window.chiudiModalSettings = chiudiModalSettings;
 
@@ -9099,11 +9160,13 @@ window.apriModalConsultaMenu = function(settimanaPredefinita) {
     ? window.mostraModaleIstantanea("modal-consulta-menu")
     : document.getElementById("modal-consulta-menu");
   if (!modal) return;
+  modal.classList.add("open");
   modal.style.setProperty("display", "flex", "important");
   modal.style.setProperty("z-index", "999999", "important");
   modal.style.setProperty("visibility", "visible", "important");
   modal.style.setProperty("opacity", "1", "important");
-  modal.style.setProperty("transform", "none", "important");
+  modal.style.removeProperty("transform");
+  document.body.classList.add("modal-is-open");
   void modal.offsetHeight;
   void document.body.offsetHeight;
 
@@ -9123,8 +9186,19 @@ window.apriModalConsultaMenu = function(settimanaPredefinita) {
 window._realApriModalConsultaMenu = window.apriModalConsultaMenu;
 
 window.chiudiModalConsultaMenu = function() {
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-consulta-menu");
+    return;
+  }
   const modal = document.getElementById("modal-consulta-menu");
-  if (modal) modal.style.display = "none";
+  if (modal) {
+    modal.classList.remove("open");
+    modal.style.display = "none";
+    modal.style.removeProperty("display");
+  }
+  if (!document.querySelector(".modal-overlay.open")) {
+    document.body.classList.remove("modal-is-open");
+  }
 };
 
 window.selezionaSettimanaConsultaMenu = function(settKey) {
@@ -11626,11 +11700,13 @@ function apriModalSegnalaAssenza(prefillData = {}) {
   }
 
   // 1. Apri subito la modale a schermo (visibilità garantita in primo piano assoluto con reflow)
+  modal.classList.add("open");
   modal.style.setProperty("display", "flex", "important");
   modal.style.setProperty("z-index", "999999", "important");
   modal.style.setProperty("visibility", "visible", "important");
   modal.style.setProperty("opacity", "1", "important");
-  modal.style.setProperty("transform", "none", "important");
+  modal.style.removeProperty("transform");
+  document.body.classList.add("modal-is-open");
   void modal.offsetHeight;
   void document.body.offsetHeight;
 
@@ -11689,8 +11765,19 @@ window.apriModalSegnalaAssenza = apriModalSegnalaAssenza;
 window._realApriModalSegnalaAssenza = apriModalSegnalaAssenza;
 
 function chiudiModalSegnalaAssenza() {
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-segnala-assenza");
+    return;
+  }
   const modal = document.getElementById("modal-segnala-assenza");
-  if (modal) modal.style.display = "none";
+  if (modal) {
+    modal.classList.remove("open");
+    modal.style.display = "none";
+    modal.style.removeProperty("display");
+  }
+  if (!document.querySelector(".modal-overlay.open")) {
+    document.body.classList.remove("modal-is-open");
+  }
 }
 window.chiudiModalSegnalaAssenza = chiudiModalSegnalaAssenza;
 
@@ -12001,18 +12088,34 @@ window.apriDettaglioGiornoAssenze = function(ymdStr) {
     `;
   }
 
-  modal.style.setProperty("display", "flex", "important");
-  modal.style.setProperty("z-index", "999999", "important");
-  modal.style.setProperty("visibility", "visible", "important");
-  modal.style.setProperty("opacity", "1", "important");
-  modal.style.setProperty("transform", "none", "important");
-  void modal.offsetHeight;
-  void document.body.offsetHeight;
+  if (typeof window.mostraModaleIstantanea === "function") {
+    window.mostraModaleIstantanea(modal);
+  } else {
+    modal.classList.add("open");
+    modal.style.setProperty("display", "flex", "important");
+    modal.style.setProperty("z-index", "999999", "important");
+    modal.style.setProperty("visibility", "visible", "important");
+    modal.style.setProperty("opacity", "1", "important");
+    document.body.classList.add("modal-is-open");
+    void modal.offsetHeight;
+    void document.body.offsetHeight;
+  }
 };
 
 window.chiudiModalDettaglioGiornoAssenze = function() {
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-dettaglio-giorno-assenze");
+    return;
+  }
   const modal = document.getElementById("modal-dettaglio-giorno-assenze");
-  if (modal) modal.style.display = "none";
+  if (modal) {
+    modal.classList.remove("open");
+    modal.style.display = "none";
+    modal.style.removeProperty("display");
+  }
+  if (!document.querySelector(".modal-overlay.open")) {
+    document.body.classList.remove("modal-is-open");
+  }
 };
 window.apriModalDettaglioGiornoAssenze = window.apriDettaglioGiornoAssenze;
 window._realApriModalDettaglioGiornoAssenze = window.apriDettaglioGiornoAssenze;

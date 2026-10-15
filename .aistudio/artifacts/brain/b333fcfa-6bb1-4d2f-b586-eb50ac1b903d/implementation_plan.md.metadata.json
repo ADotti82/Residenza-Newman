@@ -1,6 +1,6 @@
 {
-  "summary": "Piano di risoluzione definitiva per il ritardo di rendering e visualizzazione delle modali su Chrome Android (Segnala Assenza, Menù e tasti principali). Rimuove il blocco di compositing GPU causato da backdrop-filter e animazioni transform, forza il reflow istantaneo e garantisce la comparsa immediata al primo tocco senza dover toccare la barra in alto.",
-  "updatedAt": "2026-10-14T23:00:47.730326909Z",
+  "summary": "Piano di risoluzione mirata per il ripristino immediato della cliccabilità e l'apertura istantanea delle modali su Chrome Android: eliminazione dei listener touchstart/is-touched che sopprimevano i click nativi, adozione di feedback :active con sola opacità (senza alterare la geometria di tocco), e riposizionamento forzato in appendChild(m) su document.body all'apertura per obbligare il motore Blink a renderizzare la finestra in primo piano al primo tocco.",
+  "updatedAt": "2026-10-15T05:30:27.836817419Z",
   "requestFeedback": true,
   "userFacing": true
 }
