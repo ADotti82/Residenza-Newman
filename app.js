@@ -4264,6 +4264,94 @@ window.rifiutaRichiestaSpazio = async function(id) {
 function getTutteCamereNomi() { return [getNomeCamera(1), getNomeCamera(2), getNomeCamera(3)]; }
 
 
+function generaHtmlIterAccoglienza(a) {
+  const stato = a.stato || "In Attesa 1a Autorizzazione";
+  const camAss = a.camera_assegnata || "";
+  const isRifiutata = stato === "Rifiutata";
+  const isAuth1Ok = stato === "1a Autorizzazione Concessa" || stato === "Confermata";
+  const isAuth2Ok = stato === "Confermata";
+  const isPending1 = stato === "In Attesa 1a Autorizzazione";
+  const isPending2 = stato === "1a Autorizzazione Concessa";
+
+  const dataRich = a.data_richiesta || a.created_at || a.data_invio || "";
+  const dataRichFmt = dataRich ? formattaDataItaliana(dataRich.split("T")[0]) : "Inviata";
+
+  const auth1Nome = a.auth1_email ? (typeof trovaNomeUtente === "function" ? trovaNomeUtente(a.auth1_email) : a.auth1_email) : "Master";
+  const auth2Nome = a.auth2_email ? (typeof trovaNomeUtente === "function" ? trovaNomeUtente(a.auth2_email) : a.auth2_email) : "Supermaster";
+
+  let statusBadgeTop = "";
+  if (isAuth2Ok) {
+    statusBadgeTop = `<span class="badge" style="background: #dcfce7; color: #166534; font-weight: 700;">🟢 3/3 Confermato Definitivamente</span>`;
+  } else if (isPending2) {
+    statusBadgeTop = `<span class="badge" style="background: #dbeafe; color: #1e40af; font-weight: 700;">🔵 2/3 In Attesa 2ª Autorizzazione</span>`;
+  } else if (isRifiutata) {
+    statusBadgeTop = `<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 700;">🔴 Non Accolta</span>`;
+  } else {
+    statusBadgeTop = `<span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700;">🟡 1/3 In Attesa 1ª Autorizzazione</span>`;
+  }
+
+  const step1Class = "step-completed";
+  const step2Class = isAuth1Ok ? "step-completed" : (isPending1 ? "step-active" : (isRifiutata ? "step-rejected" : "step-waiting"));
+  const step3Class = isAuth2Ok ? "step-completed" : (isPending2 ? "step-active" : (isRifiutata && isAuth1Ok ? "step-rejected" : "step-waiting"));
+
+  return `
+    <div class="iter-tracker-box">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+        <span style="font-size: 11px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">🛤️ Iter Autorizzativo Richiesta</span>
+        ${statusBadgeTop}
+      </div>
+      <div class="iter-steps-container">
+        <!-- 1: Inviata -->
+        <div class="iter-step-card ${step1Class}">
+          <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; background: #16a34a; color: #fff; font-size: 10px; font-weight: 800;">✓</span>
+            <span>1. Richiesta Inviata</span>
+          </div>
+          <div style="font-size: 11px; color: #475569; padding-left: 23px;">${dataRichFmt}</div>
+        </div>
+
+        <!-- 2: 1ª Autorizzazione & Assegnazione Camera -->
+        <div class="iter-step-card ${step2Class}">
+          <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; ${isAuth1Ok ? 'background:#16a34a; color:#fff;' : (isPending1 ? 'background:#f59e0b; color:#fff;' : (isRifiutata ? 'background:#dc2626; color:#fff;' : 'background:#cbd5e1; color:#475569;'))} font-size: 10px; font-weight: 800;">${isAuth1Ok ? '✓' : (isPending1 ? '⏳' : (isRifiutata ? '✕' : '2'))}</span>
+            <span>2. 1ª Autorizzazione</span>
+          </div>
+          <div style="font-size: 11px; color: #475569; padding-left: 23px;">
+            ${isAuth1Ok
+              ? `Assegnata: <strong style="color: #166534;">${escapeHtml(camAss || 'Camera')}</strong><div class="text-xs text-muted" style="margin-top: 1px;">da ${escapeHtml(auth1Nome)}</div>`
+              : (isPending1 ? 'Verifica disponibilità camere' : (isRifiutata ? 'Richiesta non accolta' : 'In attesa'))
+            }
+          </div>
+        </div>
+
+        <!-- 3: 2ª Autorizzazione & Conferma Finale -->
+        <div class="iter-step-card ${step3Class}">
+          <div style="display: flex; align-items: center; gap: 6px; font-weight: 700; color: #0f172a; margin-bottom: 2px;">
+            <span style="display: inline-flex; align-items: center; justify-content: center; width: 17px; height: 17px; border-radius: 50%; ${isAuth2Ok ? 'background:#16a34a; color:#fff;' : (isPending2 ? 'background:#2563eb; color:#fff;' : (isRifiutata && isAuth1Ok ? 'background:#dc2626; color:#fff;' : 'background:#cbd5e1; color:#475569;'))} font-size: 10px; font-weight: 800;">${isAuth2Ok ? '✓' : (isPending2 ? '⏳' : (isRifiutata && isAuth1Ok ? '✕' : '3'))}</span>
+            <span>3. Conferma Finale</span>
+          </div>
+          <div style="font-size: 11px; color: #475569; padding-left: 23px;">
+            ${isAuth2Ok
+              ? `Alloggio confermato!<div class="text-xs text-muted" style="margin-top: 1px;">da ${escapeHtml(auth2Nome)}</div>`
+              : (isPending2 ? 'Attesa visto Supermaster' : (isRifiutata && isAuth1Ok ? 'Non convalidata' : 'In attesa 1ª fase'))
+            }
+          </div>
+        </div>
+      </div>
+      ${a.auth1_note ? `
+        <div style="margin-top: 8px; font-size: 11.5px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 6px; padding: 6px 10px; color: #334155;">
+          💬 <strong>Nota Master Assegnazione:</strong> ${escapeHtml(a.auth1_note)}
+        </div>
+      ` : ''}
+      ${isRifiutata && (a.motivo_rifiuto || a.note) ? `
+        <div style="margin-top: 8px; font-size: 11.5px; background: #fff1f2; border: 1px solid #fecdd3; border-radius: 6px; padding: 6px 10px; color: #9f1239;">
+          ⚠️ <strong>Motivo rifiuto:</strong> ${escapeHtml(a.motivo_rifiuto || a.note)}
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
 function renderAccoglienzaView() {
   const container = document.getElementById("accoglienza-container");
   if (!container) return;
@@ -4272,7 +4360,8 @@ function renderAccoglienzaView() {
   const oggiYMD = formatYMD(new Date());
   const isMaster = haPermessiMasterSpazi() || haPermessiMaster();
   const isMasterSpazi = haPermessiMasterSpazi();
-  const userEmail = (appState.user?.email || "").toLowerCase();
+  const userEmail = (appState.user?.email || "").toLowerCase().trim();
+  const userNome = (appState.user?.nome || "").toLowerCase().trim();
 
   const camereStato = camereNomi.map((nomeCam, idx) => {
     const prenotazioniCam = accList.filter(a => {
@@ -4297,8 +4386,9 @@ function renderAccoglienzaView() {
   });
 
   const richiesteUtente = isMasterSpazi ? accList : accList.filter(a => {
-    const em = (a.richiedente_email || a.email_richiedente || a.email || "").toLowerCase();
-    return em === userEmail;
+    const em = (a.richiedente_email || a.email_richiedente || a.email || "").toLowerCase().trim();
+    const nm = (a.richiedente_nome || a.nome_richiedente || "").toLowerCase().trim();
+    return (userEmail && em === userEmail) || (userNome && nm === userNome);
   });
 
   let html = `
@@ -4306,7 +4396,7 @@ function renderAccoglienzaView() {
       <div class="flex-between" style="flex-wrap: wrap; gap: 10px;">
         <div>
           <h2 class="card-title" style="display: flex; align-items: center; gap: 8px; margin: 0 0 4px 0;"><span style="font-size: 24px;">🛏️</span> Ospitalità & Camere Ospiti</h2>
-          <p class="card-desc" style="margin: 0;">Gestione delle 3 camere dedicate agli ospiti. Procedura con doppia autorizzazione.</p>
+          <p class="card-desc" style="margin: 0;">Gestione delle 3 camere dedicate agli ospiti. Procedura trasparente con doppia autorizzazione.</p>
         </div>
         <div style="display: flex; gap: 8px; flex-wrap: wrap;">
           <button type="button" class="btn btn-primary" onclick="apriModalNuovaAccoglienza()" style="background: #166534; border-color: #166534; font-weight: 700;">➕ Richiedi Alloggio Ospite</button>
@@ -4349,19 +4439,20 @@ function renderAccoglienzaView() {
     <div class="card" style="margin-bottom: 16px;">
       <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--border); padding-bottom: 10px;">
         <div>
-          <h3 class="card-title" style="margin: 0; font-size: 16px;">${isMasterSpazi ? '📋 Tutte le Richieste' : '📋 Le Mie Richieste'}</h3>
-          <span class="text-xs text-muted">${isMasterSpazi ? 'Panoramica completa' : 'Stato delle tue richieste'}</span>
+          <h3 class="card-title" style="margin: 0; font-size: 16px;">${isMasterSpazi ? '📋 Tutte le Richieste & Iter Camere' : '📋 Le Mie Richieste & Iter Soggiorno'}</h3>
+          <span class="text-xs text-muted">${isMasterSpazi ? 'Panoramica e autorizzazioni per la gestione' : 'Stato e percorso autorizzativo a 3 tappe delle tue richieste'}</span>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" onclick="caricaDatiBackend()" style="font-size: 11.5px;">🔄 Aggiorna</button>
       </div>
       ${richiesteUtente.length === 0 ? `
         <div style="text-align: center; padding: 28px 14px; color: #64748b;">
           <div style="font-size: 38px; margin-bottom: 8px;">📭</div>
-          <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">Nessuna richiesta presente</div>
-          <button type="button" class="btn btn-primary btn-sm" onclick="apriModalNuovaAccoglienza()" style="background: #166534; border-color: #166534;">➕ Invia Richiesta</button>
+          <div style="font-weight: 700; font-size: 14px; margin-bottom: 4px;">Nessuna richiesta di alloggio attiva</div>
+          <p class="text-xs text-muted" style="margin-bottom: 12px;">Hai familiari, sacerdoti o colleghi in visita? Puoi richiedere una camera per ospitarli.</p>
+          <button type="button" class="btn btn-primary btn-sm" onclick="apriModalNuovaAccoglienza()" style="background: #166534; border-color: #166534;">➕ Invia Richiesta Alloggio</button>
         </div>
       ` : `
-        <div style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="display: flex; flex-direction: column; gap: 12px;">
           ${richiesteUtente.map(a => {
             const checkin = a.data_checkin || a.checkin || "";
             const checkout = a.data_checkout || a.checkout || "";
@@ -4382,17 +4473,21 @@ function renderAccoglienzaView() {
             return `
               <div class="card-inner" style="border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; background: #ffffff;">
                 <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
-                  <div class="flex-align" style="gap: 8px;"><span style="font-size: 20px;">👤</span><div><strong style="font-size: 14px;">${escapeHtml(nomeOspite)}</strong>${isMaster ? `<span class="text-xs text-muted" style="margin-left: 6px;">(${escapeHtml(richiedente)})</span>` : ''}</div></div>
+                  <div class="flex-align" style="gap: 8px;"><span style="font-size: 20px;">👤</span><div><strong style="font-size: 14px;">${escapeHtml(nomeOspite)}</strong>${isMaster ? `<span class="text-xs text-muted" style="margin-left: 6px;">(richiesto da: ${escapeHtml(richiedente)})</span>` : ''}</div></div>
                   <div>${statoBadge}</div>
                 </div>
                 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; font-size: 12px; color: #475569; margin-bottom: 8px; background: #f8fafc; padding: 8px 10px; border-radius: 6px;">
-                  <div><strong>Date:</strong> ${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)} (${notti} ${notti === 1 ? 'notte' : 'notti'})</div>
-                  <div><strong>Persone:</strong> ${numPersone}</div>
-                  <div><strong>Camera:</strong> ${camAss ? `<span style="color:#166534; font-weight:700;">${escapeHtml(camAss)}</span>` : (camPref ? `<span class="text-muted">Pref: ${escapeHtml(camPref)}</span>` : 'Nessuna')}</div>
-                  ${note ? `<div style="grid-column: 1 / -1;"><strong>Note:</strong> ${escapeHtml(note)}</div>` : ''}
+                  <div><strong>Date Soggiorno:</strong> ${formattaDataItaliana(checkin)} ➜ ${formattaDataItaliana(checkout)} (${notti} ${notti === 1 ? 'notte' : 'notti'})</div>
+                  <div><strong>Numero Ospiti:</strong> ${numPersone}</div>
+                  <div><strong>Camera Assegnata:</strong> ${camAss ? `<span style="color:#166534; font-weight:700;">${escapeHtml(camAss)}</span>` : (camPref ? `<span class="text-muted">Preferenza: ${escapeHtml(camPref)}</span>` : 'In assegnazione')}</div>
+                  ${note ? `<div style="grid-column: 1 / -1;"><strong>Note / Motivo:</strong> ${escapeHtml(note)}</div>` : ''}
                 </div>
+
+                <!-- Visual Tracker Iter Autorizzativo -->
+                ${generaHtmlIterAccoglienza(a)}
+
                 <div class="flex-between" style="flex-wrap: wrap; gap: 8px; border-top: 1px solid var(--border); padding-top: 8px; margin-top: 4px;">
-                  <span class="text-xs text-muted">ID: ${escapeHtml(a.id || '')}</span>
+                  <span class="text-xs text-muted">ID Richiesta: <code>${escapeHtml(a.id || '')}</code></span>
                   <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                     ${isMaster && stato === "In Attesa 1a Autorizzazione" ? `<button type="button" class="btn btn-primary btn-sm" onclick="apriModalAutorizza1Accoglienza('${a.id}')" style="background: #166534; border-color: #166534; font-size: 11.5px; font-weight: 700;">🔑 Assegna (1ª Auth)</button><button type="button" class="btn btn-secondary btn-sm" onclick="handleRifiutaAccoglienza('${a.id}')" style="color: #dc2626; border-color: #fca5a5; font-size: 11.5px;">✕ Rifiuta</button>` : ''}
                     ${isMaster && stato === "1a Autorizzazione Concessa" ? `<button type="button" class="btn btn-primary btn-sm" onclick="handleConfermaAutorizza2('${a.id}')" style="background: #2563eb; border-color: #2563eb; font-size: 11.5px; font-weight: 700;">✓ Conferma (2ª Auth)</button><button type="button" class="btn btn-secondary btn-sm" onclick="handleRifiutaAccoglienza('${a.id}')" style="color: #dc2626; border-color: #fca5a5; font-size: 11.5px;">✕ Rifiuta</button>` : ''}
@@ -5333,7 +5428,16 @@ function haPermessiMasterSpazi() {
 
 function haPermessiMaster() {
   if (!appState.user) return false;
-  return Boolean(appState.user.perm_admin || appState.user.perm_mensa || appState.user.perm_manutenzione || haPermessiMasterSpazi());
+  const u = appState.user;
+  return Boolean(
+    u.perm_admin ||
+    u.perm_mensa ||
+    u.perm_manutenzione ||
+    u.notif_manutenzione ||
+    u.perm_spazi ||
+    u.notif_spazi ||
+    u.is_master_spazi
+  );
 }
 
 function haPermessiMasterMensa() {
@@ -5354,7 +5458,7 @@ function haPermessiMasterMensa() {
 
 function haPermessiMasterManutenzione() {
   if (!appState.user) return false;
-  return Boolean(appState.user.perm_manutenzione || appState.user.perm_admin);
+  return Boolean(appState.user.perm_manutenzione || appState.user.notif_manutenzione || appState.user.perm_admin);
 }
 
 window.haPermessiMaster = haPermessiMaster;
@@ -5585,88 +5689,124 @@ function renderMasterSection() {
           <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
             <div>
               <h4 style="margin: 0; font-size: 14.5px; font-weight: 800; color: #1e293b;">Specifiche & Permessi Residenti (${tuttiUtenti.length})</h4>
-              <p class="text-xs text-muted" style="margin: 2px 0 0 0;">Configura i diritti mensa, ruoli e notifiche per ciascun utente (layout reattivo, senza scorrimento)</p>
+              <p class="text-xs text-muted" style="margin: 2px 0 0 0;">Gestione compatta a fisarmonica: clicca sul nominativo per visualizzare o modificare permessi, ruoli e notifiche.</p>
             </div>
-            <span class="badge" style="background: #e0f2fe; color: #0369a1; font-weight: 700;">Larghezza 100% Reattiva</span>
+            <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+              <button type="button" class="btn btn-secondary btn-sm" onclick="espandiTuttiResidenti()" style="font-size: 11px; padding: 4px 8px; font-weight: 600;">🔽 Espandi Tutti</button>
+              <button type="button" class="btn btn-secondary btn-sm" onclick="comprimiTuttiResidenti()" style="font-size: 11px; padding: 4px 8px; font-weight: 600;">🔼 Comprimi Tutti</button>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 10px;">
+            <input type="text" id="filtro-residenti-input" oninput="filtraResidentiMaster(this.value)" placeholder="🔍 Cerca residente per nome o email..." style="width: 100%; box-sizing: border-box; padding: 7px 12px; font-size: 12.5px; border: 1px solid var(--border); border-radius: 6px; background: #ffffff;">
           </div>
 
           <div id="master-residenti-container" style="width: 100%; box-sizing: border-box;">
             ${tuttiUtenti.length === 0 ? '<div class="empty-state-text" style="background: #f8fafc; padding: 18px; border-radius: 8px; border: 1px dashed #cbd5e1; text-align: center; font-size: 13px;">Nessun residente registrato.</div>' : ''}
             ${tuttiUtenti.map(u => {
               const uEmail = escapeHtml(u.email);
+              const uEmailRaw = String(u.email || "").toLowerCase().trim();
               const uNome = escapeHtml(u.nome || u.email);
               const isApprovato = (u.stato || 'Attivo') === 'Approvato';
+              const cleanId = uEmailRaw.replace(/[^a-z0-9]/g, '_');
+              const isExpanded = Boolean(appState.expandedResidentiSet && appState.expandedResidentiSet.has(uEmailRaw));
+
+              const ruoliBadges = [];
+              if (u.perm_admin) ruoliBadges.push(`<span class="badge" style="background: #fef3c7; color: #92400e; font-size: 10px; font-weight: 700;">👑 Admin</span>`);
+              if (u.perm_mensa) ruoliBadges.push(`<span class="badge" style="background: #e0f2fe; color: #0369a1; font-size: 10px; font-weight: 700;">👨‍🍳 Mensa</span>`);
+              if (u.perm_manutenzione || u.notif_manutenzione) ruoliBadges.push(`<span class="badge" style="background: #ffedd5; color: #c2410c; font-size: 10px; font-weight: 700;">🛠️ Guasti</span>`);
+              if (u.perm_spazi || u.notif_spazi) ruoliBadges.push(`<span class="badge" style="background: #ede9fe; color: #6d28d9; font-size: 10px; font-weight: 700;">⛪ Spazi</span>`);
+              if (u.is_utente_mensa !== false) ruoliBadges.push(`<span style="font-size: 10px; color: #166534; font-weight: 600;">🍽️ Mensa OK</span>`);
+              if (ruoliBadges.length === 0) ruoliBadges.push(`<span class="text-xs text-muted">👤 Residente</span>`);
+
+              const searchStr = `${uNome} ${uEmail}`.toLowerCase();
+
               return `
-                <div class="user-spec-card">
-                  <div class="user-spec-header">
-                    <div style="flex: 1; min-width: 200px;">
-                      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                        <strong style="font-size: 14px; color: #0f172a;">${uNome}</strong>
-                        <span class="badge ${isApprovato ? 'badge-success' : 'badge-warning'}" style="font-size: 10.5px; padding: 2px 8px;">${escapeHtml(u.stato || 'Attivo')}</span>
+                <div class="user-spec-card-compact" data-search="${escapeHtml(searchStr)}">
+                  <!-- Header Compatto Cliccabile -->
+                  <div class="user-spec-accordion-header" onclick="toggleEspandiResidente('${uEmail}', event)" title="Clicca per aprire/chiudere permessi">
+                    <div style="display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; flex-wrap: wrap;">
+                      <span id="resident-accordion-chevron-${cleanId}" class="user-spec-accordion-chevron">${isExpanded ? '▼' : '▶'}</span>
+                      <strong style="font-size: 14px; color: #0f172a;">${uNome}</strong>
+                      <span class="badge ${isApprovato ? 'badge-success' : 'badge-warning'}" style="font-size: 10px; padding: 1px 7px;">${escapeHtml(u.stato || 'Attivo')}</span>
+                      <div style="display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap;">
+                        ${ruoliBadges.join(" ")}
                       </div>
-                      <span class="text-xs text-muted" style="display: block; word-break: break-all; margin-top: 2px;">${uEmail}</span>
+                      <span class="text-xs text-muted">(${uEmail})</span>
                     </div>
-                    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
-                      <button type="button" class="btn btn-primary btn-sm" onclick="salvaRuoliUtente('${uEmail}')" title="Salva permessi per ${uNome}" style="font-size: 11.5px; padding: 5px 10px; font-weight: 700; background: #0284c7; border-color: #0284c7; display: inline-flex; align-items: center; gap: 4px;">
-                        <span>💾</span> Salva
-                      </button>
-                      <button type="button" class="btn btn-outline btn-sm" onclick="resetPasswordUtenteMaster('${uEmail}', '${uNome}')" title="Modifica password" style="font-size: 11px; padding: 5px 8px; color: #b45309; border-color: #fde68a;">
-                        🔑 Password
-                      </button>
-                      <button type="button" class="btn btn-outline btn-sm" onclick="eliminaUtente('${uEmail}', '${uNome}')" title="Elimina residente" style="font-size: 11px; padding: 5px 8px; color: #dc2626; border-color: #fca5a5;">
-                        🗑️
-                      </button>
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span id="resident-accordion-label-${cleanId}" style="font-size: 11.5px; font-weight: 700; color: ${isExpanded ? '#475569' : '#0284c7'}; padding: 3px 8px; background: ${isExpanded ? '#f1f5f9' : '#f0f9ff'}; border: 1px solid ${isExpanded ? '#cbd5e1' : '#bae6fd'}; border-radius: 4px;">
+                        ${isExpanded ? 'Chiudi ▲' : 'Modifica permessi ▼'}
+                      </span>
                     </div>
                   </div>
 
-                  <div class="user-spec-grid">
-                    <label class="user-spec-chip" title="Abilita utente al servizio mensa ordinario">
-                      <input type="checkbox" id="edit-is-mensa-${uEmail}" ${u.is_utente_mensa !== false ? 'checked' : ''}>
-                      <span>🍽️ Utente Mensa</span>
-                    </label>
-
-                    <label class="user-spec-chip" title="Abilita ruolo Master per gestione pasti e cucina">
-                      <input type="checkbox" id="edit-p-mensa-${uEmail}" ${u.perm_mensa ? 'checked' : ''}>
-                      <span>👨‍🍳 Master Mensa</span>
-                    </label>
-
-                    <label class="user-spec-chip" title="Abilita gestione segnalazioni e guasti">
-                      <input type="checkbox" id="edit-p-manut-${uEmail}" ${u.perm_manutenzione ? 'checked' : ''}>
-                      <span>🛠️ Manutenzione</span>
-                    </label>
-
-                    <label class="user-spec-chip" title="Abilita gestione prenotazioni ambienti (Chiesa / Sala TV)">
-                      <input type="checkbox" id="edit-p-spazi-${uEmail}" ${u.perm_spazi ? 'checked' : ''}>
-                      <span>⛪ Ambienti/Spazi</span>
-                    </label>
-
-                    <label class="user-spec-chip" title="Pieni poteri amministrativi">
-                      <input type="checkbox" id="edit-p-admin-${uEmail}" ${u.perm_admin ? 'checked' : ''}>
-                      <span>👑 Super Admin</span>
-                    </label>
-
-                    <label class="user-spec-chip" title="Ricevi notifiche per nuove segnalazioni manutenzione">
-                      <input type="checkbox" id="edit-notif-manut-${uEmail}" ${u.notif_manutenzione ? 'checked' : ''}>
-                      <span>🔔 Notif. Guasti</span>
-                    </label>
-
-                    <label class="user-spec-chip" title="Ricevi notifiche per richieste ambienti">
-                      <input type="checkbox" id="edit-notif-spazi-${uEmail}" ${u.notif_spazi ? 'checked' : ''}>
-                      <span>🔔 Notif. Spazi</span>
-                    </label>
-
-                    <label class="user-spec-chip" title="Ricevi notifiche push opzionali (avvisi ore 07:00 e accoglienza)">
-                      <input type="checkbox" id="edit-notif-push-${uEmail}" ${u.notif_push ? 'checked' : ''}>
-                      <span>📱 Push Notifiche</span>
-                    </label>
-                  </div>
-
-                  <div class="user-spec-footer">
-                    <div style="display: flex; align-items: center; gap: 6px; flex-wrap: wrap;">
-                      <span class="text-muted" style="font-size: 11px;">Password di accesso:</span>
-                      <code style="background: #f1f5f9; padding: 2px 7px; border-radius: 4px; font-weight: 700; color: #334155; font-size: 11px;">${escapeHtml(u.password || 'newman2026')}</code>
+                  <!-- Cassetto Espandibile con Checkbox Permessi e Notifiche -->
+                  <div id="resident-accordion-body-${cleanId}" class="user-spec-accordion-body" style="display: ${isExpanded ? 'block' : 'none'};">
+                    <div style="margin-bottom: 10px; font-size: 12px; font-weight: 700; color: #334155; display: flex; align-items: center; justify-content: space-between;">
+                      <span>⚙️ Permessi, ruoli e notifiche per <strong>${uNome}</strong>:</span>
+                      <span class="text-xs text-muted">Spunta e clicca Salva</span>
                     </div>
-                    <span class="text-muted" style="font-size: 11px;">Ultimo aggiornamento automatico</span>
+
+                    <div class="user-spec-grid">
+                      <label class="user-spec-chip" title="Abilita utente al servizio mensa ordinario">
+                        <input type="checkbox" id="edit-is-mensa-${uEmail}" ${u.is_utente_mensa !== false ? 'checked' : ''}>
+                        <span>🍽️ Utente Mensa</span>
+                      </label>
+
+                      <label class="user-spec-chip" title="Abilita ruolo Master per gestione pasti e cucina">
+                        <input type="checkbox" id="edit-p-mensa-${uEmail}" ${u.perm_mensa ? 'checked' : ''}>
+                        <span>👨‍🍳 Master Mensa</span>
+                      </label>
+
+                      <label class="user-spec-chip" title="Abilita gestione segnalazioni e guasti">
+                        <input type="checkbox" id="edit-p-manut-${uEmail}" ${u.perm_manutenzione ? 'checked' : ''}>
+                        <span>🛠️ Manutenzione</span>
+                      </label>
+
+                      <label class="user-spec-chip" title="Abilita gestione prenotazioni ambienti (Chiesa / Sala TV)">
+                        <input type="checkbox" id="edit-p-spazi-${uEmail}" ${u.perm_spazi ? 'checked' : ''}>
+                        <span>⛪ Ambienti/Spazi</span>
+                      </label>
+
+                      <label class="user-spec-chip" title="Pieni poteri amministrativi">
+                        <input type="checkbox" id="edit-p-admin-${uEmail}" ${u.perm_admin ? 'checked' : ''}>
+                        <span>👑 Super Admin</span>
+                      </label>
+
+                      <label class="user-spec-chip" title="Ricevi notifiche per nuove segnalazioni manutenzione">
+                        <input type="checkbox" id="edit-notif-manut-${uEmail}" ${u.notif_manutenzione ? 'checked' : ''}>
+                        <span>🔔 Notif. Guasti</span>
+                      </label>
+
+                      <label class="user-spec-chip" title="Ricevi notifiche per richieste ambienti">
+                        <input type="checkbox" id="edit-notif-spazi-${uEmail}" ${u.notif_spazi ? 'checked' : ''}>
+                        <span>🔔 Notif. Spazi</span>
+                      </label>
+
+                      <label class="user-spec-chip" title="Ricevi notifiche push opzionali (avvisi ore 07:00 e accoglienza)">
+                        <input type="checkbox" id="edit-notif-push-${uEmail}" ${u.notif_push ? 'checked' : ''}>
+                        <span>📱 Push Notifiche</span>
+                      </label>
+                    </div>
+
+                    <div class="user-spec-footer">
+                      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                        <span class="text-muted" style="font-size: 11px;">Password di accesso:</span>
+                        <code style="background: #e2e8f0; padding: 2px 7px; border-radius: 4px; font-weight: 700; color: #1e293b; font-size: 11.5px;">${escapeHtml(u.password || 'newman2026')}</code>
+                        <button type="button" class="btn btn-outline btn-sm" onclick="resetPasswordUtenteMaster('${uEmail}', '${uNome}')" title="Modifica password" style="font-size: 11px; padding: 3px 8px; color: #b45309; border-color: #fde68a;">
+                          🔑 Password
+                        </button>
+                      </div>
+                      <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+                        <button type="button" class="btn btn-outline btn-sm" onclick="eliminaUtente('${uEmail}', '${uNome}')" title="Elimina residente" style="font-size: 11px; padding: 5px 9px; color: #dc2626; border-color: #fca5a5;">
+                          🗑️ Elimina
+                        </button>
+                        <button type="button" class="btn btn-primary btn-sm" onclick="salvaRuoliUtente('${uEmail}')" title="Salva permessi per ${uNome}" style="font-size: 11.5px; padding: 5px 12px; font-weight: 700; background: #0284c7; border-color: #0284c7; display: inline-flex; align-items: center; gap: 4px;">
+                          <span>💾</span> Salva Modifiche
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
               `;
@@ -6446,6 +6586,9 @@ function renderMasterSection() {
 // ----------------------------------------------------------------------------
 
 window.salvaRuoliUtente = async function(email) {
+  if (!appState.expandedResidentiSet) appState.expandedResidentiSet = new Set();
+  appState.expandedResidentiSet.add(String(email || "").toLowerCase().trim());
+
   const isMensa = document.getElementById(`edit-is-mensa-${email}`)?.checked ?? true;
   const permMensa = document.getElementById(`edit-p-mensa-${email}`)?.checked || false;
   const permManut = document.getElementById(`edit-p-manut-${email}`)?.checked || false;
@@ -6460,12 +6603,98 @@ window.salvaRuoliUtente = async function(email) {
       mostraToast(`✅ Ruoli aggiornati per ${email}!`, "success");
       if (appState.user && appState.user.email.toLowerCase() === email.toLowerCase()) {
         Object.assign(appState.user, { is_utente_mensa: isMensa, perm_mensa: permMensa, perm_manutenzione: permManut, perm_spazi: permSpazi, perm_admin: permAdmin, notif_manutenzione: notifManut, notif_spazi: notifSpazi, notif_push: notifPush });
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+        try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
         aggiornaUIUtente();
       }
       caricaDatiMaster();
     } else mostraToast("Errore: " + (res.error || "Impossibile"), "error");
   } catch (err) { mostraToast("Errore di rete", "error"); }
+};
+
+window.toggleEspandiResidente = function(email, event) {
+  if (event && event.target && (event.target.tagName === "BUTTON" || event.target.tagName === "INPUT" || event.target.closest("button") || event.target.closest("label"))) {
+    return;
+  }
+  if (!appState.expandedResidentiSet) appState.expandedResidentiSet = new Set();
+  const em = String(email || "").toLowerCase().trim();
+  const cleanId = em.replace(/[^a-z0-9]/g, '_');
+  const bodyEl = document.getElementById(`resident-accordion-body-${cleanId}`);
+  const chevronEl = document.getElementById(`resident-accordion-chevron-${cleanId}`);
+  const labelEl = document.getElementById(`resident-accordion-label-${cleanId}`);
+
+  if (appState.expandedResidentiSet.has(em)) {
+    appState.expandedResidentiSet.delete(em);
+    if (bodyEl) bodyEl.style.display = "none";
+    if (chevronEl) chevronEl.textContent = "▶";
+    if (labelEl) {
+      labelEl.textContent = "Modifica permessi ▼";
+      labelEl.style.background = "#f0f9ff";
+      labelEl.style.color = "#0284c7";
+      labelEl.style.borderColor = "#bae6fd";
+    }
+  } else {
+    appState.expandedResidentiSet.add(em);
+    if (bodyEl) bodyEl.style.display = "block";
+    if (chevronEl) chevronEl.textContent = "▼";
+    if (labelEl) {
+      labelEl.textContent = "Chiudi ▲";
+      labelEl.style.background = "#f1f5f9";
+      labelEl.style.color = "#475569";
+      labelEl.style.borderColor = "#cbd5e1";
+    }
+  }
+};
+
+window.espandiTuttiResidenti = function() {
+  if (!appState.expandedResidentiSet) appState.expandedResidentiSet = new Set();
+  const tuttiUtenti = appState.tuttiUtenti || [];
+  tuttiUtenti.forEach(u => appState.expandedResidentiSet.add(String(u.email || "").toLowerCase().trim()));
+  tuttiUtenti.forEach(u => {
+    const cleanId = String(u.email || "").toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    const bodyEl = document.getElementById(`resident-accordion-body-${cleanId}`);
+    const chevronEl = document.getElementById(`resident-accordion-chevron-${cleanId}`);
+    const labelEl = document.getElementById(`resident-accordion-label-${cleanId}`);
+    if (bodyEl) bodyEl.style.display = "block";
+    if (chevronEl) chevronEl.textContent = "▼";
+    if (labelEl) {
+      labelEl.textContent = "Chiudi ▲";
+      labelEl.style.background = "#f1f5f9";
+      labelEl.style.color = "#475569";
+      labelEl.style.borderColor = "#cbd5e1";
+    }
+  });
+};
+
+window.comprimiTuttiResidenti = function() {
+  appState.expandedResidentiSet = new Set();
+  const tuttiUtenti = appState.tuttiUtenti || [];
+  tuttiUtenti.forEach(u => {
+    const cleanId = String(u.email || "").toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    const bodyEl = document.getElementById(`resident-accordion-body-${cleanId}`);
+    const chevronEl = document.getElementById(`resident-accordion-chevron-${cleanId}`);
+    const labelEl = document.getElementById(`resident-accordion-label-${cleanId}`);
+    if (bodyEl) bodyEl.style.display = "none";
+    if (chevronEl) chevronEl.textContent = "▶";
+    if (labelEl) {
+      labelEl.textContent = "Modifica permessi ▼";
+      labelEl.style.background = "#f0f9ff";
+      labelEl.style.color = "#0284c7";
+      labelEl.style.borderColor = "#bae6fd";
+    }
+  });
+};
+
+window.filtraResidentiMaster = function(query) {
+  const q = String(query || "").trim().toLowerCase();
+  const items = document.querySelectorAll(".user-spec-card-compact");
+  items.forEach(item => {
+    const searchData = item.getAttribute("data-search") || "";
+    if (!q || searchData.includes(q)) {
+      item.style.display = "block";
+    } else {
+      item.style.display = "none";
+    }
+  });
 };
 
 window.eliminaUtente = async function(email, nome) {
@@ -7079,7 +7308,14 @@ function switchTab(tabId) {
     caricaGuastiRecenti();
     inizializzaSezioneEmailAmministrazione();
   }
-  if (tabId === "master") caricaDatiMaster();
+  if (tabId === "master") {
+    if (!haPermessiMaster()) {
+      mostraToast("Accesso riservato: richiede privilegi Master", "warning");
+      switchTab("info");
+      return;
+    }
+    caricaDatiMaster();
+  }
   if (tabId === "cucina") {
     if (!haPermessiMasterMensa()) {
       mostraToast("Accesso riservato: richiede autorizzazione Master Mensa", "warning");
@@ -7348,10 +7584,13 @@ function aggiornaUIUtente() {
       if (appState.user.perm_admin) ruoli.push("Admin");
       if (appState.user.perm_mensa) ruoli.push("Mensa");
       if (appState.user.perm_manutenzione) ruoli.push("Tecnico");
+      if (appState.user.perm_spazi || appState.user.is_master_spazi) ruoli.push("Spazi");
       userRole.innerText = ruoli.length > 0 ? ruoli.join(" • ") : "Residente";
     }
     const isMaster = haPermessiMaster();
     if (masterNav) masterNav.style.display = isMaster ? "flex" : "none";
+    const btnMasterSettings = document.getElementById("settings-btn-master");
+    if (btnMasterSettings) btnMasterSettings.style.display = isMaster ? "flex" : "none";
     const btnGuidaHead = document.getElementById("header-btn-guida");
     if (btnGuidaHead) btnGuidaHead.style.display = isMaster ? "inline-flex" : "none";
     const btnGuidaSettings = document.getElementById("settings-btn-guida");
@@ -7370,11 +7609,17 @@ function aggiornaUIUtente() {
       mensaNav.style.display = isMensaEnabled ? "flex" : "none";
       if (!isMensaEnabled && appState.currentTab === "mensa") switchTab("info");
     }
+
+    if (!isMaster && appState.currentTab === "master") {
+      switchTab("info");
+    }
   } else {
     if (avatarText) avatarText.innerText = "👤";
     if (userName) userName.innerText = "Ospite";
     if (userRole) userRole.innerText = "Accedi";
     if (masterNav) masterNav.style.display = "none";
+    const btnMasterSettings = document.getElementById("settings-btn-master");
+    if (btnMasterSettings) btnMasterSettings.style.display = "none";
     const btnGuidaHead = document.getElementById("header-btn-guida");
     if (btnGuidaHead) btnGuidaHead.style.display = "none";
     const btnGuidaSettings = document.getElementById("settings-btn-guida");

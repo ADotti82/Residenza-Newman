@@ -1,6 +1,6 @@
 {
-  "summary": "Piano architetturale per la corretta attribuzione del richiedente nelle prenotazioni ambienti (Chiesa/Cappella e Sala TV), introducendo il selettore residenti con inserimento nominativo personalizzato, memorizzazione esplicita di nome ed email del richiedente e riservatezza dei dati.",
-  "updatedAt": "2026-10-16T10:48:38.511144633Z",
+  "summary": "Piano di implementazione per: \n1. Visibilità selettiva della scheda Master (nascosta per utenti senza ruoli o notifiche Master)\n2. Monitoraggio e visualizzazione dell'iter completo delle richieste di accoglienza per i residenti\n3. Vista compatta a fisarmonica (accordion) con apertura al click per la gestione ruoli e permessi residenti",
+  "updatedAt": "2026-10-16T11:06:48.512238241Z",
   "requestFeedback": true,
   "userFacing": true
 }

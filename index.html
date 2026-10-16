@@ -651,6 +651,121 @@
       border-top-color: var(--border);
     }
 
+    /* Accordion Compatto Residenti & Ruoli */
+    .user-spec-card-compact {
+      width: 100%;
+      box-sizing: border-box;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.03);
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    [data-theme="dark"] .user-spec-card-compact {
+      background: var(--surface);
+      border-color: var(--border);
+    }
+    .user-spec-card-compact:hover {
+      border-color: #94a3b8;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+    }
+    .user-spec-accordion-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 14px;
+      cursor: pointer;
+      user-select: none;
+      gap: 10px;
+      flex-wrap: wrap;
+      transition: background-color 0.15s ease;
+    }
+    .user-spec-accordion-header:hover {
+      background-color: #f8fafc;
+    }
+    [data-theme="dark"] .user-spec-accordion-header:hover {
+      background-color: var(--surface-alt);
+    }
+    .user-spec-accordion-chevron {
+      display: inline-block;
+      width: 18px;
+      text-align: center;
+      font-size: 11px;
+      color: #64748b;
+      font-weight: 800;
+      transition: transform 0.2s ease;
+    }
+    .user-spec-accordion-body {
+      padding: 12px 14px;
+      background: #f8fafc;
+      border-top: 1px dashed var(--border);
+    }
+    [data-theme="dark"] .user-spec-accordion-body {
+      background: var(--surface-alt);
+    }
+
+    /* Accoglienza Iter Tracker */
+    .iter-tracker-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 12px;
+      margin: 10px 0;
+    }
+    [data-theme="dark"] .iter-tracker-box {
+      background: var(--surface-alt);
+      border-color: var(--border);
+    }
+    .iter-steps-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .iter-step-card {
+      padding: 8px 10px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+      background: #ffffff;
+      font-size: 11.5px;
+      position: relative;
+    }
+    [data-theme="dark"] .iter-step-card {
+      background: var(--surface);
+      border-color: var(--border);
+    }
+    .iter-step-card.step-completed {
+      border-color: #86efac;
+      background: #f0fdf4;
+    }
+    [data-theme="dark"] .iter-step-card.step-completed {
+      background: rgba(22, 101, 52, 0.15);
+      border-color: #166534;
+    }
+    .iter-step-card.step-active {
+      border-color: #93c5fd;
+      background: #eff6ff;
+      box-shadow: 0 0 0 1px #3b82f6;
+    }
+    [data-theme="dark"] .iter-step-card.step-active {
+      background: rgba(30, 64, 175, 0.15);
+      border-color: #2563eb;
+    }
+    .iter-step-card.step-waiting {
+      opacity: 0.7;
+      background: #f8fafc;
+    }
+    .iter-step-card.step-rejected {
+      border-color: #fca5a5;
+      background: #fef2f2;
+    }
+    [data-theme="dark"] .iter-step-card.step-rejected {
+      background: rgba(185, 28, 28, 0.15);
+      border-color: #991b1b;
+    }
+
     /* Guest Stepper Controls */
     .guest-counter-stepper {
       display: inline-flex;

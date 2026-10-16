@@ -19,11 +19,15 @@ export function haPermessiMasterSpazi() {
 
 export function haPermessiMaster() {
   if (!appState.user) return false;
+  const u = appState.user;
   return Boolean(
-    appState.user.perm_admin ||
-    appState.user.perm_mensa ||
-    appState.user.perm_manutenzione ||
-    haPermessiMasterSpazi()
+    u.perm_admin ||
+    u.perm_mensa ||
+    u.perm_manutenzione ||
+    u.notif_manutenzione ||
+    u.perm_spazi ||
+    u.notif_spazi ||
+    u.is_master_spazi
   );
 }
 
@@ -45,7 +49,7 @@ export function haPermessiMasterMensa() {
 
 export function haPermessiMasterManutenzione() {
   if (!appState.user) return false;
-  return Boolean(appState.user.perm_manutenzione || appState.user.perm_admin);
+  return Boolean(appState.user.perm_manutenzione || appState.user.notif_manutenzione || appState.user.perm_admin);
 }
 
 export function aggiornaUIUtente() {
@@ -55,6 +59,7 @@ export function aggiornaUIUtente() {
   const userRole = document.getElementById("header-user-role");
   const masterNav = document.getElementById("nav-tab-master");
   const mensaNav = document.getElementById("nav-tab-mensa");
+  const btnMasterSettings = document.getElementById("settings-btn-master");
 
   if (appState.user) {
     if (avatarText) {
@@ -67,10 +72,12 @@ export function aggiornaUIUtente() {
       if (appState.user.perm_admin) ruoli.push("Admin");
       if (appState.user.perm_mensa) ruoli.push("Mensa");
       if (appState.user.perm_manutenzione) ruoli.push("Tecnico");
+      if (appState.user.perm_spazi || appState.user.is_master_spazi) ruoli.push("Spazi");
       userRole.innerText = ruoli.length > 0 ? ruoli.join(" • ") : "Residente";
     }
     const isMaster = haPermessiMaster();
     if (masterNav) masterNav.style.display = isMaster ? "flex" : "none";
+    if (btnMasterSettings) btnMasterSettings.style.display = isMaster ? "flex" : "none";
     const btnGuidaHead = document.getElementById("header-btn-guida");
     if (btnGuidaHead) btnGuidaHead.style.display = isMaster ? "inline-flex" : "none";
     const btnGuidaSettings = document.getElementById("settings-btn-guida");
@@ -91,11 +98,16 @@ export function aggiornaUIUtente() {
         window.switchTab("info");
       }
     }
+
+    if (!isMaster && appState.currentTab === "master" && typeof window.switchTab === "function") {
+      window.switchTab("info");
+    }
   } else {
     if (avatarText) avatarText.innerText = "👤";
     if (userName) userName.innerText = "Ospite";
     if (userRole) userRole.innerText = "Accedi";
     if (masterNav) masterNav.style.display = "none";
+    if (btnMasterSettings) btnMasterSettings.style.display = "none";
     const btnGuidaHead = document.getElementById("header-btn-guida");
     if (btnGuidaHead) btnGuidaHead.style.display = "none";
     const btnGuidaSettings = document.getElementById("settings-btn-guida");

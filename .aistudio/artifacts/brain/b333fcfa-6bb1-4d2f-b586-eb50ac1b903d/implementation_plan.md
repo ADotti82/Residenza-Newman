@@ -1,6 +1,6 @@
-# Corretta Attribuzione Richiedente nelle Prenotazioni Ambienti (Chiesa e Sala TV)
+# Piano di Implementazione: Controllo Accessi Master, Iter Accoglienza e Gestione Ruoli Compatta
 
-Risoluzione del bug che sovrascriveva sempre l'utente Master come richiedente di ogni prenotazione, introducendo un selettore chiaro con preselezione dell'utente attivo, opzione per altri residenti o nominativo personalizzato, e visualizzazione conforme dei nominativi.
+Riorganizzazione avanzata della sicurezza dell'interfaccia e dell'esperienza utente per la Residenza Cardinal Newman: occultamento automatico del pannello Master per gli utenti privi di ruoli speciali, tracciatore visivo dell'iter delle richieste di accoglienza per i residenti, e visualizzazione compatta a fisarmonica espandibile per la gestione ruoli.
 
 ---
 
@@ -8,94 +8,118 @@ Risoluzione del bug che sovrascriveva sempre l'utente Master come richiedente di
 
 > [!IMPORTANT]
 > **Decisioni confermate dall'utente nella fase di intervista**:
-> 1. **Selezione del Richiedente**: Selettore residenti (elenco dei residenti registrati) con opzione integrata per inserire un nuovo nominativo personalizzato (Nome, Cognome, Email).
-> 2. **Comportamento Predefinito**: La modale si precompila automaticamente con l'utente attualmente connesso (es. Don Andrea o altro utente), ma consente di cambiare liberamente il richiedente per cui si sta effettuando la prenotazione.
-> 3. **Visibilità & Riservatezza sullo Slot**: Il nome e cognome del reale richiedente sono chiaramente visibili ai Master (e all'utente proprietario della richiesta), mentre per gli altri residenti lo slot continua a comparire come riservato (*"🔒 Occupato"* o *"⏳ In Valutazione"*).
+> 1. **Visibilità Scheda Master**: Nascondere completamente il pulsante e l'accesso alla scheda Master per tutti gli utenti privi di ruoli amministrativi o notifiche attive (`perm_admin`, `perm_mensa`, `perm_manutenzione`, `notif_manutenzione`, `perm_spazi`, `notif_spazi`, `is_master_spazi`).
+> 2. **Iter Richieste di Accoglienza**: Nella scheda "Accoglienza & Camere", inserire un tracciatore a fasi dell'iter (1/3 Richiesta inviata ➜ 2/3 1ª Autorizzazione e assegnazione camera ➜ 3/3 2ª Autorizzazione e conferma definitiva, o Rifiuto con motivazione) visibile al residente che ha inoltrato la richiesta.
+> 3. **Gestione Ruoli Residenti**: Sostituire la griglia espansa con un elenco a fisarmonica (accordion) compatto: cliccando sul nome del residente si espandono le caselle di controllo (checkbox) per i ruoli, le notifiche e il salvataggio rapido.
 
 ---
 
-### 1. Diagnosi del Problema Attuale
+### 1. Overview & Core Concept
 
-#### Causa Principale del Malfunzionamento
-1. **Hardcoding su `appState.user`**:
-   - Nella funzione `apriModalNuovaRichiestaSpazio`, se `appState.user` è presente (ad es. l'account Master `donandreadotti@gmail.com`), la modale visualizzava un blocco statico non modificabile che bloccava il richiedente su `appState.user`.
-   - In `eseguiPrenotazioneSpazioConfermata`, il codice eseguiva:
-     ```javascript
-     if (appState.user) {
-       emailPrenotante = appState.user.email;
-       nomePrenotante = appState.user.nome;
-     }
-     ```
-     ignorando qualsiasi volontà di registrare l'ambiente a nome di un altro sacerdote o studente.
-2. **Mutazione Indesiderata della Sessione**:
-   - Nei rari casi in cui `appState.user` era nullo e l'utente selezionava un profilo dal dropdown, il codice sovrascriveva `appState.user` e `localStorage.setItem(STORAGE_KEYS.USER, ...)`, cambiando l'identità dell'intera sessione invece di limitarsi alla sola prenotazione dello slot.
-3. **Mancanza di Persistenza del Nome Esplicito**:
-   - L'oggetto salvato in `prenotazioni_spazi` memorizzava solo `email`, lasciando la risoluzione del nome a stringhe troncate come `pren.email.split('@')[0]` (es. `donandreadotti`).
+- **Visibilità Selettiva Master**: La scheda Master non deve comparire nella barra di navigazione inferiore né tra i comandi di impostazione per i normali residenti, garantendo riservatezza ed evitando schermate inaccessibili.
+- **Trasparenza dell'Iter Accoglienza**: I residenti che invitano ospiti (familiari, sacerdoti o colleghi universitari) possono seguire in tempo reale a che punto si trova la loro richiesta nella procedura a doppia autorizzazione, sapendo quale camera è stata proposta e se è intervenuta la conferma del Supermaster.
+- **Cruscotto Ruoli a Fisarmonica**: Una schermata snella in cui ogni residente occupa una sola riga riassuntiva; con un semplice tocco o click sul nominativo si apre il cassetto dettagliato con le 8 caselle di controllo (`is_utente_mensa`, `perm_mensa`, `perm_manutenzione`, `perm_spazi`, `perm_admin`, `notif_manutenzione`, `notif_spazi`, `notif_push`) e i comandi per il salvataggio o il reset della password.
 
 ---
 
-### 2. Flusso Utente & Modifiche alla User Experience
+### 2. User Experience & Visual Design
+
+#### A. Architettura Visiva e Flusso Utente
 
 ```text
-┌────────────────────────────────────────────────────────┐
-│             Modale Prenotazione Spazio / Ambiente      │
-├────────────────────────────────────────────────────────┤
-│ Ambiente: (o) Chiesa / Cappella   ( ) Sala TV          │
-│ Data: [ 2026-10-16 ]   Slot: [ 08:00 - 08:30 ]         │
-│ Note / Motivo: [ S. Messa devozione privata... ]       │
-├────────────────────────────────────────────────────────┤
-│ 👤 Richiedente della Prenotazione:                     │
-│ [ ▼ Don Rocco (donrocco@newman.it)                   ] │
-│   ├─ Don Andrea Dotti (donandreadotti@gmail.com)       │
-│   ├─ Don Rocco (donrocco@newman.it)                    │
-│   ├─ Don Sergio (donsergio@newman.it)                  │
-│   ├─ Francesco Rossi (francesco.studente@newman.it)    │
-│   └─ ✍️ Altro / Inserisci Nuovo Nominativo             │
-│                                                        │
-│ (Se selezionato "Altro / Nuovo Nominativo"):           │
-│   [ Nome e Cognome Richiedente                       ] │
-│   [ Email Richiedente                                ] │
-├────────────────────────────────────────────────────────┤
-│ [ Opzione Master: [x] Approva direttamente ]           │
-│ [ ✕ Annulla ]         [ ✅ Invia Richiesta al Master ] │
-└────────────────────────────────────────────────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│                        BARRA DI NAVIGAZIONE                            │
+├────────────────────────────────────────────────────────────────────────┤
+│ Utente Ordinario: [ 🏠 Home ]  [ 🍽️ Mensa ]  [ 🛏️ Accoglienza ]  [ ⛪ Spazi ]  [ 🛠️ Segnalazioni ] │
+│ (Il pulsante [ 👑 Master ] è COMPLETAMENTE INVISIBILE)                 │
+│                                                                        │
+│ Utente con Ruoli Master:                                               │
+│ [ 🏠 Home ] [ 🍽️ Mensa ] [ 🛏️ Accoglienza ] [ ⛪ Spazi ] [ 🛠️ Segn. ] [ 👑 Master ]     │
+└────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────┐
+│               SCHEDA ACCOGLIENZA: LE MIE RICHIESTE (ITER)              │
+├────────────────────────────────────────────────────────────────────────┤
+│ 👤 Mario Rossi · Ospite per Studio/Ricerca                             │
+│ 📅 20 Ott 2026 ➜ 23 Ott 2026 (3 notti) · 1 Persona                     │
+│                                                                        │
+│ ITER AUTORIZZATIVO:                                                    │
+│ [ ✓ Inviata ] ────────── [ 🔑 1ª Auth ] ────────── [ ⏳ In Conferma ]  │
+│ 16 Ott 09:30            Assegnata: Cam. Newman     Attesa 2° Master    │
+└────────────────────────────────────────────────────────────────────────┘
+
+┌────────────────────────────────────────────────────────────────────────┐
+│             GESTIONE RUOLI COMPATTA (ACCORDION PER RESIDENTE)          │
+├────────────────────────────────────────────────────────────────────────┤
+│ [▼] Don Andrea Dotti (donandreadotti@gmail.com)   [👑 Admin • 🍽️ Mensa]│
+│     ┌────────────────────────────────────────────────────────────────┐ │
+│     │ [x] Utente Mensa   [x] Master Mensa   [x] Manutenzione         │ │
+│     │ [x] Ambienti       [x] Super Admin    [x] Notif. Guasti        │ │
+│     │ [x] Notif. Spazi   [x] Push Notif                              │ │
+│     │ Password: [ newman2026 ]              [ 💾 Salva Modifiche ]   │ │
+│     └────────────────────────────────────────────────────────────────┘ │
+│ [▶] Don Rocco (donrocco@newman.it)                [🍽️ Utente Mensa]    │
+│ [▶] Don Sergio (donsergio@newman.it)              [🍽️ Utente Mensa]    │
+│ [▶] Francesco Rossi (francesco.studente@newman.it)[🍽️ Utente Mensa]    │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-1. **Preselezione Intelligente**:
-   - All'apertura della modale, il menu a tendina seleziona automaticamente il profilo dell'utente loggato, ma lascia la piena facoltà di scegliere qualsiasi altro residente della comunità oppure di selezionare *"Altro / Nuovo Nominativo"*.
-2. **Nessun Effetto Collaterale sulla Sessione**:
-   - La scelta del richiedente per lo slot orario non altera la sessione corrente dell'utente connesso.
-3. **Visualizzazione Consistente**:
-   - Sia nella griglia slot, sia nel cruscotto Master (*"Richieste Spazi in Attesa"*), sia nei dettagli della prenotazione, comparirà sempre l'esatto nominativo indicato nel modulo (es. *"Don Rocco"* o *"Francesco Rossi"*).
+#### B. Dettagli di Stile e Anti-Slop Discipline
+- **Zero-Pill Metadata**: I ruoli correnti nell'intestazione della fisarmonica saranno mostrati come testo pulito o badge monocromatici sottili, senza agglomerati pesanti.
+- **Rhythm & Accessibility**: Le righe della fisarmonica avranno un'altezza comoda al tocco ($\ge 44\text{px}$) con transizione fluida dello stato espanso/compresso e indicatore visivo chiaro (`▶` / `▼`).
 
 ---
 
-### 3. Piano d'Azione Passo-Passo
+### 3. Key Product Decisions & Trade-Offs
 
-#### Step 1: Aggiornamento della Modale Spazi in `index.html` e `src/modules/spazi/modal-spazio.js`
-- Riorganizzare l'area richiedente (`modal-spazio-utente-blocco`) per contenere sempre:
-  - Il selettore `<select id="spazio-richiedente-select">` popolato con tutti i residenti abilitati.
-  - La visualizzazione del badge del profilo attivo con pulsante rapido per *"Cambia richiedente"*.
-  - I campi di testo per nome ed email quando si sceglie un nominativo esterno/ospite.
+- **Decisione 1: Criterio rigoroso per la visibilità del pannello Master**:
+  - *Scelta*: Verificare con precisione i campi `perm_admin`, `perm_mensa`, `perm_manutenzione`, `notif_manutenzione`, `perm_spazi`, `notif_spazi`, `is_master_spazi`.
+  - *Perché*: Evita che sacerdoti o studenti vedano una scheda con funzionalità bloccate o non pertinenti. L'allineamento dei dati predefiniti in `INITIAL_MOCK_DB` per Don Rocco, Don Sergio e Francesco Rossi assicurerà che solo i veri responsabili visualizzino il pulsante.
+- **Decisione 2: Iter di accoglienza a 3 tappe progressive**:
+  - *Scelta*: Mostrare i tre stati logici con connettori orizzontali e dettagli esplicativi (data richiesta, camera assegnata dal 1° Master, conferma finale).
+  - *Perché*: Rende autonomi i residenti senza dover contattare continuamente la direzione per sapere se la stanza è pronta.
+- **Decisione 3: Accordion nativo leggero con persistenza di apertura**:
+  - *Scelta*: Implementare l'accordion direttamente nel rendering di `appState.tuttiUtenti` conservando gli ID degli utenti espansi in un `Set` (`appState.expandedResidentiSet`), in modo che un refresh o un salvataggio non richiuda inaspettatamente la scheda che il Supermaster sta modificando.
+  - *Perché*: Massima fluidità, nessun ricaricamento di pagina, reattività immediata.
 
-#### Step 2: Aggiornamento della Logica di Inizializzazione e Salvataggio in `app.js` e `src/modules/spazi/spazi.service.js`
-- In `apriModalNuovaRichiestaSpazio`:
-  - Popolare il selettore con tutti i residenti e selezionare per default l'email dell'utente connesso.
-  - Gestire l'evento `change` per mostrare/nascondere i campi personalizzati quando viene selezionato *"custom"*.
-- In `eseguiPrenotazioneSpazioConfermata`:
-  - Leggere i valori reali dal selettore o dai campi personalizzati (`emailPrenotante`, `nomePrenotante`).
-  - Inviare sia `email` sia `nome` nella chiamata API `prenotaSpazio`.
-  - Non mutare `appState.user` né sovrascrivere la sessione di login.
-- Nella gestione locale `mockBackendExecution` per l'azione `prenotaSpazio`:
-  - Salvare sia `email` sia `nome` nell'oggetto prenotazione.
+---
 
-#### Step 3: Aggiornamento del Rendering degli Slot e Liste Master
-- In `renderSlotSpazi`:
-  - Mostrare il nome completo dell'effettivo richiedente tramite `p.nome || trovaNomeUtente(p.email)` quando l'utente ha permessi Master o è il richiedente stesso.
-  - Per gli altri residenti, mantenere il cartellino protetto (*"🔒 Occupato"* o *"⏳ In Valutazione"*).
-- Nel cruscotto Master e nelle notifiche:
-  - Visualizzare chiaramente: *"Richiedente: Don Rocco (richiesto da Don Andrea Dotti)"* qualora il Master abbia prenotato per conto terzi.
+### 4. Technical Architecture & Data Strategy
 
-#### Step 4: Verifica & Compilazione
-- Esecuzione `compile_applet` per verificare l'assenza di errori di sintassi o build.
-- Collaudo del flusso sia con account Master sia con account residente.
+```text
+┌───────────────────────────────────────────────────────────────────────┐
+│                           CENTRAL STATE                               │
+│  - appState.user (permessi ricalcolati & puliti)                      │
+│  - appState.accoglienzaList (filtrata per utente / iter visuale)      │
+│  - appState.tuttiUtenti (renderizzata via template a fisarmonica)     │
+│  - appState.expandedResidentiSet (traccia chi è aperto/chiuso)        │
+└───────────────────┬───────────────────────────────┬───────────────────┘
+                    │                               │
+                    ▼                               ▼
+       ┌────────────────────────┐      ┌────────────────────────┐
+       │   ROUTER & NAV GATING  │      │    ACCOGLIENZA VIEW    │
+       │ - nasconde nav-tab-    │      │ - timeline iter 3 fasi │
+       │   master               │      │ - badge camera / auth  │
+       │ - nasconde settings-   │      │ - note approvatori     │
+       │   btn-master           │      └────────────────────────┘
+       │ - protegge switchTab   │
+       └────────────────────────┘
+```
+
+#### Fasi di Esecuzione:
+1. **Aggiornamento Sicurezza e Accessi (`src/core/auth.js` e `app.js`)**:
+   - Pulire `haPermessiMaster()` per verificare solo i ruoli effettivi e le notifiche di competenza.
+   - Allineare `aggiornaUIUtente()` per nascondere sia `nav-tab-master` sia `settings-btn-master` per gli utenti senza privilegi.
+   - Proteggere `switchTab('master')` con reindirizzamento automatico a `info` per utenti non autorizzati.
+   - Rettificare in `INITIAL_MOCK_DB` i profili residenti ordinari (`perm_mensa: false`, mantenendo `is_utente_mensa: true`).
+2. **Modulo Iter Accoglienza Residenti (`app.js`)**:
+   - Arricchire `renderAccoglienzaView()` per la sezione "Le Mie Richieste":
+     - Aggiungere il componente grafico dell'iter (1ª fase: Ricevuta; 2ª fase: 1ª Autorizzazione con camera assegnata; 3ª fase: 2ª Autorizzazione con conferma definitiva).
+     - Evidenziare note di assegnazione, camera riservata e contatto del Master autorizzatore.
+3. **Fisarmonica Compatta Gestione Ruoli Residenti (`app.js`)**:
+   - Riscrivere `master-residenti-container` con struttura a fisarmonica espandibile:
+     - Riga singola con nome, email, ruoli attivi e chevron.
+     - Pannello espanso contenente le 8 caselle di controllo, il campo password e il pulsante salva.
+     - Funzione toggle `toggleEspandiResidente(email)` e supporto "Espandi / Comprimi tutti".
+4. **Collaudo & Build**:
+   - Esecuzione `compile_applet` e test con utenti master e residenti standard.
