@@ -1,112 +1,101 @@
-# Visualizzazione Ritardi e Ospiti nei "Prossimi Giorni" del Registro Cucina
+# Corretta Attribuzione Richiedente nelle Prenotazioni Ambienti (Chiesa e Sala TV)
 
-Integrazione nella barra rapida "🛒 Prossimi Giorni" della vista Cucina dei conteggi per arrivi posticipati (ritardi) ed extra porzioni (ospiti), mostrati con indicatori iconici compatti solo quando presenti per pranzo e per cena.
+Risoluzione del bug che sovrascriveva sempre l'utente Master come richiedente di ogni prenotazione, introducendo un selettore chiaro con preselezione dell'utente attivo, opzione per altri residenti o nominativo personalizzato, e visualizzazione conforme dei nominativi.
 
 ---
 
 ### User Review & Critical Decisions
 
 > [!IMPORTANT]
-> **Scelte confermate dall'utente nella fase di chiarimento**:
-> 1. **Stile di Visualizzazione**: *Icone compatte senza etichetta di testo* (es. `⏰2`, `👥+1`), preservando l'ingombro ridotto delle schede dei giorni senza appesantire la griglia.
-> 2. **Ripartizione dei Dati**: *Distinti separatamente tra pranzo e cena*, così che la cuoca e i master possano distinguere a colpo d'occhio se il ritardo o l'ospite è atteso a pranzo (☀️) o a cena (🌙).
-> 3. **Regola di Visibilità Condizionale**: Gli indicatori compaiono **esclusivamente se maggiori di zero** (`> 0`). Se un giorno o pasto non ha ritardi o ospiti registrati, la scheda rimane pulita con i soli numeri base di presenze.
+> **Decisioni confermate dall'utente nella fase di intervista**:
+> 1. **Selezione del Richiedente**: Selettore residenti (elenco dei residenti registrati) con opzione integrata per inserire un nuovo nominativo personalizzato (Nome, Cognome, Email).
+> 2. **Comportamento Predefinito**: La modale si precompila automaticamente con l'utente attualmente connesso (es. Don Andrea o altro utente), ma consente di cambiare liberamente il richiedente per cui si sta effettuando la prenotazione.
+> 3. **Visibilità & Riservatezza sullo Slot**: Il nome e cognome del reale richiedente sono chiaramente visibili ai Master (e all'utente proprietario della richiesta), mentre per gli altri residenti lo slot continua a comparire come riservato (*"🔒 Occupato"* o *"⏳ In Valutazione"*).
 
 ---
 
-### 1. Overview & Core Concept
+### 1. Diagnosi del Problema Attuale
 
-- **Cosa fa**: Arricchisce le schede dei 5 giorni futuri nel carosello `"🛒 Prossimi Giorni:"` del Registro Cucina. Oltre ai coperti ordinari di pranzo e cena (e alle buste nei giorni previsti), ogni scheda mostrerà l'icona dell'orologio `⏰` con il numero di ritardi e l'icona delle persone `👥` con il numero di ospiti, associati al rispettivo pasto.
-- **Utenti target**: Personale di cucina (cuoca) e Master della residenza, che consultano la pianificazione settimanale per preparare porzioni aggiuntive e piatti da conservare al caldo.
-- **Valore aggiunto**: Anticipare tempestivamente la preparazione dei pasti dei giorni a venire senza dover aprire il dettaglio di ogni singolo giorno.
-
----
-
-### 2. User Experience & Visual Design
-
-#### Struttura Visiva della Scheda Giorno
-La scheda di ciascun giorno nella griglia `Prossimi Giorni` adotta un layout compatto e leggibile:
-
-```text
-┌─────────────────────────────────┐
-│           VEN 16/10             │
-│                                 │
-│  ☀️ 3  ⏰1  👥+1    🌙 3       │
-│               🥪 2              │
-└─────────────────────────────────┘
-```
-
-- **Riga Intestazione**: Giorno della settimana e data (es. `VEN 16/10`).
-- **Sezione Pranzo (☀️)**:
-  - Conteggio presenze sala/totali in arancione scuro (`#ea580c`).
-  - Se `ritardiPranzo > 0`: icona `⏰` con conteggio rosso scuro (`#dc2626`, `font-weight: 800`).
-  - Se `ospitiPranzo > 0`: icona `👥` con `+N` in ambra scuro (`#d97706`, `font-weight: 800`).
-- **Sezione Cena (🌙)**:
-  - Conteggio presenze cena in blu (`#2563eb`).
-  - Se `ritardiCena > 0`: icona `⏰` con conteggio in rosso (`#dc2626`).
-  - Se `ospitiCena > 0`: icona `👥` con `+N` in blu cobalto (`#1d4ed8`).
-- **Buste Asporto (🥪)**: Compare come badge separato solo nei giorni con buste attive (`> 0`).
-- **Accessibilità & Tooltip**: Ciascun indicatore compatto include un attributo `title` descrittivo (es. `title="1 ritardo a pranzo"`, `title="2 ospiti a cena"`).
+#### Causa Principale del Malfunzionamento
+1. **Hardcoding su `appState.user`**:
+   - Nella funzione `apriModalNuovaRichiestaSpazio`, se `appState.user` è presente (ad es. l'account Master `donandreadotti@gmail.com`), la modale visualizzava un blocco statico non modificabile che bloccava il richiedente su `appState.user`.
+   - In `eseguiPrenotazioneSpazioConfermata`, il codice eseguiva:
+     ```javascript
+     if (appState.user) {
+       emailPrenotante = appState.user.email;
+       nomePrenotante = appState.user.nome;
+     }
+     ```
+     ignorando qualsiasi volontà di registrare l'ambiente a nome di un altro sacerdote o studente.
+2. **Mutazione Indesiderata della Sessione**:
+   - Nei rari casi in cui `appState.user` era nullo e l'utente selezionava un profilo dal dropdown, il codice sovrascriveva `appState.user` e `localStorage.setItem(STORAGE_KEYS.USER, ...)`, cambiando l'identità dell'intera sessione invece di limitarsi alla sola prenotazione dello slot.
+3. **Mancanza di Persistenza del Nome Esplicito**:
+   - L'oggetto salvato in `prenotazioni_spazi` memorizzava solo `email`, lasciando la risoluzione del nome a stringhe troncate come `pren.email.split('@')[0]` (es. `donandreadotti`).
 
 ---
 
-### 3. Key Product Decisions & Trade-Offs
-
-- **Calcolo Dinamico dei Giorni Futuri**:
-  - *Approccio Scelto*: Riutilizzare la funzione esistente `calcolaContatoreMensa(ymd, "pranzo")` e `calcolaContatoreMensa(ymd, "cena")` già ottimizzata per estrarre `totale`, `buste`, `ritardi` e `ospitiTotali`.
-  - *Perché*: Garantisce coerenza al 100% tra quanto mostrato nelle mini-schede e quanto compare una volta selezionato il giorno nel dettaglio della schermata.
-- **Ripartizione Grafica Compatta**:
-  - *Approccio Scelto*: Raggruppare visivamente gli indicatori vicino al pasto di riferimento (☀️ per il pranzo, 🌙 per la cena) con spaziatura flessibile (`gap: 6px`) e wrapping naturale se lo schermo è molto stretto.
-
----
-
-### 4. Technical Architecture & Data Strategy
-
-#### Diagramma di Flusso Dati
+### 2. Flusso Utente & Modifiche alla User Experience
 
 ```text
 ┌────────────────────────────────────────────────────────┐
-│                   appState.mensaBookings               │
-│       (Prenotazioni, assenze, ritardi, ospiti)         │
-└──────────────────────────┬─────────────────────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│        Loop Prossimi Giorni (5 giorni futuri)          │
-│   • calcolaContatoreMensa(ymd, "pranzo")               │
-│     ➜ { totale, buste, ritardi, ospitiTotali }         │
-│   • calcolaContatoreMensa(ymd, "cena")                 │
-│     ➜ { totale, buste, ritardi, ospitiTotali }         │
-└──────────────────────────┬─────────────────────────────┘
-                           │
-                           ▼
-┌────────────────────────────────────────────────────────┐
-│             Render Scheda "Prossimi Giorni"            │
-│   ☀️ ${pg.pranzo} [⏰${pg.ritP}] [👥+${pg.ospP}]        │
-│   🌙 ${pg.cena}   [⏰${pg.ritC}] [👥+${pg.ospC}]        │
-│   [🥪 ${pg.buste}]                                     │
+│             Modale Prenotazione Spazio / Ambiente      │
+├────────────────────────────────────────────────────────┤
+│ Ambiente: (o) Chiesa / Cappella   ( ) Sala TV          │
+│ Data: [ 2026-10-16 ]   Slot: [ 08:00 - 08:30 ]         │
+│ Note / Motivo: [ S. Messa devozione privata... ]       │
+├────────────────────────────────────────────────────────┤
+│ 👤 Richiedente della Prenotazione:                     │
+│ [ ▼ Don Rocco (donrocco@newman.it)                   ] │
+│   ├─ Don Andrea Dotti (donandreadotti@gmail.com)       │
+│   ├─ Don Rocco (donrocco@newman.it)                    │
+│   ├─ Don Sergio (donsergio@newman.it)                  │
+│   ├─ Francesco Rossi (francesco.studente@newman.it)    │
+│   └─ ✍️ Altro / Inserisci Nuovo Nominativo             │
+│                                                        │
+│ (Se selezionato "Altro / Nuovo Nominativo"):           │
+│   [ Nome e Cognome Richiedente                       ] │
+│   [ Email Richiedente                                ] │
+├────────────────────────────────────────────────────────┤
+│ [ Opzione Master: [x] Approva direttamente ]           │
+│ [ ✕ Annulla ]         [ ✅ Invia Richiesta al Master ] │
 └────────────────────────────────────────────────────────┘
 ```
 
-#### File Interessati:
-1. `app.js`:
-   - Nella funzione `renderCucinaView`:
-     - Aggiornare il mapping di `prossimiGiorni` raccogliendo `ritardiPranzo`, `ospitiPranzo`, `ritardiCena`, `ospitiCena`, `bustePranzo`, `busteCena`.
-     - Aggiornare il template HTML delle card in `prossimiGiorni.map(...)` per mostrare le icone compatte condizionalmente.
-2. `sw.js` & `index.html`:
-   - Aggiornamento della versione di cache del Service Worker per la propagazione immediata dell'aggiornamento.
+1. **Preselezione Intelligente**:
+   - All'apertura della modale, il menu a tendina seleziona automaticamente il profilo dell'utente loggato, ma lascia la piena facoltà di scegliere qualsiasi altro residente della comunità oppure di selezionare *"Altro / Nuovo Nominativo"*.
+2. **Nessun Effetto Collaterale sulla Sessione**:
+   - La scelta del richiedente per lo slot orario non altera la sessione corrente dell'utente connesso.
+3. **Visualizzazione Consistente**:
+   - Sia nella griglia slot, sia nel cruscotto Master (*"Richieste Spazi in Attesa"*), sia nei dettagli della prenotazione, comparirà sempre l'esatto nominativo indicato nel modulo (es. *"Don Rocco"* o *"Francesco Rossi"*).
 
 ---
 
-### 5. Piano di Verifica
+### 3. Piano d'Azione Passo-Passo
 
-1. **Verifica Giorni Senza Ritardi/Ospiti**:
-   - Accertarsi che per le date senza ritardi o ospiti non compaiano icone vuote o numeri zero (`⏰0` o `👥+0` non devono mai apparire).
-2. **Verifica Presenza Ritardi**:
-   - Impostare una presenza con arrivo ritardato su una data futura e verificare la comparsa immediata di `⏰N` associata al corretto pasto (☀️ pranzo o 🌙 cena).
-3. **Verifica Presenza Ospiti**:
-   - Aggiungere un ospite su una data futura e controllare la comparsa di `👥+N`.
-4. **Test di Selezione & Cambio Data**:
-   - Cliccando su ciascuna scheda giorno, il giorno attivo deve cambiare regolarmente aggiornando il dettaglio sottostante.
-5. **Verifica Compilazione**:
-   - Esecuzione di `compile_applet` per confermare l'integrità sintattica e di build.
+#### Step 1: Aggiornamento della Modale Spazi in `index.html` e `src/modules/spazi/modal-spazio.js`
+- Riorganizzare l'area richiedente (`modal-spazio-utente-blocco`) per contenere sempre:
+  - Il selettore `<select id="spazio-richiedente-select">` popolato con tutti i residenti abilitati.
+  - La visualizzazione del badge del profilo attivo con pulsante rapido per *"Cambia richiedente"*.
+  - I campi di testo per nome ed email quando si sceglie un nominativo esterno/ospite.
+
+#### Step 2: Aggiornamento della Logica di Inizializzazione e Salvataggio in `app.js` e `src/modules/spazi/spazi.service.js`
+- In `apriModalNuovaRichiestaSpazio`:
+  - Popolare il selettore con tutti i residenti e selezionare per default l'email dell'utente connesso.
+  - Gestire l'evento `change` per mostrare/nascondere i campi personalizzati quando viene selezionato *"custom"*.
+- In `eseguiPrenotazioneSpazioConfermata`:
+  - Leggere i valori reali dal selettore o dai campi personalizzati (`emailPrenotante`, `nomePrenotante`).
+  - Inviare sia `email` sia `nome` nella chiamata API `prenotaSpazio`.
+  - Non mutare `appState.user` né sovrascrivere la sessione di login.
+- Nella gestione locale `mockBackendExecution` per l'azione `prenotaSpazio`:
+  - Salvare sia `email` sia `nome` nell'oggetto prenotazione.
+
+#### Step 3: Aggiornamento del Rendering degli Slot e Liste Master
+- In `renderSlotSpazi`:
+  - Mostrare il nome completo dell'effettivo richiedente tramite `p.nome || trovaNomeUtente(p.email)` quando l'utente ha permessi Master o è il richiedente stesso.
+  - Per gli altri residenti, mantenere il cartellino protetto (*"🔒 Occupato"* o *"⏳ In Valutazione"*).
+- Nel cruscotto Master e nelle notifiche:
+  - Visualizzare chiaramente: *"Richiedente: Don Rocco (richiesto da Don Andrea Dotti)"* qualora il Master abbia prenotato per conto terzi.
+
+#### Step 4: Verifica & Compilazione
+- Esecuzione `compile_applet` per verificare l'assenza di errori di sintassi o build.
+- Collaudo del flusso sia con account Master sia con account residente.

@@ -3305,10 +3305,27 @@
       }
     };
 
-    // Delegazione universale tocco/click su sfondo scuro per tutte le finestre modali
+    // Delegazione universale tocco/click su sfondo scuro e pulsanti di chiusura per tutte le finestre modali
     document.addEventListener("click", function(event) {
       if (event.target && event.target.classList && event.target.classList.contains("modal-overlay")) {
         window.gestisciClickBackdrop(event);
+      }
+      // Intercettazione delegata universale per qualsiasi pulsante di chiusura (✕, Chiudi, Annulla)
+      const closeBtn = event.target && event.target.closest ? event.target.closest("button.btn-icon-head, button.btn-secondary, button.btn-outline, .btn-modal-close, [data-modal-close], button[title='Chiudi']") : null;
+      if (closeBtn) {
+        const txt = (closeBtn.innerText || closeBtn.textContent || "").trim();
+        const oc = (closeBtn.getAttribute("onclick") || "").toLowerCase();
+        const title = (closeBtn.getAttribute("title") || "").toLowerCase();
+        const isClose = txt === "✕" || txt === "Chiudi" || txt === "Annulla" || 
+                        txt.includes("Chiudi") || txt.includes("Annulla") || 
+                        oc.includes("chiudi") || oc.includes("annulla") || 
+                        title === "chiudi" || closeBtn.classList.contains("btn-modal-close");
+        if (isClose) {
+          const modal = closeBtn.closest(".modal-overlay");
+          if (modal) {
+            window.chiudiModale(modal);
+          }
+        }
       }
     }, true);
 
@@ -3523,6 +3540,13 @@
     window.chiudiModalMessaggioSupermaster = function() { window.chiudiModale("modal-messaggio-supermaster"); };
     window.chiudiModalTestiResidenza = function() { window.chiudiModale("modal-testi-residenza"); };
     window.chiudiModalAuth = function() { window.chiudiModale("modal-auth"); };
+    window.chiudiModalVariazioneCuoca = function() { window.chiudiModale("modal-variazione-cuoca"); };
+    window.chiudiModalConsultaMenu = function() { window.chiudiModale("modal-consulta-menu"); };
+    window.chiudiModalModificaMenu = function() { window.chiudiModale("modal-modifica-menu"); };
+    window.chiudiModalGestioneBusteMaster = function() { window.chiudiModale("modal-gestione-buste-master"); };
+    window.chiudiModalElencoPastiCucina = function() { window.chiudiModale("modal-elenco-pasti-cucina"); };
+    window.chiudiModalMasterAppuntamento = function() { window.chiudiModale("modal-master-nuovo-appuntamento"); };
+    window.chiudiModalSegnalaAssenza = function() { window.chiudiModale("modal-segnala-assenza"); };
 
     // Helper globale di emergenza per sbloccare la UI in caso di modali bloccate
     window.chiudiTutteLeModali = function() {
@@ -3535,6 +3559,6 @@
   </script>
 
   <!-- SCRIPT FRONTEND LOGICA (VANILLA JS) -->
-  <script type="module" src="/app.js?v=20261015-v2-prossimi-giorni-ritardi-ospiti"></script>
+  <script type="module" src="/app.js?v=20261015-v3-modular-es-architecture"></script>
 </body>
 </html>

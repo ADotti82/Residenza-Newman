@@ -16,7 +16,7 @@
  * ============================================================================
  */
 
-const CACHE_VERSION = 'newman-v23-prossimi-giorni-ritardi-ospiti';
+const CACHE_VERSION = 'newman-v24-modular-es-architecture';
 
 // Asset minimi per la shell offline (pre-caching sicuro con allSettled)
 const PRECACHE_ASSETS = [

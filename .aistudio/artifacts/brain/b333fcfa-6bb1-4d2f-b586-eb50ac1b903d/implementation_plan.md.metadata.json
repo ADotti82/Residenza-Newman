@@ -1,6 +1,6 @@
 {
-  "summary": "Piano di implementazione per mostrare ritardi e ospiti nella sezione Prossimi Giorni del Registro Cucina, con icone compatte senza etichette di testo e suddivisi distintamente per pranzo e cena solo quando presenti.",
-  "updatedAt": "2026-10-15T07:45:36.213969063Z",
+  "summary": "Piano architetturale per la corretta attribuzione del richiedente nelle prenotazioni ambienti (Chiesa/Cappella e Sala TV), introducendo il selettore residenti con inserimento nominativo personalizzato, memorizzazione esplicita di nome ed email del richiedente e riservatezza dei dati.",
+  "updatedAt": "2026-10-16T10:48:38.511144633Z",
   "requestFeedback": true,
   "userFacing": true
 }

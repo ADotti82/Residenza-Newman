@@ -7,15 +7,71 @@
  * ============================================================================
  */
 
-// Costanti di Configurazione e Chiavi Storage
-const STORAGE_KEYS = {
-  USER: "newman_user_data",
-  BACKEND_URL: "newman_gas_backend_url",
-  LOCAL_DB: "newman_local_mock_db",
-  BYPASS_TIME_LOCK: "newman_bypass_time_lock"
-};
-// URL predefinito del Backend Google Apps Script per tutti i residenti
-const DEFAULT_GAS_URL = "https://script.google.com/macros/s/AKfycbys9aPfUH6PXGCmHPDWset6pgvwG1kmxUlDFv3Yaiq8uAfp_2uiswm7DNd8_tQqDHHxVg/exec";
+import {
+  STORAGE_KEYS,
+  DEFAULT_GAS_URL,
+  MENU_ANCHOR_DATE,
+  CLASSICI_BUSTA,
+  DEFAULT_MENU_14_GIORNI,
+  INITIAL_MOCK_DB
+} from "./src/core/config.js";
+import {
+  formatYMD,
+  capitalize,
+  escapeHtml,
+  formattaDataConfronto,
+  formattaDataItaliana,
+  calcolaNottiSoggiorno,
+  getNomeCamera
+} from "./src/core/utils.js";
+import { mostraToast } from "./src/core/toast.js";
+import {
+  mostraModaleIstantanea,
+  chiudiModale,
+  gestisciClickBackdrop,
+  chiudiTutteLeModali
+} from "./src/core/modal.js";
+import { calcolaProssimiGiorniCucina, filtraListaPresenzeCucina, toggleCucinaSpuntato } from "./src/modules/cucina/cucina.service.js";
+import { calcolaStatoDisponibilitaCamere, filtraRichiesteAccoglienza, validaDateSoggiorno } from "./src/modules/accoglienza/accoglienza.service.js";
+import { generaSlotOrari, filtraSlotPerFascia, getBloccoComunitarioChiesa, trovaPrenotazioneSlot } from "./src/modules/spazi/spazi.service.js";
+import { filtraTicketManutenzione, calcolaStatisticheManutenzione, processImageResize } from "./src/modules/manutenzione/manutenzione.service.js";
+import { filtraAvvisiBacheca, ordinaAvvisiBacheca, analizzaCSVEventi } from "./src/modules/bacheca/bacheca.service.js";
+import { calcolaTotalePendentiMaster, getDestinatariNotifiche } from "./src/modules/master/master.service.js";
+
+// Esposizione su window per retrocompatibilità con handler inline onclick in index.html
+window.formatYMD = formatYMD;
+window.capitalize = capitalize;
+window.escapeHtml = escapeHtml;
+window.formattaDataConfronto = formattaDataConfronto;
+window.formattaDataItaliana = formattaDataItaliana;
+window.calcolaNottiSoggiorno = calcolaNottiSoggiorno;
+window.getNomeCamera = getNomeCamera;
+window.mostraToast = mostraToast;
+window.mostraModaleIstantanea = mostraModaleIstantanea;
+window.chiudiModale = chiudiModale;
+window.gestisciClickBackdrop = gestisciClickBackdrop;
+window.chiudiTutteLeModali = chiudiTutteLeModali;
+window.STORAGE_KEYS = STORAGE_KEYS;
+window.DEFAULT_GAS_URL = DEFAULT_GAS_URL;
+window.calcolaProssimiGiorniCucina = calcolaProssimiGiorniCucina;
+window.filtraListaPresenzeCucina = filtraListaPresenzeCucina;
+window.toggleCucinaSpuntato = toggleCucinaSpuntato;
+window.calcolaStatoDisponibilitaCamere = calcolaStatoDisponibilitaCamere;
+window.filtraRichiesteAccoglienza = filtraRichiesteAccoglienza;
+window.validaDateSoggiorno = validaDateSoggiorno;
+window.generaSlotOrari = generaSlotOrari;
+window.filtraSlotPerFascia = filtraSlotPerFascia;
+window.getBloccoComunitarioChiesa = getBloccoComunitarioChiesa;
+window.trovaPrenotazioneSlot = trovaPrenotazioneSlot;
+window.filtraTicketManutenzione = filtraTicketManutenzione;
+window.calcolaStatisticheManutenzione = calcolaStatisticheManutenzione;
+window.processImageResize = processImageResize;
+window.filtraAvvisiBacheca = filtraAvvisiBacheca;
+window.ordinaAvvisiBacheca = ordinaAvvisiBacheca;
+window.analizzaCSVEventi = analizzaCSVEventi;
+window.calcolaTotalePendentiMaster = calcolaTotalePendentiMaster;
+window.getDestinatariNotifiche = getDestinatariNotifiche;
+
 // Bindings globali immediati per gli eventi inline HTML onclick
 window.mostraModalAuth = function(mostra) {
   const modal = document.getElementById("modal-auth");
@@ -87,80 +143,7 @@ window.switchTab = function(tabId) {
   }
 };
 
-// Data di ancoraggio per la Settimana 1 del Menu: Lunedì 21 Settembre 2026
-const MENU_ANCHOR_DATE = new Date("2026-09-21T00:00:00");
 
-// Componenti standard della Busta
-const CLASSICI_BUSTA = [
-  { icon: "🥖", nome: "Panino o Focaccia imbottita", desc: "Farcito con salumi o formaggi" },
-  { icon: "🍎", nome: "Frutta fresca di stagione", desc: "Mela, banana o frutto del giorno (o succo)" },
-  { icon: "🍪", nome: "Snack / Dolce", desc: "Biscotti o merendina confezionata" },
-  { icon: "💧", nome: "Acqua minerale", desc: "Bottiglietta da 50 cl" }
-];
-
-// Menu ciclico di 14 giorni
-const DEFAULT_MENU_14_GIORNI = {
-  settimana1: {
-    lunedi: {
-      pranzo: { primo: "Paella di carne alla Valenciana", secondo: "Saltimbocca alla Romana", contorno: "Insalata di cetrioli, pomodori e cipolla", contorno2: "Spinaci", dessert: "Frutta fresca" },
-      cena: { primo: "Spaghetti alle vongole", secondo: "Scaloppine di Tacchino", contorno: "Fagioli", contorno2: "Insalata mista", dessert: "Frutta fresca" }
-    },
-    martedi: {
-      pranzo: { primo: "Tortellini alla Boscaiola", secondo: "Cotolette di Pollo (panate)", contorno: "Finocchi Julienne al Forno", contorno2: "Insalata mista", dessert: "Frutta fresca", opzioneBustaDisponibile: true },
-      cena: { primo: "Linguine al profumo di mare", secondo: "Salmone al Forno", contorno: "Piselli all'olio", contorno2: "Insalata mista", dessert: "Frutta fresca" }
-    },
-    mercoledi: {
-      pranzo: { primo: "Paccheri al salmone e pomodorini", secondo: "Cotoletta alla milanese", contorno: "Zucchine ripassate", contorno2: "Insalata mista", dessert: "Frutta fresca" },
-      cena: { primo: "Risotto al radicchio", secondo: "Straccetti con rucola", contorno: "Insalata di pomodori e cetrioli", contorno2: "Patate gratinate", dessert: "Frutta fresca" }
-    },
-    giovedi: {
-      pranzo: { primo: "Pasta cacio e pepe", secondo: "Insalata di pollo saporita", contorno: "Carote Julienne ripassate", contorno2: "Insalata mista", dessert: "Frutta fresca", opzioneBustaDisponibile: true },
-      cena: { primo: "Pasta allo zafferano e gorgonzola", secondo: "Sovracoscia di Tacchino", contorno: "Patatine fritte", contorno2: "Insalata mista", dessert: "Frutta fresca" }
-    },
-    venerdi: {
-      pranzo: { primo: "Risotto alla Marinara", secondo: "Frittura di Calamari", contorno: "Melanzane al Forno", contorno2: "Insalata mista", dessert: "Frutta fresca" },
-      cena: { primo: "Paccheri al sugo di calamari", secondo: "Pesce Spada grigliato con pomodori e olive", contorno: "Carciofi ripassati", contorno2: "Insalata mista", dessert: "Frutta fresca" }
-    },
-    sabato: {
-      pranzo: { primo: "Pasta al ragù di carne", secondo: "Straccetti con rucola", contorno: "Zucchine ripassate", contorno2: "Insalata mista", dessert: "Frutta fresca" },
-      cena: { primo: "Supplì e arancini", secondo: "Insalata di patate tonnate con uova sode", contorno: "Finocchi Julienne", contorno2: "Insalata mista", dessert: "Dolce della casa" }
-    },
-    domenica: {
-      pranzo: { primo: "Fettuccine alla papalina", secondo: "Bistecca di manzo alla griglia", contorno: "Patate al forno", contorno2: "Insalata mista", dessert: "Dolce festivo" },
-      cena: { primo: "Spaghetti aglio olio e peperoncino", secondo: "Pollo tonnato", contorno: "Pomodori rossi", contorno2: "Carote", dessert: "Frutta fresca" }
-    }
-  },
-  settimana2: {
-    lunedi: {
-      pranzo: { primo: "Ravioli Burro e Salvia", secondo: "Polpette di Carne fatte in casa", contorno: "Fagiolini", contorno2: "Insalata mista", dessert: "Frutta fresca" },
-      cena: { primo: "Pasta al pesto", secondo: "Gamberoni in Padella", contorno: "Pomodori e basilico all'olio", contorno2: "Biete", dessert: "Frutta fresca" }
-    },
-    martedi: {
-      pranzo: { primo: "Spaghetti allo scoglio", secondo: "Polpo con patate", contorno: "Carciofi", contorno2: "Insalata mista", dessert: "Frutta fresca", opzioneBustaDisponibile: true },
-      cena: { primo: "Spaghetti alle Cozze", secondo: "Salmone gratinato", contorno: "Carote Prezzemolate", contorno2: "Insalata mista", dessert: "Frutta fresca" }
-    },
-    mercoledi: {
-      pranzo: { primo: "Parmigiana al ragù", secondo: "Saltimbocca alla Romana", contorno: "Melanzane", contorno2: "Insalata mista", dessert: "Frutta fresca" },
-      cena: { primo: "Risotto Asparagi e Speck", secondo: "Arrosto", contorno: "Fagioli", contorno2: "Insalata mista", dessert: "Frutta fresca" }
-    },
-    giovedi: {
-      pranzo: { primo: "Pasta alle Vongole", secondo: "Pollo sovracoscia o cosce di pollo", contorno: "Pomodori rossi", contorno2: "Patate lesse", dessert: "Frutta fresca", opzioneBustaDisponibile: true },
-      cena: { primo: "Linguine al pomodoro fresco di stagione", secondo: "Straccetti con rucola", contorno: "Tris di Verdure estive", contorno2: "Insalata mista", dessert: "Frutta fresca" }
-    },
-    venerdi: {
-      pranzo: { primo: "Riso alla cantonese", secondo: "Spigola al forno", contorno: "Bieta ripassata", contorno2: "Insalata mista", dessert: "Frutta fresca" },
-      cena: { primo: "Farfalle al Salmone", secondo: "Branzino al cartoccio", contorno: "Insalata di cetrioli pomodori e cipolla", contorno2: "Melanzane gratinate o al forno con mozzarella", dessert: "Frutta fresca" }
-    },
-    sabato: {
-      pranzo: { primo: "Pasta alla Carbonara", secondo: "Arista di maiale", contorno: "Tris di verdure estive", contorno2: "Insalata mista", dessert: "Frutta fresca" },
-      cena: { primo: "Torta salata", secondo: "Insalata di tonno", contorno: "Insalata di carote", contorno2: "Insalata mista", dessert: "Dolce della casa" }
-    },
-    domenica: {
-      pranzo: { primo: "Cannelloni di carne al forno", secondo: "Pollo arrosto o petto di pollo alla norma", contorno: "Patate caramellate", contorno2: "Insalata mista", dessert: "Dolce festivo" },
-      cena: { primo: "Tagliatelle paglia e fieno", secondo: "Braciole di maiale", contorno: "Pomodori rossi", contorno2: "Finocchi al forno", dessert: "Frutta fresca" }
-    }
-  }
-};
 
 // Istanza attiva del Menu 14 giorni
 let MENU_14_GIORNI = JSON.parse(JSON.stringify(DEFAULT_MENU_14_GIORNI));
@@ -208,154 +191,9 @@ function applicaMenuBaseDaGoogleSheets(menuBase) {
   });
 }
 
-// Database Mock Locale iniziale
-const INITIAL_MOCK_DB = {
-  utenti: [
-    { email: "donandreadotti@gmail.com", nome: "Don Andrea Dotti", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: true, perm_spazi: true, perm_admin: true, notif_manutenzione: true, notif_spazi: true, notif_push: true, password: "newman2026" },
-    { email: "donrocco@newman.it", nome: "Don Rocco", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: false, perm_admin: false, notif_manutenzione: false, notif_spazi: false, notif_push: false, password: "newman2026" },
-    { email: "donsergio@newman.it", nome: "Don Sergio", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: false, perm_admin: false, notif_manutenzione: false, notif_spazi: false, notif_push: false, password: "newman2026" },
-    { email: "francesco.studente@newman.it", nome: "Francesco Rossi", stato: "Approvato", is_utente_mensa: true, perm_mensa: true, perm_manutenzione: false, perm_spazi: false, perm_admin: false, notif_manutenzione: false, notif_spazi: false, notif_push: false, password: "newman2026" }
-  ],
-  mensa: [
-    { id: "M_001", data: "2026-09-15", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Busta asporto per convegno", timestamp: "2026-09-14T18:00:00Z" },
-    { id: "M_002", data: "2026-09-15", email: "donsergio@newman.it", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 1, stato_presenza: "Presente", note: "Busta per me e collega", timestamp: "2026-09-14T19:00:00Z" },
-    { id: "M_003", data: "2026-09-16", email: "donrocco@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Piatto standard", timestamp: "2026-09-16T09:00:00Z" },
-    { id: "M_004", data: "2026-09-16", email: "donandreadotti@gmail.com", tipo_pasto: "pranzo", busta: false, ritardo: true, ospiti: 0, stato_presenza: "Ritardo", note: "Arrivo alle 13:45 causa lezioni", timestamp: "2026-09-16T09:30:00Z" },
-    { id: "M_005", data: "2026-09-16", email: "francesco.studente@newman.it", tipo_pasto: "cena", busta: false, ritardo: false, ospiti: 2, stato_presenza: "Presente", note: "Ospiti familiari a cena", timestamp: "2026-09-16T14:00:00Z" },
-    { id: "M_006", data: "2026-09-17", email: "donsergio@newman.it", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Busta per rientro tardivo", timestamp: "2026-09-16T18:00:00Z" },
-    { id: "M_007", data: "2026-09-18", email: "donrocco@newman.it", tipo_pasto: "cena", busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Cena fuori per impegno pastorale", timestamp: "2026-09-18T10:00:00Z" },
-    { id: "M_008", data: "2026-09-22", email: "francesco.studente@newman.it", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Busta pranzo martedì", timestamp: "2026-09-21T16:00:00Z" },
-    { id: "M_009", data: "2026-09-24", email: "donandreadotti@gmail.com", tipo_pasto: "pranzo", busta: true, ritardo: false, ospiti: 0, stato_presenza: "Presente", note: "Busta pranzo giovedì", timestamp: "2026-09-23T15:00:00Z" },
-    { id: "M_010", data: "2026-09-25", email: "donsergio@newman.it", tipo_pasto: "cena", busta: false, ritardo: true, ospiti: 1, stato_presenza: "Presente", note: "Ritardo con ospite", timestamp: "2026-09-25T14:00:00Z" },
-    { id: "M_011", data: "2026-10-08", email: "francesco.studente@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Assenza programmata: Studio / Esami", timestamp: "2026-10-07T14:00:00Z" },
-    { id: "M_012", data: "2026-10-09", email: "donsergio@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Assenza programmata: Ministero pastorale", timestamp: "2026-10-06T10:00:00Z" },
-    { id: "M_013", data: "2026-10-09", email: "donsergio@newman.it", tipo_pasto: "cena", busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Assenza programmata: Ministero pastorale", timestamp: "2026-10-06T10:00:00Z" },
-    { id: "M_014", data: "2026-10-10", email: "donsergio@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Assenza programmata: Ministero pastorale", timestamp: "2026-10-06T10:00:00Z" },
-    { id: "M_015", data: "2026-10-10", email: "donsergio@newman.it", tipo_pasto: "cena", busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Assenza programmata: Ministero pastorale", timestamp: "2026-10-06T10:00:00Z" },
-    { id: "M_016", data: "2026-10-11", email: "donsergio@newman.it", tipo_pasto: "pranzo", busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Assenza programmata: Ministero pastorale", timestamp: "2026-10-06T10:00:00Z" },
-    { id: "M_017", data: "2026-10-11", email: "donsergio@newman.it", tipo_pasto: "cena", busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Assenza programmata: Ministero pastorale", timestamp: "2026-10-06T10:00:00Z" }
-  ],
-  assenze: [
-    {
-      id: "ASS_001",
-      email: "francesco.studente@newman.it",
-      nome: "Francesco Rossi",
-      data_inizio: "2026-10-08",
-      data_fine: "2026-10-08",
-      motivo: "Studio / Esami",
-      note: "Sessione esami all'università per l'intera giornata",
-      assente_mensa: true,
-      pasti_interessati: ["pranzo"],
-      created_at: "2026-10-07T14:00:00Z"
-    },
-    {
-      id: "ASS_002",
-      email: "donsergio@newman.it",
-      nome: "Don Sergio",
-      data_inizio: "2026-10-09",
-      data_fine: "2026-10-11",
-      motivo: "Ministero pastorale",
-      note: "Esercizi spirituali e ministero diocesano fuori sede",
-      assente_mensa: true,
-      pasti_interessati: ["pranzo", "cena"],
-      created_at: "2026-10-06T10:00:00Z"
-    },
-    {
-      id: "ASS_003",
-      email: "donrocco@newman.it",
-      nome: "Don Rocco",
-      data_inizio: "2026-10-15",
-      data_fine: "2026-10-17",
-      motivo: "Famiglia / Ritorno a casa",
-      note: "Visita familiare e pastorale nella diocesi d'origine",
-      assente_mensa: true,
-      pasti_interessati: ["pranzo", "cena"],
-      created_at: "2026-10-05T09:00:00Z"
-    }
-  ],
-  accoglienza: [
-    {
-      id: "ACC_001", data_richiesta: "2026-09-20T10:00:00Z",
-      richiedente_email: "francesco.studente@newman.it", richiedente_nome: "Francesco Rossi",
-      nome_ospite: "Prof. Mario Rossi", data_checkin: "2026-09-25", data_checkout: "2026-09-27",
-      numero_ospiti: 1, camera_preferita: "Camera 1", camera_assegnata: "Camera 1",
-      stato: "Confermata", auth1_email: "donandreadotti@gmail.com", auth1_data: "2026-09-21T09:00:00Z",
-      auth2_email: "donandreadotti@gmail.com", auth2_data: "2026-09-22T08:30:00Z",
-      note: "Docente in visita accademica"
-    },
-    {
-      id: "ACC_002", data_richiesta: new Date().toISOString(),
-      richiedente_email: "donrocco@newman.it", richiedente_nome: "Don Rocco",
-      nome_ospite: "Mons. Giovanni Bianchi", data_checkin: "2026-10-10", data_checkout: "2026-10-12",
-      numero_ospiti: 1, camera_preferita: "Camera 2", camera_assegnata: "",
-      stato: "In Attesa 1a Autorizzazione", auth1_email: "", auth1_data: "",
-      auth2_email: "", auth2_data: "",
-      note: "Predicatore per il ritiro diocesano dei residenti"
-    }
-  ],
-  prenotazioni_spazi: [
-    { id: "S_001", risorsa: "Chiesa", data: "2026-09-16", slot_orario: "07:00 - 07:30", email: "donrocco@newman.it", timestamp: "2026-09-15T20:00:00Z", stato: "Approvata" },
-    { id: "S_002", risorsa: "Sala TV", data: "2026-09-16", slot_orario: "20:30 - 21:00", email: "donsergio@newman.it", timestamp: "2026-09-15T21:00:00Z", stato: "Approvata" },
-    { id: "S_003", risorsa: "Chiesa", data: "2026-09-16", slot_orario: "18:00 - 18:30", email: "donandreadotti@gmail.com", timestamp: "2026-09-16T08:00:00Z", stato: "Approvata" },
-    { id: "S_004", risorsa: "Chiesa", data: "2026-10-07", slot_orario: "08:30 - 09:00", email: "donrocco@newman.it", timestamp: new Date().toISOString(), stato: "In Attesa", approvato_da: "", note: "S. Messa con familiari in visita" },
-    { id: "S_005", risorsa: "Sala TV", data: "2026-10-08", slot_orario: "21:30 - 22:00", email: "francesco.studente@newman.it", timestamp: new Date().toISOString(), stato: "In Attesa", approvato_da: "", note: "Gruppo di studio per esame universitario" }
-  ],
-  bacheca: [
-    { id: "B_001", tipo: "compleanno", data: "2026-09-16", titolo: "Buon Compleanno Don Andrea Dotti!", descrizione: "La comunità della Residenza si unisce in preghiera e festa per il compleanno del nostro Padre Direttore!", autore: "Direzione", priorita: "alta", timestamp: "2026-09-16T06:00:00Z" },
-    { id: "B_002", tipo: "anniversario", data: "2026-09-16", titolo: "Anniversario di Ordinazione Presbiterale", descrizione: "15° anniversario sacerdotale di Don Rocco. Ricordiamolo con gratitudine nella S. Messa comunitaria.", autore: "Comunità", priorita: "normale", timestamp: "2026-09-16T06:30:00Z" },
-    { id: "B_003", tipo: "evento", data: "2026-09-16", titolo: "Proiezione Partita & Serata Fraterna in Sala TV", descrizione: "Stasera dalle ore 20:45 visione comunitaria in Sala TV con tisane e biscotti per tutti i residenti.", autore: "Comitato Residenti", priorita: "normale", timestamp: "2026-09-16T08:00:00Z" },
-    { id: "B_004", tipo: "avviso", data: "2026-09-17", titolo: "Ritiro Spirituale di Inizio Anno Accademico", descrizione: "Sabato mattina momento di meditazione e adorazione in Cappella guidato dal Padre Spirituale, seguito da pranzo insieme.", autore: "Direzione", priorita: "alta", timestamp: "2026-09-15T10:00:00Z" }
-  ],
-  manutenzione: [
-    { id: "SEG_001", timestamp: "2026-09-14T11:20:00Z", email: "donrocco@newman.it", categoria: "manutenzione", luogo: "Bagno Piano 2", descrizione: "Perdita d'acqua dal rubinetto del lavabo al piano 2", link_foto: "", priorita: "Alta", stato: "In Lavorazione", note_intervento: "Contattato idraulico convenzionato per sostituzione guarnizione", tecnico: "Idraulico Mario", data_chiusura: "" },
-    { id: "SEG_002", timestamp: "2026-09-12T16:00:00Z", email: "donandreadotti@gmail.com", categoria: "servizi", luogo: "Lavanderia Comune", descrizione: "Mancanza detersivi e richiesta sanificazione cestelli lavatrice 2", link_foto: "", priorita: "Media", stato: "Risolto", note_intervento: "Riforniti flaconi detersivo e igienizzati i cestelli dalla cooperativa", tecnico: "Impresa Pulizie", data_chiusura: "2026-09-13T10:00:00Z" },
-    { id: "SEG_003", timestamp: "2026-09-18T09:15:00Z", email: "donsergio@newman.it", categoria: "manutenzione", luogo: "Camera 204", descrizione: "Sfarfallio lampadario principale e presa elettrica allentata", link_foto: "", priorita: "Media", stato: "Risolto", note_intervento: "Sostituito alimentatore LED e fissata presa", tecnico: "Elettricista Luigi", data_chiusura: "2026-09-19T14:30:00Z" },
-    { id: "SEG_004", timestamp: "2026-09-22T14:00:00Z", email: "francesco.studente@newman.it", categoria: "manutenzione", luogo: "Stanza 108", descrizione: "Condizionatore emette aria poco fredda e rumore anomalo della ventola", link_foto: "", priorita: "Alta", stato: "In Lavorazione", note_intervento: "In attesa pezzo di ricambio ventola split", tecnico: "Ditta ClimaTech", data_chiusura: "" },
-    { id: "SEG_005", timestamp: "2026-09-24T18:40:00Z", email: "donrocco@newman.it", categoria: "servizi", luogo: "Corridoio Piano 1", descrizione: "Richiesta passaggio aspirapolvere e pulizia approfondita vetrate", link_foto: "", priorita: "Bassa", stato: "Aperta", note_intervento: "", tecnico: "", data_chiusura: "" },
-    { id: "SEG_006", timestamp: "2026-09-27T10:05:00Z", email: "donandreadotti@gmail.com", categoria: "manutenzione", luogo: "Chiesa / Cappella", descrizione: "Maniglia della porta laterale dissaldata e chiusura difficoltosa", link_foto: "", priorita: "Media", stato: "Aperta", note_intervento: "Da concordare sopralluogo fabbro/falegname", tecnico: "", data_chiusura: "" },
-    { id: "SEG_007", timestamp: "2026-09-28T08:30:00Z", email: "donsergio@newman.it", categoria: "manutenzione", luogo: "Cucina Comunitaria", descrizione: "Gocciolamento sifone sotto il lavello principale", link_foto: "", priorita: "Alta", stato: "Risolto", note_intervento: "Sostituito manicotto di scarico e serrato raccordo", tecnico: "Idraulico Mario", data_chiusura: "2026-09-28T16:00:00Z" }
-  ],
-  configurazione: {
-    Messaggio_Supermaster: "Cari sacerdoti e residenti, benvenuti nella nostra Residenza. Ricordo a tutti che gli orari di mensa vanno rispettati per agevolare il servizio della cuoca. Per qualsiasi esigenza pastorale o accademica la porta della Direzione è sempre aperta.",
-    Messaggio_Supermaster_Titolo: "Comunicazione della Direzione",
-    Messaggio_Supermaster_Data_Pubblicazione: "2026-10-01",
-    Messaggio_Supermaster_Data_Scadenza: "",
-    Data_Variazione_Menu: "2026-09-16",
-    Testo_Variazione: "Oggi a pranzo dessert sostituito con Gelato artigianale offerto dalla Direzione per la festa della Residenza!",
-    Pasto_Variazione: "pranzo",
-    Nome_Camera_1: "Camera Newman",
-    Nome_Camera_2: "Camera San Filippo Neri",
-    Nome_Camera_3: "Camera Santa Teresa",
-    Max_Ospiti_Mensa: "5",
-    Orario_Limite_Pranzo: "09:00",
-    Orario_Limite_Cena: "14:30",
-    Orario_Limite_Busta: "14:00",
-    Email_Notifiche_Master: "donandreadotti@gmail.com",
-    Email_Mittente_Segnalazioni: "donandreadotti@gmail.com",
-    Email_Amministrazione_Manutenzione: "amministrazione@residenzanewman.org",
-    Info_Regolamento: `REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN
-1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità sacerdotale e accademica è alla base della nostra convivenza.
-2. ORARI DI SILENZIO: Dalle ore 23:00 alle ore 07:30 del mattino è richiesto il silenzio nei corridoi e negli spazi comuni per favorire il riposo e la preghiera.
-3. MENSA COMUNITARIA:
-   • Pranzo alle 14:30.
-   • Cena alle 19:30.
-   • Martedì e Giovedì a pranzo: pasto, frutta e snack/dolce, acqua e succo.
-4. PRENOTAZIONE DEGLI SPAZI COMUNI:
-   • Gli unici spazi soggetti a richiesta di prenotazione sono la Chiesa / Cappella e la Sala TV.
-   • Gli slot sono di 30 minuti ciascuno. Ogni prenotazione costituisce una richiesta soggetta ad autorizzazione del Master.
-   • Riservatezza: l'utente visualizza le proprie richieste; il Master visualizza l'occupante; tutti gli altri residenti vedono lo slot come 'Occupato' o 'In Valutazione'.
-5. ACCOGLIENZA E OSPITALITÀ:
-   • La disponibilità delle 3 camere dedicate è gestita tramite procedura a doppia autorizzazione.
-6. MANUTENZIONE E CURA DEI LOCALI:
-   • Qualsiasi guasto o anomalia in camera o nelle aree comuni va tempestivamente registrato nell'apposita sezione Guasti.`,
-    Info_Contatti: `CONTATTI E RECAPITI DELLA RESIDENZA:
-• Portineria / Accoglienza: Tel. +39 06 87654321 (Int. 101) - Attiva 07:00 - 22:30
-• Direzione Generale: direzione@residenzanewman.org (Int. 102)
-• Emergenze Notturne Custode: +39 333 1122334
-• Economato & Servizio Mensa: mensa@residenzanewman.org
-• Assistenza Tecnica Manutenzione: manutenzione@residenzanewman.org`
-  }
-};
+// Esposizione INITIAL_MOCK_DB su window
+window.INITIAL_MOCK_DB = INITIAL_MOCK_DB;
+
 
 /**
  * Stato Globale dell'Applicazione nel Frontend
@@ -579,48 +417,6 @@ async function callApi(action, params = {}) {
   }
 }
 
-function formattaDataConfronto(val) {
-  if (!val) return "";
-  if (val instanceof Date) return formatYMD(val);
-  const s = String(val).trim();
-  if (s.includes("T")) {
-    if (s.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(s)) {
-      const d = new Date(s);
-      if (!isNaN(d.getTime())) return formatYMD(d);
-    }
-    return s.split("T")[0];
-  }
-  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s;
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) return formatYMD(d);
-  return s;
-}
-
-function formattaDataItaliana(val) {
-  if (!val) return "";
-  if (val instanceof Date) {
-    const gg = String(val.getDate()).padStart(2, "0");
-    const mm = String(val.getMonth() + 1).padStart(2, "0");
-    const aaaa = val.getFullYear();
-    return `${gg}-${mm}-${aaaa}`;
-  }
-  const s = String(val).trim();
-  if (!s) return "";
-  if (/^\d{2}-\d{2}-\d{4}$/.test(s)) return s;
-  if (/^\d{2}\/\d{2}\/\d{4}$/.test(s)) return s.replace(/\//g, "-");
-  const part = s.includes("T") ? s.split("T")[0] : s.split(" ")[0];
-  const m = part.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  const d = new Date(s);
-  if (!isNaN(d.getTime())) {
-    const gg = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const aaaa = d.getFullYear();
-    return `${gg}-${mm}-${aaaa}`;
-  }
-  return s;
-}
-window.formattaDataItaliana = formattaDataItaliana;
 
 function mockBackendExecution(action, params) {
   const db = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || JSON.stringify(INITIAL_MOCK_DB));
@@ -718,7 +514,7 @@ function mockBackendExecution(action, params) {
     }
 
     case "prenotaSpazio": {
-      const { risorsa, data, slot_orario, email, note, autoApprovaMaster } = params;
+      const { risorsa, data, slot_orario, email, nome, richiesto_da, note, autoApprovaMaster } = params;
       const dataStr = formattaDataConfronto(data);
       const isMasterAction = Boolean(autoApprovaMaster) || String(email || "").startsWith("Master");
 
@@ -744,10 +540,12 @@ function mockBackendExecution(action, params) {
         data: dataStr,
         slot_orario,
         email,
+        nome: (nome || "").trim() || (email ? email.split("@")[0] : ""),
+        richiesto_da: (richiesto_da || "").trim(),
         note: (note || "").trim(),
         timestamp: new Date().toISOString(),
         stato: stato,
-        approvato_da: (stato === "Approvata" ? (appState.user?.email || email || "Master") : "")
+        approvato_da: (stato === "Approvata" ? (richiesto_da || appState.user?.email || email || "Master") : "")
       };
       if (!db.prenotazioni_spazi) db.prenotazioni_spazi = [];
       db.prenotazioni_spazi.push(prenotazione);
@@ -3646,12 +3444,13 @@ function renderSpaziView() {
           <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 10px;">
             ${inAttesaSpaziList.map(p => {
               const resIcon = p.risorsa === 'Chiesa' ? '⛪' : '📺';
-              const nomeRichiedente = trovaNomeUtente(p.email);
+              const nomeRichiedente = p.nome || trovaNomeUtente(p.email);
+              const compilatoInfo = (p.richiesto_da && p.richiesto_da !== nomeRichiedente) ? ` • <span style="color: #64748b; font-size: 11px;">(Compilato da: ${escapeHtml(p.richiesto_da)})</span>` : '';
               return `
                 <div style="background: #ffffff; border: 1px solid #fde68a; border-radius: 6px; padding: 10px 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
                   <div>
                     <div style="font-size: 13.5px; font-weight: 700; color: #0f172a;">${resIcon} ${escapeHtml(p.risorsa)} · 📅 ${String(p.data).split('T')[0]} · ⏰ ${escapeHtml(p.slot_orario)}</div>
-                    <div class="text-xs text-muted" style="margin-top: 2px;">Richiedente: <strong>${escapeHtml(nomeRichiedente)}</strong> (<code style="font-size: 11px;">${escapeHtml(p.email)}</code>)${p.note ? ` • Motivo: <em style="color: #1e293b;">${escapeHtml(p.note)}</em>` : ''}</div>
+                    <div class="text-xs text-muted" style="margin-top: 2px;">Richiedente: <strong>${escapeHtml(nomeRichiedente)}</strong> (<code style="font-size: 11px;">${escapeHtml(p.email)}</code>)${compilatoInfo}${p.note ? ` • Motivo: <em style="color: #1e293b;">${escapeHtml(p.note)}</em>` : ''}</div>
                   </div>
                   <div style="display: flex; gap: 6px; align-items: center;">
                     <button type="button" class="btn btn-sm btn-success" onclick="approvaRichiestaSpazio('${p.id}')" style="font-size: 12px; font-weight: 700; padding: 5px 12px; background: #16a34a; color: #fff; border: none; border-radius: 4px; display: flex; align-items: center; gap: 4px;">
@@ -3779,31 +3578,8 @@ function isGiornoLiturgiaComunitaria(dataInput) {
 }
 window.isGiornoLiturgiaComunitaria = isGiornoLiturgiaComunitaria;
 
-function getBloccoComunitarioChiesa(slot, dataYmd) {
-  if (!slot) return null;
-  // Blocco Santa Messa comunitaria ogni mattina (06:30 - 07:30: due slot 06:30-07:00 e 07:00-07:30)
-  if (slot === "06:30 - 07:00" || slot === "07:00 - 07:30" || slot === "06:30 - 07:30") {
-    return {
-      titolo: "Santa Messa Comunitaria",
-      icona: "⛪",
-      dettaglio: "Messa comunitaria del mattino (06:30 - 07:30)",
-      badge: "⛪ S. Messa Mattutina",
-      bloccato: true
-    };
-  }
-  // Blocco Santa Messa comunitaria serale (19:00 - 19:30)
-  if (slot === "19:00 - 19:30") {
-    return {
-      titolo: "Santa Messa Comunitaria (Sera)",
-      icona: "⛪",
-      dettaglio: "Messa comunitaria della sera (19:00 - 19:30)",
-      badge: "⛪ S. Messa Serale",
-      bloccato: true
-    };
-  }
-  return null;
-}
-window.getBloccoComunitarioChiesa = getBloccoComunitarioChiesa;
+// getBloccoComunitarioChiesa e filtraSlotPerFascia importati da src/modules/spazi/spazi.service.js
+
 
 function getTuttiSlotOrari30Min(risorsa, dataStr) {
   const slots = [];
@@ -3826,16 +3602,8 @@ function getTuttiSlotOrari30Min(risorsa, dataStr) {
 }
 window.getTuttiSlotOrari30Min = getTuttiSlotOrari30Min;
 
-function filtraSlotPerFascia(slot, fascia) {
-  if (fascia === "tutti") return true;
-  const startPart = slot.split(" - ")[0];
-  const [h, m] = startPart.split(":").map(Number);
-  const timeVal = h * 60 + m;
-  if (fascia === "mattina") return timeVal >= 390 && timeVal < 750;
-  if (fascia === "pomeriggio") return timeVal >= 750 && timeVal < 1110;
-  if (fascia === "sera") return timeVal >= 1110;
-  return true;
-}
+
+
 
 function renderSlotSpazi() {
   const grid = document.getElementById("slots-grid-container");
@@ -3888,24 +3656,26 @@ function renderSlotSpazi() {
     const prenEmail = pren ? String(pren.email).toLowerCase() : "";
     const isMio = isOccupato && currentUserEmail && (prenEmail === currentUserEmail);
     const isPending = isOccupato && (pren.stato === "In Attesa");
+    const nomeRichiedente = pren ? (pren.nome || trovaNomeUtente(pren.email)) : "";
 
     if (!isOccupato) {
       disponibiliFascia++;
       html += `<div class="slot-card-v2 slot-available" onclick="prenotaSlotDiretto('${slot}')" title="Clicca per richiedere questo slot"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">🟢 Disponibile</span></div>`;
     } else if (isMio) {
       if (isPending) {
-        html += `<div class="slot-card-v2 slot-mine" style="border-left: 4px solid #f59e0b; background: #fffbeb;"><div class="slot-time-text">${slot}</div><span class="slot-status-pill" style="background: #fef3c7; color: #92400e;">⏳ In Attesa Master</span><button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', false)">Annulla Richiesta</button></div>`;
+        html += `<div class="slot-card-v2 slot-mine" style="border-left: 4px solid #f59e0b; background: #fffbeb;"><div class="slot-time-text">${slot}</div><span class="slot-status-pill" style="background: #fef3c7; color: #92400e;">⏳ In Attesa Master</span><div style="font-size: 11px; font-weight: 700; color: #92400e; margin-top: 3px;">Richiedente: ${escapeHtml(nomeRichiedente)}</div><button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', false)">Annulla Richiesta</button></div>`;
       } else {
-        html += `<div class="slot-card-v2 slot-mine"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">⭐ La tua prenotazione</span><button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', false)">Annulla</button></div>`;
+        html += `<div class="slot-card-v2 slot-mine"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">⭐ ${escapeHtml(nomeRichiedente)}</span><button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', false)">Annulla</button></div>`;
       }
     } else if (isMasterSpazi) {
+      const compilatoSub = (pren.richiesto_da && pren.richiesto_da !== nomeRichiedente) ? `<div style="font-size: 10.5px; color: #64748b; margin-top: 2px;">(compilato da: ${escapeHtml(pren.richiesto_da)})</div>` : "";
       if (isPending) {
-        html += `<div class="slot-card-v2" style="border-left: 4px solid #f59e0b; background: #fffbeb;"><div class="slot-time-text">${slot}</div><span class="slot-status-pill" style="background: #fde68a; color: #78350f; font-weight: 700;">⏳ Da: ${escapeHtml(pren.email.split('@')[0])}</span><div style="display: flex; gap: 4px; margin-top: 6px; width: 100%;"><button type="button" class="btn btn-sm" style="flex: 1; padding: 4px; font-size: 11px; font-weight: 700; background: #16a34a; color: #fff; border: none; border-radius: 4px;" onclick="approvaRichiestaSpazio('${pren.id}')">✓ Approva</button><button type="button" class="btn btn-sm" style="flex: 1; padding: 4px; font-size: 11px; font-weight: 700; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px;" onclick="rifiutaRichiestaSpazio('${pren.id}')">✕ Rifiuta</button></div></div>`;
+        html += `<div class="slot-card-v2" style="border-left: 4px solid #f59e0b; background: #fffbeb;"><div class="slot-time-text">${slot}</div><span class="slot-status-pill" style="background: #fde68a; color: #78350f; font-weight: 700;">⏳ ${escapeHtml(nomeRichiedente)}</span>${compilatoSub}<div style="display: flex; gap: 4px; margin-top: 6px; width: 100%;"><button type="button" class="btn btn-sm" style="flex: 1; padding: 4px; font-size: 11px; font-weight: 700; background: #16a34a; color: #fff; border: none; border-radius: 4px;" onclick="approvaRichiestaSpazio('${pren.id}')">✓ Approva</button><button type="button" class="btn btn-sm" style="flex: 1; padding: 4px; font-size: 11px; font-weight: 700; background: #fee2e2; color: #dc2626; border: 1px solid #fca5a5; border-radius: 4px;" onclick="rifiutaRichiestaSpazio('${pren.id}')">✕ Rifiuta</button></div></div>`;
       } else {
-        html += `<div class="slot-card-v2 slot-master"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">👑 ${escapeHtml(pren.email.split('@')[0])}</span><button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', true)">Libera Slot</button></div>`;
+        html += `<div class="slot-card-v2 slot-master"><div class="slot-time-text">${slot}</div><span class="slot-status-pill">👑 ${escapeHtml(nomeRichiedente)}</span>${compilatoSub}<button type="button" class="slot-cancel-btn" onclick="cancellaSlotSpazio('${pren.id || ''}', '${slot}', true)">Libera Slot</button></div>`;
       }
     } else {
-      // Chi non ha autorizzazione ambienti/spazi vede lo stato appropriato
+      // Chi non ha autorizzazione ambienti/spazi vede solo slot riservato (privacy garantita)
       const pillLabel = isPending ? '⏳ In Attesa Master' : '🔒 Occupato';
       const pillBg = isPending ? 'background: #fef3c7; color: #92400e; border: 1px solid #fde68a;' : '';
       html += `<div class="slot-card-v2 slot-occupied"><div class="slot-time-text">${slot}</div><span class="slot-status-pill" style="${pillBg}">${pillLabel}</span></div>`;
@@ -4048,30 +3818,48 @@ window.apriModalNuovaRichiestaSpazio = function(risorsaDefault, dataDefault, slo
 
   const userBlock = document.getElementById("modal-spazio-utente-blocco");
   if (userBlock) {
-    if (appState.user) {
-      userBlock.innerHTML = `
-        <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 10px 12px; font-size: 13px;">
-          <div style="color: #166534; font-weight: 600; font-size: 11.5px;">Richiedente:</div>
-          <div style="font-size: 14.5px; font-weight: 700; color: #0f172a;">${escapeHtml(appState.user.nome || appState.user.email)}</div>
-          <div style="font-size: 11.5px; color: #64748b;">${escapeHtml(appState.user.email)}</div>
-        </div>
-      `;
-    } else {
-      const utentiList = (appState.tuttiUtenti || INITIAL_MOCK_DB.utenti || []).filter(u => u.stato === "Approvato");
-      userBlock.innerHTML = `
-        <div class="form-group" style="margin-bottom: 8px;">
-          <label for="spazio-quick-resident-select" style="font-size: 12px; font-weight: 600; color: #334155;">Seleziona il tuo profilo:</label>
-          <select id="spazio-quick-resident-select" class="input-select" onchange="onSpazioResidentSelectChange()">
-            ${utentiList.map(u => `<option value="${escapeHtml(u.email)}" data-nome="${escapeHtml(u.nome)}">${escapeHtml(u.nome)} (${escapeHtml(u.email)})</option>`).join("")}
-            <option value="custom">Altro / Inserisci Dati</option>
-          </select>
-        </div>
-        <div id="spazio-custom-user-fields" style="display: none; flex-direction: column; gap: 8px;">
-          <input type="text" id="spazio-custom-nome" class="input-text" placeholder="Nome e Cognome">
-          <input type="email" id="spazio-custom-email" class="input-text" placeholder="Email residente">
-        </div>
-      `;
+    const utentiList = (appState.tuttiUtenti || INITIAL_MOCK_DB.utenti || []).filter(u => u.stato === "Approvato");
+    const activeEmail = (appState.user?.email || "").toLowerCase();
+    const activeNome = appState.user?.nome || appState.user?.email || "";
+    
+    // Controlla se l'utente attivo è presente nella lista
+    const activeInList = activeEmail && utentiList.some(u => String(u.email).toLowerCase() === activeEmail);
+    
+    let optionsHtml = "";
+    if (activeEmail && !activeInList) {
+      optionsHtml += `<option value="${escapeHtml(activeEmail)}" data-nome="${escapeHtml(activeNome)}" selected>${escapeHtml(activeNome)} (${escapeHtml(activeEmail)}) [Tu]</option>`;
     }
+    
+    optionsHtml += utentiList.map(u => {
+      const uEmail = String(u.email).toLowerCase();
+      const isSelected = (activeEmail && uEmail === activeEmail) ? "selected" : "";
+      const isYou = (activeEmail && uEmail === activeEmail) ? " [Tu]" : "";
+      return `<option value="${escapeHtml(u.email)}" data-nome="${escapeHtml(u.nome)}" ${isSelected}>${escapeHtml(u.nome)} (${escapeHtml(u.email)})${isYou}</option>`;
+    }).join("");
+    
+    optionsHtml += `<option value="custom">✍️ Altro / Inserisci Nuovo Nominativo</option>`;
+
+    userBlock.innerHTML = `
+      <div style="background: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 12px; margin-bottom: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; flex-wrap: wrap; gap: 4px;">
+          <label for="spazio-quick-resident-select" style="font-size: 12.5px; font-weight: 700; color: #1e293b; margin: 0;">👤 Richiedente della Prenotazione:</label>
+          ${activeNome ? `<span style="font-size: 11px; font-weight: 600; color: #0284c7;">Compilato da: ${escapeHtml(activeNome)}</span>` : ''}
+        </div>
+        <select id="spazio-quick-resident-select" class="input-select" onchange="onSpazioResidentSelectChange()" style="font-size: 13px; font-weight: 600; padding: 8px 10px; width: 100%; border: 1.5px solid #94a3b8; border-radius: 6px; background-color: #ffffff;">
+          ${optionsHtml}
+        </select>
+        <div id="spazio-custom-user-fields" style="display: none; flex-direction: column; gap: 8px; margin-top: 10px; padding: 10px; background: #ffffff; border: 1px dashed #94a3b8; border-radius: 6px;">
+          <div>
+            <label style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Nome e Cognome Richiedente *</label>
+            <input type="text" id="spazio-custom-nome" class="input-text" placeholder="Es. Padre Marco o Mario Rossi" style="font-size: 13px; padding: 7px 10px; width: 100%;">
+          </div>
+          <div>
+            <label style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Email o Recapito Richiedente (opzionale)</label>
+            <input type="email" id="spazio-custom-email" class="input-text" placeholder="Es. ospite@residenza.it" style="font-size: 13px; padding: 7px 10px; width: 100%;">
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   const isMasterSpazi = haPermessiMasterSpazi();
@@ -4088,7 +3876,11 @@ window.apriModalNuovaRichiestaSpazio = function(risorsaDefault, dataDefault, slo
     b.innerHTML = `✅ Conferma &amp; Invia Richiesta al Master`;
   });
 
-  modal.style.display = "flex";
+  if (typeof window.mostraModaleIstantanea === "function") {
+    window.mostraModaleIstantanea(modal);
+  } else {
+    modal.style.display = "flex";
+  }
   // Assicura che l'area scorrevole parta dall'inizio
   const scrollBody = document.getElementById("spazio-modal-scroll-body");
   if (scrollBody) scrollBody.scrollTop = 0;
@@ -4131,31 +3923,32 @@ window.eseguiPrenotazioneSpazioConfermata = async function() {
 
   let emailPrenotante = "";
   let nomePrenotante = "";
+  const selectRes = document.getElementById("spazio-quick-resident-select");
 
-  if (appState.user) {
-    emailPrenotante = appState.user.email;
-    nomePrenotante = appState.user.nome;
-  } else {
-    const sel = document.getElementById("spazio-quick-resident-select");
-    if (sel && sel.value !== "custom") {
-      emailPrenotante = sel.value;
-      const opt = sel.options[sel.selectedIndex];
-      nomePrenotante = opt ? opt.getAttribute("data-nome") : emailPrenotante;
-      appState.user = { email: emailPrenotante, nome: nomePrenotante, stato: "Approvato", perm_mensa: false, perm_manutenzione: false, perm_spazi: false, perm_admin: emailPrenotante.includes("dotti") };
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
-      aggiornaUIUtente();
-    } else {
-      nomePrenotante = (document.getElementById("spazio-custom-nome")?.value || "").trim();
-      emailPrenotante = (document.getElementById("spazio-custom-email")?.value || "").trim().toLowerCase();
-      if (!emailPrenotante || !nomePrenotante) {
-        mostraToast("Inserisci nome ed email per procedere", "warning");
-        return;
-      }
-      appState.user = { email: emailPrenotante, nome: nomePrenotante, stato: "Approvato", perm_mensa: false, perm_manutenzione: false, perm_spazi: false, perm_admin: false };
-      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
-      aggiornaUIUtente();
+  if (selectRes && selectRes.value === "custom") {
+    nomePrenotante = (document.getElementById("spazio-custom-nome")?.value || "").trim();
+    emailPrenotante = (document.getElementById("spazio-custom-email")?.value || "").trim().toLowerCase();
+    if (!nomePrenotante) {
+      mostraToast("Inserisci il nome e cognome del richiedente", "warning");
+      return;
     }
+    if (!emailPrenotante) {
+      emailPrenotante = nomePrenotante.toLowerCase().replace(/\s+/g, ".") + "@esterno.residenza";
+    }
+  } else if (selectRes) {
+    emailPrenotante = selectRes.value;
+    const opt = selectRes.options[selectRes.selectedIndex];
+    nomePrenotante = opt ? (opt.getAttribute("data-nome") || opt.textContent.split(" (")[0]) : emailPrenotante;
+  } else if (appState.user) {
+    emailPrenotante = appState.user.email;
+    nomePrenotante = appState.user.nome || appState.user.email;
+  } else {
+    mostraToast("Seleziona il richiedente della prenotazione", "warning");
+    return;
   }
+
+  // IMPORTANTE: NON mutare mai appState.user né la sessione corrente dell'utente loggato!
+  const compilatoDa = appState.user ? (appState.user.nome || appState.user.email) : nomePrenotante;
 
   const nomeRisorsa = risorsa === "Chiesa" ? "Chiesa / Cappella" : "Sala TV";
   const btns = document.querySelectorAll("#btn-conferma-spazio-azione, .btn-conferma-spazio-inline");
@@ -4173,6 +3966,8 @@ window.eseguiPrenotazioneSpazioConfermata = async function() {
       data,
       slot_orario: slot,
       email: emailPrenotante,
+      nome: nomePrenotante,
+      richiesto_da: compilatoDa,
       note,
       autoApprovaMaster: autoApprova
     });
@@ -4185,9 +3980,11 @@ window.eseguiPrenotazioneSpazioConfermata = async function() {
         data,
         slot_orario: slot,
         email: emailPrenotante,
+        nome: nomePrenotante,
+        richiesto_da: compilatoDa,
         note: note,
         stato: statoFinale,
-        approvato_da: (statoFinale === "Approvata" ? (emailPrenotante || "Master") : ""),
+        approvato_da: (statoFinale === "Approvata" ? (compilatoDa || "Master") : ""),
         timestamp: new Date().toISOString()
       };
 
@@ -4464,24 +4261,8 @@ window.rifiutaRichiestaSpazio = async function(id) {
 // ACCOGLIENZA
 // ----------------------------------------------------------------------------
 
-function getNomeCamera(camNum) {
-  const cfg = appState.cachedConfig || {};
-  if (camNum === 1 || camNum === "1" || camNum === "Camera 1") return cfg.Nome_Camera_1 || "Camera Newman";
-  if (camNum === 2 || camNum === "2" || camNum === "Camera 2") return cfg.Nome_Camera_2 || "Camera San Filippo Neri";
-  if (camNum === 3 || camNum === "3" || camNum === "Camera 3") return cfg.Nome_Camera_3 || "Camera Santa Teresa";
-  return cfg[`Nome_Camera_${camNum}`] || `Camera ${camNum}`;
-}
-
 function getTutteCamereNomi() { return [getNomeCamera(1), getNomeCamera(2), getNomeCamera(3)]; }
 
-function calcolaNottiSoggiorno(checkinStr, checkoutStr) {
-  if (!checkinStr || !checkoutStr) return 1;
-  const d1 = new Date(checkinStr + "T00:00:00");
-  const d2 = new Date(checkoutStr + "T00:00:00");
-  if (isNaN(d1.getTime()) || isNaN(d2.getTime())) return 1;
-  const diffDays = Math.round((d2.getTime() - d1.getTime()) / (1000 * 60 * 60 * 24));
-  return Math.max(1, diffDays);
-}
 
 function renderAccoglienzaView() {
   const container = document.getElementById("accoglienza-container");
@@ -4876,30 +4657,8 @@ window.handleSalvaConfigurazioneCamere = handleSalvaConfigurazioneCamere;
 // MANUTENZIONE
 // ----------------------------------------------------------------------------
 
-function processImageResize(file) {
-  return new Promise((resolve, reject) => {
-    if (!file || !file.type.startsWith("image/")) { reject(new Error("File non è un'immagine valida.")); return; }
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const MAX_DIM = 800;
-        let width = img.width, height = img.height;
-        if (width > height) { if (width > MAX_DIM) { height = Math.round((height * MAX_DIM) / width); width = MAX_DIM; } }
-        else { if (height > MAX_DIM) { width = Math.round((width * MAX_DIM) / height); height = MAX_DIM; } }
-        const canvas = document.createElement("canvas");
-        canvas.width = width; canvas.height = height;
-        canvas.getContext("2d").drawImage(img, 0, 0, width, height);
-        const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.75);
-        resolve({ dataUrl: compressedDataUrl, width, height, originalSize: file.size, compressedSize: Math.round((compressedDataUrl.length * 3) / 4) });
-      };
-      img.onerror = () => reject(new Error("Errore caricamento immagine."));
-      img.src = e.target.result;
-    };
-    reader.onerror = () => reject(new Error("Impossibile leggere il file."));
-    reader.readAsDataURL(file);
-  });
-}
+// processImageResize importato da src/modules/manutenzione/manutenzione.service.js
+
 
 function setupManutenzioneHandlers() {
   const fileInput = document.getElementById("manutenzione-foto-input");
@@ -6161,7 +5920,8 @@ function renderMasterSection() {
               </div>
             ` : inAttesaSpaziList.map(p => {
               const resIcon = p.risorsa === "Chiesa" ? "⛪" : "📺";
-              const nomeRichiedente = trovaNomeUtente(p.email);
+              const nomeRichiedente = p.nome || trovaNomeUtente(p.email);
+              const compilatoInfo = (p.richiesto_da && p.richiesto_da !== nomeRichiedente) ? ` • <span style="color: #64748b; font-size: 11px;">(Compilato da: ${escapeHtml(p.richiesto_da)})</span>` : '';
               return `
                 <div class="card-inner" style="background: #fffdf5; border: 1.5px solid #fde68a; border-left: 5px solid #f59e0b; border-radius: 8px; padding: 12px 14px; margin-bottom: 10px;">
                   <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
@@ -6188,7 +5948,7 @@ function renderMasterSection() {
                   </div>
 
                   <div style="font-size: 12px; color: #475569; background: #f8fafc; padding: 8px 10px; border-radius: 6px; border: 1px solid #e2e8f0;">
-                    <div>👤 <strong>Richiedente:</strong> ${escapeHtml(nomeRichiedente)} (<code style="font-size: 11px;">${escapeHtml(p.email)}</code>)</div>
+                    <div>👤 <strong>Richiedente:</strong> ${escapeHtml(nomeRichiedente)} (<code style="font-size: 11px;">${escapeHtml(p.email)}</code>)${compilatoInfo}</div>
                     ${p.note ? `<div style="margin-top: 4px; color: #1e293b;">📝 <strong>Motivo/Note:</strong> ${escapeHtml(p.note)}</div>` : ''}
                     <div style="margin-top: 3px; font-size: 11px; color: #94a3b8;">Inviata: ${p.timestamp ? new Date(p.timestamp).toLocaleString('it-IT') : '-'}</div>
                   </div>
@@ -7867,41 +7627,7 @@ window.filtraModalGuida = function(categoria) {
   });
 };
 
-// ----------------------------------------------------------------------------
-// UTILITY
-// ----------------------------------------------------------------------------
 
-function formatYMD(date) {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const d = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
-}
-
-function capitalize(str) {
-  if (!str) return "";
-  return str.charAt(0).toUpperCase() + str.slice(1);
-}
-
-function escapeHtml(text) {
-  if (!text) return "";
-  const map = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" };
-  return String(text).replace(/[&<>"']/g, (m) => map[m]);
-}
-window.escapeHtml = escapeHtml;
-
-function mostraToast(messaggio, tipo = "info") {
-  const container = document.getElementById("toast-container");
-  if (!container) return;
-  const toast = document.createElement("div");
-  toast.className = `toast toast-${tipo} animate-slide-up`;
-  toast.innerText = messaggio;
-  container.appendChild(toast);
-  setTimeout(() => {
-    toast.classList.add("toast-fade-out");
-    setTimeout(() => toast.remove(), 400);
-  }, 3200);
-}
 
 // ----------------------------------------------------------------------------
 // MASTER APPUNTAMENTI
@@ -7910,10 +7636,11 @@ function mostraToast(messaggio, tipo = "info") {
 function apriModalMasterAppuntamento(risorsaDefault, dataDefault) {
   const modal = document.getElementById("modal-master-nuovo-appuntamento");
   if (!modal) return;
-  modal.style.display = "flex";
-  modal.style.zIndex = "999999";
-  modal.style.visibility = "visible";
-  modal.style.opacity = "1";
+  if (typeof window.mostraModaleIstantanea === "function") {
+    window.mostraModaleIstantanea(modal);
+  } else {
+    modal.style.display = "flex";
+  }
 
   try {
     const ambSelect = document.getElementById("master-app-ambiente");
@@ -8460,28 +8187,10 @@ window.renderCucinaView = function() {
   const countOspitiCena = statsCena.ospitiTotali || 0;
   const countNoteCena = listaCena.filter(m => m.note && m.note.trim()).length;
 
-  const prossimiGiorni = [];
-  for (let i = 0; i < 5; i++) {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    const ymd = formatYMD(d);
-    const sP = calcolaContatoreMensa(ymd, "pranzo");
-    const sC = calcolaContatoreMensa(ymd, "cena");
-    prossimiGiorni.push({
-      ymd,
-      label: d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "numeric" }),
-      pranzo: sP.totale,
-      cena: sC.totale,
-      ritardiPranzo: sP.ritardi || 0,
-      ospitiPranzo: sP.ospitiTotali || 0,
-      bustePranzo: sP.buste || 0,
-      ritardiCena: sC.ritardi || 0,
-      ospitiCena: sC.ospitiTotali || 0,
-      busteCena: sC.buste || 0,
-      buste: (sP.buste || 0) + (sC.buste || 0),
-      isSel: ymd === dataFiltroYMD
-    });
-  }
+  const prossimiGiorni = (typeof window.calcolaProssimiGiorniCucina === "function")
+    ? window.calcolaProssimiGiorniCucina(new Date(), 5, dataFiltroYMD)
+    : [];
+
 
   let html = `
     <div class="cucina-portal-wrapper">
