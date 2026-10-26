@@ -322,11 +322,15 @@ function initStorage() {
       }
       if (parsed.utenti) {
         parsed.utenti.forEach(u => {
-          if (!u.email.includes("dotti") && !u.perm_admin && !u.is_master_spazi) {
+          const isDotti = String(u.email || "").toLowerCase().includes("dotti");
+          if (!isDotti && !u.perm_admin) {
             if (u.perm_spazi) { u.perm_spazi = false; needsSave = true; }
+            if (u.notif_manutenzione === undefined) { u.notif_manutenzione = false; needsSave = true; }
+            if (u.notif_spazi === undefined) { u.notif_spazi = false; needsSave = true; }
+          } else {
+            if (u.notif_manutenzione === undefined) { u.notif_manutenzione = true; needsSave = true; }
+            if (u.notif_spazi === undefined) { u.notif_spazi = true; needsSave = true; }
           }
-          if (u.notif_manutenzione === undefined) { u.notif_manutenzione = Boolean(u.perm_manutenzione || u.perm_admin); needsSave = true; }
-          if (u.notif_spazi === undefined) { u.notif_spazi = Boolean(u.perm_spazi || u.perm_admin); needsSave = true; }
           if (u.is_utente_mensa === undefined) { u.is_utente_mensa = true; needsSave = true; }
         });
       }
@@ -365,8 +369,24 @@ function checkAuthAndLoad() {
   if (savedUser) {
     try {
       appState.user = JSON.parse(savedUser);
-      if (appState.user && !appState.user.perm_admin && !appState.user.email?.includes("dotti") && !appState.user.is_master_spazi) {
-        appState.user.perm_spazi = false;
+      if (appState.user && appState.user.email) {
+        const uEmail = String(appState.user.email).toLowerCase().trim();
+        let dbUsers = [];
+        try {
+          const dbParsed = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || "{}");
+          dbUsers = dbParsed.utenti || [];
+        } catch (e) {}
+        const matched = dbUsers.find(u => String(u.email || "").toLowerCase().trim() === uEmail);
+        if (matched) {
+          appState.user = { ...appState.user, ...matched };
+          try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
+        } else if (!uEmail.includes("dotti") && !appState.user.perm_admin) {
+          appState.user.perm_admin = false;
+          appState.user.perm_mensa = false;
+          appState.user.notif_manutenzione = false;
+          appState.user.notif_spazi = false;
+          try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
+        }
       }
       aggiornaUIUtente();
       caricaDatiBackend();
@@ -441,7 +461,7 @@ function mockBackendExecution(action, params) {
       const nome = String(params.nome || "").trim();
       const password = String(params.password || "newman2026").trim();
       if (db.utenti.some(u => u.email.toLowerCase() === email)) return { success: false, error: "Email già registrata" };
-      const nuovo = { email, nome, stato: "Approvato", perm_mensa: false, perm_manutenzione: false, perm_spazi: true, perm_admin: false, password, is_utente_mensa: true };
+      const nuovo = { email, nome, stato: "Approvato", perm_mensa: false, perm_manutenzione: false, perm_spazi: false, perm_admin: false, notif_manutenzione: false, notif_spazi: false, notif_push: false, password, is_utente_mensa: true };
       db.utenti.push(nuovo);
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
       return { success: true, status: "Approvato", message: "Registrazione completata con successo!", utente: nuovo };
@@ -1047,6 +1067,27 @@ async function caricaDatiBackend() {
       }
     }
 
+    if (appState.user && appState.user.email) {
+      const uEmail = String(appState.user.email).toLowerCase().trim();
+      let dbUsers = [];
+      try {
+        const dbParsed = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || "{}");
+        dbUsers = dbParsed.utenti || [];
+      } catch (e) {}
+      const matched = dbUsers.find(u => String(u.email || "").toLowerCase().trim() === uEmail);
+      if (matched) {
+        appState.user = { ...appState.user, ...matched };
+        try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
+      } else if (!uEmail.includes("dotti") && !appState.user.perm_admin) {
+        appState.user.perm_admin = false;
+        appState.user.perm_mensa = false;
+        appState.user.notif_manutenzione = false;
+        appState.user.notif_spazi = false;
+        try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
+      }
+    }
+    aggiornaUIUtente();
+
     if (haPermessiMaster()) {
       caricaDatiMaster();
     }
@@ -1191,22 +1232,64 @@ function calcolaCalendarioRomano(date) {
   const offsetAvvento = (giornoNatale === 0 ? 7 : giornoNatale) + 21;
   const primaDomenicaAvvento = new Date(y, 11, 25 - offsetAvvento);
 
+  // Battesimo del Signore (prima domenica dopo il 6 gennaio)
+  let battesimo = new Date(y, 0, 7);
+  while (battesimo.getDay() !== 0) {
+    battesimo.setDate(battesimo.getDate() + 1);
+  }
+  const fineTempoNataleMs = battesimo.getTime() + 86400000; // Lunedì dopo il Battesimo
+
   let tempoLiturgico = "Tempo Ordinario";
   let coloreTempo = "Verde";
   let hexTempo = "#16a34a";
   let settimanaNum = 1;
 
   if (currMs >= primaDomenicaAvvento.getTime() && (m === 11 && d <= 24)) {
-    tempoLiturgico = "Tempo di Avvento"; coloreTempo = "Viola"; hexTempo = "#7c3aed";
-  } else if ((m === 11 && d >= 25) || (m === 0 && d <= 12)) {
-    tempoLiturgico = "Tempo di Natale"; coloreTempo = "Bianco"; hexTempo = "#d97706";
+    tempoLiturgico = "Tempo di Avvento";
+    coloreTempo = "Viola";
+    hexTempo = "#7c3aed";
+    const weeksAvv = Math.floor((currMs - primaDomenicaAvvento.getTime()) / (7 * 86400000)) + 1;
+    settimanaNum = Math.min(4, Math.max(1, weeksAvv));
+  } else if ((m === 11 && d >= 25) || (currMs < fineTempoNataleMs)) {
+    tempoLiturgico = "Tempo di Natale";
+    coloreTempo = "Bianco";
+    hexTempo = "#d97706";
+    settimanaNum = 1;
   } else if (diffGiorniPasqua >= -46 && diffGiorniPasqua < 0) {
-    tempoLiturgico = "Tempo di Quaresima"; coloreTempo = "Viola"; hexTempo = "#7c3aed";
+    tempoLiturgico = "Tempo di Quaresima";
+    coloreTempo = "Viola";
+    hexTempo = "#7c3aed";
+    if (diffGiorniPasqua < -42) {
+      settimanaNum = 1; // Giorni dopo le Ceneri fino alla I Dom Quaresima
+    } else {
+      settimanaNum = Math.min(6, Math.floor((diffGiorniPasqua + 42) / 7) + 1);
+    }
   } else if (diffGiorniPasqua >= 0 && diffGiorniPasqua <= 49) {
-    tempoLiturgico = "Tempo Pasquale"; coloreTempo = "Bianco"; hexTempo = "#d97706";
+    tempoLiturgico = "Tempo Pasquale";
+    coloreTempo = "Bianco";
+    hexTempo = "#d97706";
+    settimanaNum = Math.min(7, Math.floor(diffGiorniPasqua / 7) + 1);
   } else {
-    tempoLiturgico = "Tempo Ordinario"; coloreTempo = "Verde"; hexTempo = "#16a34a";
-    if (m >= 5) settimanaNum = Math.min(34, Math.max(8, Math.floor((currMs - new Date(y, 4, 25).getTime()) / (7 * 86400000)) + 9));
+    // TEMPO ORDINARIO (due periodi: prima delle Ceneri e dopo Pentecoste)
+    tempoLiturgico = "Tempo Ordinario";
+    coloreTempo = "Verde";
+    hexTempo = "#16a34a";
+
+    const lunediCorrente = new Date(y, m, d - ((dayOfWeek + 6) % 7));
+
+    if (diffGiorniPasqua < -46) {
+      // 1° Periodo: Inizia il lunedì dopo il Battesimo del Signore
+      const lunediPrimoPeriodo = new Date(battesimo.getTime() + 86400000);
+      const diffSettimane = Math.floor((lunediCorrente.getTime() - lunediPrimoPeriodo.getTime()) / (7 * 86400000));
+      settimanaNum = Math.max(1, diffSettimane + 1);
+    } else {
+      // 2° Periodo: Dopo Pentecoste fino alla I Domenica di Avvento.
+      // La 34ª Domenica è sempre quella immediatamente precedente la I Domenica di Avvento (Cristo Re).
+      const domenicaCristoRe = new Date(primaDomenicaAvvento.getTime() - 7 * 86400000);
+      const lunediCristoRe = new Date(domenicaCristoRe.getTime() - 6 * 86400000);
+      const diffDalla34 = Math.round((lunediCristoRe.getTime() - lunediCorrente.getTime()) / (7 * 86400000));
+      settimanaNum = Math.min(34, Math.max(7, 34 - diffDalla34));
+    }
   }
 
   const dictCalendario = (typeof CALENDARIO_ROMANO_IT !== "undefined" && CALENDARIO_ROMANO_IT) ? CALENDARIO_ROMANO_IT : {};
@@ -1571,6 +1654,14 @@ function renderBachecaView() {
     }
   }
 
+  let isNonAncoraPubblicato = false;
+  if (dataPub) {
+    const pubTime = new Date(dataPub.includes("T") ? dataPub : dataPub + "T00:00:00").getTime();
+    if (!isNaN(pubTime) && pubTime > Date.now()) {
+      isNonAncoraPubblicato = true;
+    }
+  }
+
   function formattaDataOraItaHelper(str) {
     if (!str) return "";
     try {
@@ -1594,9 +1685,18 @@ function renderBachecaView() {
   const scadStrIta = formattaDataOraItaHelper(dataScad);
 
   let masterCardHtml = "";
-  if (msgSupermaster && (!isScaduto || isMasterOrAdmin)) {
+  const isVisibileResidenti = msgSupermaster && !isScaduto && !isNonAncoraPubblicato;
+
+  if (isVisibileResidenti || (msgSupermaster && isMasterOrAdmin)) {
+    let statoBadge = '<span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; font-size: 10.5px; padding: 1px 7px;">⭐ In Evidenza</span>';
+    if (isScaduto) {
+      statoBadge = '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 10.5px; padding: 1px 7px;">⚠️ Archiviata per Scadenza (nascosta ai residenti)</span>';
+    } else if (isNonAncoraPubblicato) {
+      statoBadge = '<span class="badge" style="background: #eff6ff; color: #1e40af; font-weight: 700; font-size: 10.5px; padding: 1px 7px;">⏳ Programmata dal ' + escapeHtml(pubStrIta) + '</span>';
+    }
+
     masterCardHtml = `
-      <div class="card bacheca-master-alert-card" style="border-left: 4px solid #f59e0b; background: linear-gradient(135deg, rgba(254, 243, 199, 0.45) 0%, rgba(255, 251, 235, 0.95) 100%); margin-bottom: 14px; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.12); border-radius: var(--radius-md); padding: 16px 18px; border-top: 1px solid rgba(245, 158, 11, 0.25); border-right: 1px solid rgba(245, 158, 11, 0.25); border-bottom: 1px solid rgba(245, 158, 11, 0.25);">
+      <div class="card bacheca-master-alert-card" style="border-left: 4px solid ${isScaduto ? '#dc2626' : '#f59e0b'}; background: ${isScaduto ? 'linear-gradient(135deg, rgba(254, 242, 242, 0.6) 0%, rgba(255, 255, 255, 0.95) 100%)' : 'linear-gradient(135deg, rgba(254, 243, 199, 0.45) 0%, rgba(255, 251, 235, 0.95) 100%)'}; margin-bottom: 14px; box-shadow: 0 4px 14px rgba(245, 158, 11, 0.12); border-radius: var(--radius-md); padding: 16px 18px; border-top: 1px solid rgba(245, 158, 11, 0.25); border-right: 1px solid rgba(245, 158, 11, 0.25); border-bottom: 1px solid rgba(245, 158, 11, 0.25);">
         <div class="flex-between" style="align-items: flex-start; gap: 10px; margin-bottom: 8px; flex-wrap: wrap;">
           <div class="flex-align" style="gap: 10px;">
             <div style="width: 38px; height: 38px; border-radius: 10px; background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.45); display: flex; align-items: center; justify-content: center; font-size: 20px; flex-shrink: 0;">👑</div>
@@ -1605,7 +1705,7 @@ function renderBachecaView() {
                 <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.6px; color: #b45309;">Comunicazione Ufficiale</span>
                 <span style="font-size: 11px; color: #d97706;">·</span>
                 <span style="font-size: 11.5px; font-weight: 600; color: #92400e;">Direzione</span>
-                ${isScaduto ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-weight: 700; font-size: 10.5px; padding: 1px 7px;">⚠️ Scaduto (visibile solo ai Master)</span>' : '<span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 700; font-size: 10.5px; padding: 1px 7px;">⭐ In Evidenza</span>'}
+                ${statoBadge}
               </div>
               <h3 style="margin: 3px 0 0 0; font-size: 16px; font-weight: 800; color: #78350f; line-height: 1.3;">
                 ${escapeHtml(titoloMsg)}
@@ -1670,9 +1770,8 @@ function renderBachecaView() {
           ⛪ ${escapeHtml(cal.santo)}
         </div>
         <div style="margin-top: 8px; padding: 6px 10px; background: rgba(255,255,255,0.18); border-radius: 6px; font-size: 12px; color: #f8fafc; display: flex; flex-direction: column; gap: 3px;">
-          <div style="font-weight: 700; color: #fef08a;">✝️ S. Messa Comunitaria in Chiesa:</div>
-          <div>⛪ <strong>06:30 - 07:30:</strong> Santa Messa Comunitaria Mattutina</div>
-          <div>⛪ <strong>19:00 - 19:30:</strong> Santa Messa Comunitaria Serale</div>
+          <div style="font-weight: 700; color: #fef08a;">✝️ Vita Comunitaria &amp; Chiesa:</div>
+          <div>${currentDate.getDay() === 0 ? `🕊️ <strong>Domenica:</strong> S. Messa Comunitaria alle ore <strong>${escapeHtml(appState.cachedConfig?.Chiesa_Messa_Domenica || '11:00')}</strong>` : `⛪ <strong>Celebrazioni possibili:</strong> ${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Mattina_Inizio || '08:00')}-${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Mattina_Fine || '13:00')} e ${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Inizio || '16:30')}-${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Fine || '19:30')}`}</div>
         </div>
       </div>
       <div style="margin-top: 12px; display: flex; gap: 8px; justify-content: space-between; flex-wrap: wrap; align-items: center;">
@@ -1866,8 +1965,23 @@ function renderResidenzaView() {
     : `CONTATTI E RECAPITI DELLA RESIDENZA:\n• Portineria: Tel. +39 06 87654321`;
 
   const rawMsg = appState.cachedConfig?.Messaggio_Supermaster;
-  const msgSupermaster = (rawMsg && typeof rawMsg === "string" && rawMsg.trim().length > 0) ? rawMsg.trim()
-    : "Cari residenti, benvenuti nel portale digitale della Residenza Newman.";
+  const msgSupermaster = (rawMsg && typeof rawMsg === "string" && rawMsg.trim().length > 0) ? rawMsg.trim() : "";
+  const dataPub = appState.cachedConfig?.Messaggio_Supermaster_Data_Pubblicazione || "";
+  const dataScad = appState.cachedConfig?.Messaggio_Supermaster_Data_Scadenza || "";
+
+  let isScaduto = false;
+  if (dataScad) {
+    const scadTime = new Date(dataScad.includes("T") ? dataScad : dataScad + "T23:59:59").getTime();
+    if (!isNaN(scadTime) && scadTime < Date.now()) isScaduto = true;
+  }
+  let isNonAncoraPubblicato = false;
+  if (dataPub) {
+    const pubTime = new Date(dataPub.includes("T") ? dataPub : dataPub + "T00:00:00").getTime();
+    if (!isNaN(pubTime) && pubTime > Date.now()) isNonAncoraPubblicato = true;
+  }
+
+  const isMaster = haPermessiMaster();
+  const mostraCardComunicazione = msgSupermaster && (!isScaduto && !isNonAncoraPubblicato || isMaster);
 
   container.innerHTML = `
     <div class="card" style="background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: #ffffff; border: 1px solid rgba(255,255,255,0.15); padding: 18px; border-radius: var(--radius-md); box-shadow: var(--shadow-md);">
@@ -1885,27 +1999,33 @@ function renderResidenzaView() {
       </div>
     </div>
 
-    <div class="card" style="border-left: 4px solid #f59e0b; background: linear-gradient(135deg, rgba(254, 243, 199, 0.35) 0%, rgba(255, 251, 235, 0.9) 100%);">
-      <div class="flex-between" style="margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
-        <div class="flex-align" style="gap: 8px;">
-          <span style="font-size: 22px;">👑</span>
-          <div>
-            <h2 class="card-title" style="margin: 0; color: #78350f;">${escapeHtml(appState.cachedConfig?.Messaggio_Supermaster_Titolo || "Comunicazione della Direzione")}</h2>
-            <span class="text-xs text-muted">Messaggio ufficiale della Direzione (visibile anche in Bacheca)</span>
+    ${mostraCardComunicazione ? `
+      <div class="card" style="border-left: 4px solid ${isScaduto ? '#dc2626' : '#f59e0b'}; background: ${isScaduto ? 'linear-gradient(135deg, rgba(254, 242, 242, 0.6) 0%, rgba(255, 255, 255, 0.95) 100%)' : 'linear-gradient(135deg, rgba(254, 243, 199, 0.35) 0%, rgba(255, 251, 235, 0.9) 100%)'};">
+        <div class="flex-between" style="margin-bottom: 8px; flex-wrap: wrap; gap: 8px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 22px;">👑</span>
+            <div>
+              <div style="display: flex; align-items: center; gap: 6px;">
+                <h2 class="card-title" style="margin: 0; color: #78350f;">${escapeHtml(appState.cachedConfig?.Messaggio_Supermaster_Titolo || "Comunicazione della Direzione")}</h2>
+                ${isScaduto ? '<span class="badge" style="background: #fee2e2; color: #991b1b; font-size: 10px; font-weight: 700;">⚠️ Archiviata per Scadenza</span>' : ''}
+                ${isNonAncoraPubblicato ? '<span class="badge" style="background: #eff6ff; color: #1e40af; font-size: 10px; font-weight: 700;">⏳ Programmata</span>' : ''}
+              </div>
+              <span class="text-xs text-muted">Messaggio ufficiale della Direzione</span>
+            </div>
           </div>
+          ${isMaster ? `<button type="button" class="btn btn-secondary btn-sm" onclick="apriModalMessaggioSupermaster()" style="border-color: #f59e0b; color: #92400e; font-weight: 700;">✏️ Modifica</button>` : ''}
         </div>
-        ${haPermessiMaster() ? `<button type="button" class="btn btn-secondary btn-sm" onclick="apriModalMessaggioSupermaster()" style="border-color: #f59e0b; color: #92400e; font-weight: 700;">✏️ Modifica</button>` : ''}
-      </div>
-      <div class="residenza-text-box" style="background: #ffffff; border-color: #fde68a; color: #451a03; font-size: 13.5px; line-height: 1.55; white-space: pre-line;">
-        ${escapeHtml(msgSupermaster || 'Nessuna comunicazione ufficiale attiva.')}
-      </div>
-      ${(appState.cachedConfig?.Messaggio_Supermaster_Data_Pubblicazione || appState.cachedConfig?.Messaggio_Supermaster_Data_Scadenza) ? `
-        <div style="font-size: 11.5px; color: #92400e; margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
-          ${appState.cachedConfig?.Messaggio_Supermaster_Data_Pubblicazione ? `<span>📅 Pubblicazione: ${escapeHtml(appState.cachedConfig.Messaggio_Supermaster_Data_Pubblicazione.replace('T', ' '))}</span>` : ''}
-          ${appState.cachedConfig?.Messaggio_Supermaster_Data_Scadenza ? `<span>·</span><span>⏳ Scadenza: ${escapeHtml(appState.cachedConfig.Messaggio_Supermaster_Data_Scadenza.replace('T', ' '))}</span>` : ''}
+        <div class="residenza-text-box" style="background: #ffffff; border-color: #fde68a; color: #451a03; font-size: 13.5px; line-height: 1.55; white-space: pre-line;">
+          ${escapeHtml(msgSupermaster || 'Nessuna comunicazione ufficiale attiva.')}
         </div>
-      ` : ''}
-    </div>
+        ${(dataPub || dataScad) ? `
+          <div style="font-size: 11.5px; color: #92400e; margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap;">
+            ${dataPub ? `<span>📅 Pubblicazione: ${escapeHtml(dataPub.replace('T', ' '))}</span>` : ''}
+            ${dataScad ? `<span>·</span><span>⏳ Scadenza: ${escapeHtml(dataScad.replace('T', ' '))}</span>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    ` : ''}
 
     <div class="card">
       <div class="flex-between" style="margin-bottom: 8px;">
@@ -2792,7 +2912,7 @@ function renderMensaView() {
 
   const settimanaCiclo = getSettimanaMenu(lunediSettimana);
   const numSettimana = (settimanaCiclo === "settimana1") ? 1 : 2;
-  const mode = appState.mensaViewMode || "settimana";
+  const mode = appState.mensaViewMode || "giorno";
   const dataInizioFmt = formattaDataItaliana(lunediSettimana);
   const dataFineFmt = formattaDataItaliana(domenicaSettimana);
 
@@ -3023,6 +3143,21 @@ function renderWeeklyScrollView(lunediDate) {
     `;
   }
   out += `</div>`;
+
+  const domDate = new Date(lunediDate);
+  domDate.setDate(lunediDate.getDate() + 6);
+  const dataInizioFmt = formattaDataItaliana(lunediDate);
+  const dataFineFmt = formattaDataItaliana(domDate);
+
+  out += `
+    <div class="week-nav-bar" style="margin-top: 14px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; gap: 8px;">
+      <button type="button" class="week-nav-btn" onclick="cambiaSettimanaMensa(-1)" style="font-weight: 700; padding: 6px 14px; font-size: 13px;" title="Settimana Precedente">◀ Sett. Precedente</button>
+      <div style="font-size: 12.5px; font-weight: 700; color: var(--text-main); text-align: center;">
+        <span>Settimana ${dataInizioFmt} - ${dataFineFmt}</span>
+      </div>
+      <button type="button" class="week-nav-btn" onclick="cambiaSettimanaMensa(1)" style="font-weight: 700; padding: 6px 14px; font-size: 13px;" title="Settimana Successiva">Sett. Successiva ▶</button>
+    </div>
+  `;
   return out;
 }
 
@@ -3283,6 +3418,7 @@ window.apriDettaglioGiornoMensa = function(ymd) {
 
 window.selezionaGiornoMensa = function(ymd) {
   appState.selectedDateMensa = new Date(ymd + "T00:00:00");
+  appState.mensaViewMode = "giorno";
   renderMensaView();
 };
 
@@ -3415,14 +3551,34 @@ function renderSpaziView() {
 
     container.innerHTML = `
     <div class="card" style="margin-bottom: 12px;">
-      <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 6px;">
+      <div class="flex-between" style="flex-wrap: wrap; gap: 8px; margin-bottom: 8px;">
         <div>
           <h2 class="card-title" style="margin: 0; display: flex; align-items: center; gap: 8px;">
             <span>🏛️</span> Prenotazione Ambienti Comuni
           </h2>
           <p class="card-desc" style="margin-top: 3px;">
-            Riserva uno slot per la Chiesa / Cappella o per la Sala TV. Ogni richiesta viene inoltrata ai Master per approvazione.
+            Richiesta slot per Chiesa e Sala TV (approvazione Master).
           </p>
+        </div>
+      </div>
+
+      <!-- Box Pubblico Indicazioni Ambienti e Chiesa per gruppi esigui -->
+      <div class="card-inner" style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); border: 1.5px solid #d8b4fe; border-left: 5px solid #7c3aed; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(124, 58, 237, 0.08);">
+        <div style="display: flex; align-items: flex-start; gap: 10px;">
+          <span style="font-size: 22px; line-height: 1.1;">⛪</span>
+          <div style="flex: 1;">
+            <div style="font-size: 13.5px; font-weight: 800; color: #581c87; margin-bottom: 3px;">
+              Indicazioni Utilizzo Chiesa &amp; Ambienti
+            </div>
+            <div style="font-size: 12.5px; color: #4c1d95; line-height: 1.45;">
+              ${escapeHtml(appState.cachedConfig?.Spazi_Indicazioni_Generali || 'La Chiesa è disponibile per gruppi esigui e per la preghiera personale e liturgica dei residenti.')}
+            </div>
+            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 11.5px; color: #6b21a8; font-weight: 600;">
+              <span>⏰ Tempi celebrazione: <strong>${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Mattina_Inizio || '08:00')} - ${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Mattina_Fine || '13:00')}</strong> e <strong>${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Inizio || '16:30')} - ${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Fine || '19:30')}</strong></span>
+              <span>·</span>
+              <span>🕊️ Domenica S. Messa comunitaria: <strong>ore ${escapeHtml(appState.cachedConfig?.Chiesa_Messa_Domenica || '11:00')}</strong></span>
+            </div>
+          </div>
         </div>
       </div>
 
@@ -3517,8 +3673,8 @@ function renderSpaziView() {
             <select id="inline-spazio-slot" class="input-select" style="font-size: 12px; padding: 6px 8px; font-weight: 600;">
               ${getTuttiSlotOrari30Min(risorsaAttiva, dataAttiva).map(s => {
                 if (risorsaAttiva === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
-                  const blocco = getBloccoComunitarioChiesa(s, dataAttiva);
-                  if (blocco) return `<option value="${s}" disabled style="color:#94a3b8; font-style:italic;">${s} - ${blocco.badge} (Riservato)</option>`;
+                  const blocco = getBloccoComunitarioChiesa(s, dataAttiva, appState.cachedConfig);
+                  if (blocco) return `<option value="${s}" disabled style="color:#94a3b8; font-style:italic;">${s} - ${blocco.badge} (${blocco.fuoriOrario ? 'Non consentito' : 'Riservato'})</option>`;
                 }
                 const occ = (appState.prenotazioniSpazi || []).some(p => p.risorsa === risorsaAttiva && formattaDataConfronto(p.data) === formattaDataConfronto(dataAttiva) && p.slot_orario === s && p.stato !== "Rifiutata");
                 return occ ? `<option value="${s}" disabled style="color:#94a3b8;">${s} (Occupato)</option>` : `<option value="${s}">${s}</option>`;
@@ -3631,23 +3787,38 @@ function renderSlotSpazi() {
 
   slotFiltrati.forEach(slot => {
     if (selRisorsa === "Chiesa") {
-      const bloccoComunitario = getBloccoComunitarioChiesa(slot, selData);
+      const bloccoComunitario = getBloccoComunitarioChiesa(slot, selData, appState.cachedConfig);
       if (bloccoComunitario) {
-        html += `
-          <div class="slot-card-v2" style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%); border-left: 4px solid #0284c7; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: default;" title="Slot istituzionale riservato: ${bloccoComunitario.titolo}">
-            <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-              <div class="slot-time-text" style="font-weight: 800; color: #0369a1;">${slot}</div>
-              <span class="badge" style="background: #0284c7; color: #fff; font-size: 10.5px; font-weight: 700;">${bloccoComunitario.icona} Riservato</span>
+        if (bloccoComunitario.fuoriOrario && !isMasterSpazi) {
+          html += `
+            <div class="slot-card-v2" style="background: #f8fafc; border-left: 4px solid #cbd5e1; box-shadow: none; opacity: 0.75; cursor: not-allowed;" title="${escapeHtml(bloccoComunitario.dettaglio)}">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                <div class="slot-time-text" style="font-weight: 700; color: #64748b;">${slot}</div>
+                <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 10px; font-weight: 600;">🔒 Fuori Orario</span>
+              </div>
+              <div style="margin-top: 3px; font-size: 11px; color: #94a3b8;">
+                Celebrazioni non consentite
+              </div>
             </div>
-            <div style="margin-top: 4px; font-size: 12px; font-weight: 800; color: #0f172a; line-height: 1.3;">
-              ${bloccoComunitario.titolo}
+          `;
+          return;
+        } else if (!bloccoComunitario.fuoriOrario) {
+          html += `
+            <div class="slot-card-v2" style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%); border-left: 4px solid #0284c7; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: default;" title="Slot istituzionale riservato: ${bloccoComunitario.titolo}">
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                <div class="slot-time-text" style="font-weight: 800; color: #0369a1;">${slot}</div>
+                <span class="badge" style="background: #0284c7; color: #fff; font-size: 10.5px; font-weight: 700;">${bloccoComunitario.icona} Riservato</span>
+              </div>
+              <div style="margin-top: 4px; font-size: 12px; font-weight: 800; color: #0f172a; line-height: 1.3;">
+                ${bloccoComunitario.titolo}
+              </div>
+              <div style="margin-top: 2px; font-size: 11px; color: #475569;">
+                🔒 ${bloccoComunitario.dettaglio}
+              </div>
             </div>
-            <div style="margin-top: 2px; font-size: 11px; color: #475569;">
-              🔒 ${bloccoComunitario.dettaglio}
-            </div>
-          </div>
-        `;
-        return;
+          `;
+          return;
+        }
       }
     }
 
@@ -3734,9 +3905,9 @@ function popolaSelectSlotSpazioModal(risorsa, data, slotPredefinito) {
 
   tuttiSlot.forEach(s => {
     if (risorsa === "Chiesa") {
-      const blocco = getBloccoComunitarioChiesa(s, dataConfronto);
+      const blocco = getBloccoComunitarioChiesa(s, dataConfronto, appState.cachedConfig);
       if (blocco) {
-        html += `<option value="${s}" disabled style="color: #94a3b8; font-style: italic;">${s} - ${blocco.badge} (Riservato Comunità)</option>`;
+        html += `<option value="${s}" disabled style="color: #94a3b8; font-style: italic;">${s} - ${blocco.badge} (${blocco.fuoriOrario ? 'Non consentito' : 'Riservato'})</option>`;
         return;
       }
     }
@@ -3890,9 +4061,9 @@ window.prenotaSlotDiretto = function(slot) {
   const risorsa = appState.selectedSpazioRisorsa || "Chiesa";
   const data = appState.selectedSpazioData || formatYMD(new Date());
   if (risorsa === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
-    const blocco = getBloccoComunitarioChiesa(slot, data);
+    const blocco = getBloccoComunitarioChiesa(slot, data, appState.cachedConfig);
     if (blocco) {
-      mostraToast(`🔒 Orario riservato: ${blocco.titolo} (${slot}) è riservato per la comunità.`, "warning");
+      mostraToast(`🔒 Orario riservato: ${blocco.titolo} (${slot}) - ${blocco.dettaglio}`, "warning");
       return;
     }
   }
@@ -3914,9 +4085,9 @@ window.eseguiPrenotazioneSpazioConfermata = async function() {
   }
 
   if (risorsa === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
-    const blocco = getBloccoComunitarioChiesa(slot, data);
+    const blocco = getBloccoComunitarioChiesa(slot, data, appState.cachedConfig);
     if (blocco) {
-      mostraToast(`🔒 Orario riservato: ${blocco.titolo} (${slot}) è riservato per la comunità.`, "warning");
+      mostraToast(`🔒 Orario riservato: ${blocco.titolo} (${slot}) - ${blocco.dettaglio}`, "warning");
       return;
     }
   }
@@ -4052,9 +4223,9 @@ window.eseguiPrenotazioneSpazioRapidaInline = async function() {
   }
 
   if (risorsa === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
-    const blocco = getBloccoComunitarioChiesa(slot, data);
+    const blocco = getBloccoComunitarioChiesa(slot, data, appState.cachedConfig);
     if (blocco) {
-      mostraToast(`🔒 Orario riservato: ${blocco.titolo} (${slot}) è riservato per la comunità.`, "warning");
+      mostraToast(`🔒 Orario riservato: ${blocco.titolo} (${slot}) - ${blocco.dettaglio}`, "warning");
       return;
     }
   }
@@ -5429,14 +5600,16 @@ function haPermessiMasterSpazi() {
 function haPermessiMaster() {
   if (!appState.user) return false;
   const u = appState.user;
+  // Visibile solo ed esclusivamente a chi possiede almeno uno dei 4 ruoli stabiliti:
+  // 1. Super Admin (perm_admin)
+  // 2. Master Mensa (perm_mensa)
+  // 3. Notifica Guasti (notif_manutenzione)
+  // 4. Notifica Spazi (notif_spazi)
   return Boolean(
     u.perm_admin ||
     u.perm_mensa ||
-    u.perm_manutenzione ||
     u.notif_manutenzione ||
-    u.perm_spazi ||
-    u.notif_spazi ||
-    u.is_master_spazi
+    u.notif_spazi
   );
 }
 
@@ -5510,6 +5683,15 @@ async function caricaDatiMaster() {
     if (res && res.success) {
       appState.utentiInAttesa = res.utentiInAttesa || [];
       appState.tuttiUtenti = res.tuttiUtenti || [];
+      if (appState.user && appState.user.email) {
+        const uEmail = String(appState.user.email).toLowerCase().trim();
+        const matched = appState.tuttiUtenti.find(u => String(u.email || "").toLowerCase().trim() === uEmail);
+        if (matched) {
+          appState.user = { ...appState.user, ...matched };
+          try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
+          aggiornaUIUtente();
+        }
+      }
       appState.mensaBookings = res.mensa || [];
       appState.guasti = res.guasti || [];
       appState.manutenzioneList = appState.guasti;
@@ -5600,7 +5782,10 @@ function renderMasterSection() {
     tabsDisponibili.push({ id: "accoglienza", label: "Accoglienza & Camere", icon: "🛏️", badge: inAttesaAccoglienza.length, color: "#166534" });
     tabsDisponibili.push({ id: "assenze", label: "Calendario Assenze", icon: "📅", badge: getAssenzeAttiveOggi().length, color: "#4f46e5" });
   }
-  if (perm_spazi) tabsDisponibili.push({ id: "spazi", label: "Ambienti & Approvazioni", icon: "⛪", badge: inAttesaSpazi.length, color: "#9d174d" });
+  if (perm_spazi || perm_admin) {
+    tabsDisponibili.push({ id: "spazi", label: "Ambienti & Approvazioni", icon: "🏛️", badge: inAttesaSpazi.length, color: "#9d174d" });
+    tabsDisponibili.push({ id: "chiesa", label: "Orari Chiesa & Tempi", icon: "⛪", badge: 0, color: "#7c3aed" });
+  }
   if (perm_mensa) tabsDisponibili.push({ id: "mensa", label: "Mensa & Pasti", icon: "🍽️", badge: 0, color: "#ea580c" });
   if (perm_manutenzione) tabsDisponibili.push({ id: "manutenzione", label: "Manutenzione", icon: "🛠️", badge: guastiAperti.length, color: "#2563eb" });
   if (perm_admin) tabsDisponibili.push({ id: "sistema", label: "Calendario & Fogli", icon: "⚙️", badge: 0, color: "#059669" });
@@ -5692,6 +5877,7 @@ function renderMasterSection() {
               <p class="text-xs text-muted" style="margin: 2px 0 0 0;">Gestione compatta a fisarmonica: clicca sul nominativo per visualizzare o modificare permessi, ruoli e notifiche.</p>
             </div>
             <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="esportaResidentiCSV()" style="font-size: 11px; padding: 4px 10px; font-weight: 700; color: #15803d; border-color: #86efac; background: #f0fdf4;" title="Esporta file CSV compatibile con Excel e Google Fogli">📊 Esporta Residenti (CSV)</button>
               <button type="button" class="btn btn-secondary btn-sm" onclick="espandiTuttiResidenti()" style="font-size: 11px; padding: 4px 8px; font-weight: 600;">🔽 Espandi Tutti</button>
               <button type="button" class="btn btn-secondary btn-sm" onclick="comprimiTuttiResidenti()" style="font-size: 11px; padding: 4px 8px; font-weight: 600;">🔼 Comprimi Tutti</button>
             </div>
@@ -5838,6 +6024,29 @@ function renderMasterSection() {
           </div>
 
           <form onsubmit="handleSalvaMessaggioSupermasterRapido(event)" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px; padding: 14px;">
+            ${(() => {
+              const mMsg = appState.cachedConfig.Messaggio_Supermaster;
+              if (!mMsg) return '';
+              const mScad = appState.cachedConfig.Messaggio_Supermaster_Data_Scadenza;
+              const mPub = appState.cachedConfig.Messaggio_Supermaster_Data_Pubblicazione;
+              let mScaduto = false;
+              if (mScad) {
+                const scT = new Date(mScad.includes("T") ? mScad : mScad + "T23:59:59").getTime();
+                if (!isNaN(scT) && scT < Date.now()) mScaduto = true;
+              }
+              let mFuturo = false;
+              if (mPub) {
+                const pbT = new Date(mPub.includes("T") ? mPub : mPub + "T00:00:00").getTime();
+                if (!isNaN(pbT) && pbT > Date.now()) mFuturo = true;
+              }
+              if (mScaduto) {
+                return '<div style="background: #fee2e2; border: 1px solid #fca5a5; color: #991b1b; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; font-size: 12px; font-weight: 700;">⚠️ Comunicazione Scaduta ed Archiviata: è attualmente nascosta a tutti i residenti. Per riattivarla aggiorna la data di scadenza o rimuovila.</div>';
+              }
+              if (mFuturo) {
+                return '<div style="background: #eff6ff; border: 1px solid #bfdbfe; color: #1e40af; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; font-size: 12px; font-weight: 700;">⏳ Comunicazione Programmata: sarà visibile ai residenti a partire dalla data di pubblicazione.</div>';
+              }
+              return '<div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 8px 12px; border-radius: 6px; margin-bottom: 10px; font-size: 12px; font-weight: 700;">✅ Comunicazione Attiva: visibile a tutti i residenti in cima alla Bacheca.</div>';
+            })()}
             <div class="form-group" style="margin-bottom: 10px;">
               <label for="admin-titolo-supermaster" style="font-size: 12px; font-weight: 700; color: #78350f; display: block; margin-bottom: 4px;">Titolo della Comunicazione:</label>
               <input type="text" id="admin-titolo-supermaster" class="input-text" style="font-size: 13px; font-weight: 700; padding: 7px 10px;" value="${escapeHtml(appState.cachedConfig.Messaggio_Supermaster_Titolo || 'Comunicazione della Direzione')}" placeholder="Es. Comunicazione della Direzione">
@@ -6144,6 +6353,87 @@ function renderMasterSection() {
             `}
           </div>
         </div>
+      </div>
+    `;
+  }
+
+  // SCHEDA CHIESA & TEMPI COMUNITARI
+  if ((perm_spazi || perm_admin) && (isVistaTutto || activeTab === "chiesa")) {
+    const mattInizio = escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Mattina_Inizio || '08:00');
+    const mattFine = escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Mattina_Fine || '13:00');
+    const pomInizio = escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Inizio || '16:30');
+    const pomFine = escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Fine || '19:30');
+    const messaDomenica = escapeHtml(appState.cachedConfig?.Chiesa_Messa_Domenica || '11:00');
+    const descComunitaria = escapeHtml(appState.cachedConfig?.Chiesa_Descrizione_Comunitaria || 'Orari per le possibili celebrazioni: dalle 08:00 alle 13:00 e dalle 16:30 alle 19:30. La domenica è fissa la Santa Messa comunitaria alle ore 11:00.');
+    const indicazioniGenerali = escapeHtml(appState.cachedConfig?.Spazi_Indicazioni_Generali || 'La Chiesa è disponibile per gruppi esigui e per la preghiera personale e liturgica dei residenti.');
+
+    html += `
+      <div class="master-block card" style="border-top: 4px solid #7c3aed;">
+        <div class="master-header flex-between" style="flex-wrap: wrap; gap: 8px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 24px;">⛪</span>
+            <div>
+              <h3 class="card-title" style="margin: 0; color: #5b21b6;">Gestione Orari Chiesa &amp; Tempi Comunitari</h3>
+              <span class="text-xs text-muted">Definisci fasce orarie consentite per celebrazioni, Messa domenicale fissa e indicazioni ambienti</span>
+            </div>
+          </div>
+          <span class="badge" style="background: #ede9fe; color: #6d28d9; font-weight: 700;">Configurazione Attiva</span>
+        </div>
+
+        <form onsubmit="handleSalvaConfigurazioneChiesa(event)" style="margin-top: 14px;">
+          <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+            <div style="font-size: 13.5px; font-weight: 800; color: #581c87; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span>⏰</span> Fasce Orarie Celebrazioni Consentite
+            </div>
+            <p class="text-xs text-muted" style="margin: 0 0 10px 0;">Gli slot al di fuori di queste fasce saranno bloccati e contrassegnati come 'Fuori Orario Celebrazioni' per i residenti.</p>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+              <div>
+                <label style="font-size: 12px; font-weight: 700; color: #6b21a8; display: block; margin-bottom: 4px;">🌅 Mattina - Inizio:</label>
+                <input type="time" id="chiesa-mattina-inizio" class="input-text" value="${mattInizio}" required style="font-weight: 700;">
+              </div>
+              <div>
+                <label style="font-size: 12px; font-weight: 700; color: #6b21a8; display: block; margin-bottom: 4px;">🌅 Mattina - Fine:</label>
+                <input type="time" id="chiesa-mattina-fine" class="input-text" value="${mattFine}" required style="font-weight: 700;">
+              </div>
+              <div>
+                <label style="font-size: 12px; font-weight: 700; color: #6b21a8; display: block; margin-bottom: 4px;">🌇 Pomeriggio/Sera - Inizio:</label>
+                <input type="time" id="chiesa-pomeriggio-inizio" class="input-text" value="${pomInizio}" required style="font-weight: 700;">
+              </div>
+              <div>
+                <label style="font-size: 12px; font-weight: 700; color: #6b21a8; display: block; margin-bottom: 4px;">🌇 Pomeriggio/Sera - Fine:</label>
+                <input type="time" id="chiesa-pomeriggio-fine" class="input-text" value="${pomFine}" required style="font-weight: 700;">
+              </div>
+            </div>
+          </div>
+
+          <div style="background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+            <div style="font-size: 13.5px; font-weight: 800; color: #9d174d; margin-bottom: 6px; display: flex; align-items: center; gap: 6px;">
+              <span>🕊️</span> Santa Messa Comunitaria Domenicale
+            </div>
+            <div style="max-width: 240px; margin-bottom: 6px;">
+              <label style="font-size: 12px; font-weight: 700; color: #9d174d; display: block; margin-bottom: 4px;">Orario Fisso Domenica:</label>
+              <input type="time" id="chiesa-messa-domenica" class="input-text" value="${messaDomenica}" required style="font-weight: 700;">
+            </div>
+            <p class="text-xs text-muted" style="margin: 0;">Ogni domenica questo orario blocca automaticamente la Chiesa per la Santa Messa comunitaria (nessun residente può sovrapporsi).</p>
+          </div>
+
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+            <label style="font-size: 12.5px; font-weight: 800; color: #1e293b; display: block; margin-bottom: 4px;">📜 Descrizione Tempi di Vita Comunitaria (Chiesa):</label>
+            <textarea id="chiesa-descrizione-comunitaria" class="input-textarea" rows="2" style="font-size: 13px;" placeholder="Descrizione dei tempi liturgici e della comunità...">${descComunitaria}</textarea>
+          </div>
+
+          <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 14px; margin-bottom: 14px;">
+            <label style="font-size: 12.5px; font-weight: 800; color: #166534; display: block; margin-bottom: 4px;">📢 Indicazioni Pubbliche Utilizzo Ambienti (Visibile a Tutti i Residenti):</label>
+            <textarea id="spazi-indicazioni-generali" class="input-textarea" rows="2" style="font-size: 13px;" placeholder="La Chiesa è disponibile per gruppi esigui...">${indicazioniGenerali}</textarea>
+            <p class="text-xs text-muted" style="margin: 4px 0 0 0;">Questo testo appare come avviso in cima alla pagina Prenotazione Ambienti per tutti i residenti (specifica disponibilità per gruppi esigui).</p>
+          </div>
+
+          <div style="display: flex; gap: 8px; align-items: center; justify-content: flex-end;">
+            <button type="submit" class="btn btn-primary" style="background: #7c3aed; border-color: #6d28d9; font-weight: 700; padding: 8px 18px; font-size: 13px;">
+              💾 Salva Orari &amp; Indicazioni Chiesa
+            </button>
+          </div>
+        </form>
       </div>
     `;
   }
@@ -6695,6 +6985,105 @@ window.filtraResidentiMaster = function(query) {
       item.style.display = "none";
     }
   });
+};
+
+window.esportaResidentiCSV = function() {
+  const lista = (appState.tuttiUtenti && appState.tuttiUtenti.length > 0) ? appState.tuttiUtenti : (INITIAL_MOCK_DB.utenti || []);
+  if (!lista || lista.length === 0) {
+    mostraToast("Nessun utente residente da esportare", "warning");
+    return;
+  }
+
+  const escapeCSV = (val) => {
+    if (val === null || val === undefined) return '""';
+    const s = String(val).replace(/"/g, '""');
+    return `"${s}"`;
+  };
+
+  const headers = [
+    "Nome",
+    "Email",
+    "Stato",
+    "Utente Mensa",
+    "Master Mensa",
+    "Manutenzione",
+    "Ambienti/Spazi",
+    "Super Admin",
+    "Notifica Guasti",
+    "Notifica Spazi",
+    "Notifiche Push",
+    "Password"
+  ];
+
+  const rows = [headers.join(";")];
+
+  lista.forEach(u => {
+    const r = [
+      escapeCSV(u.nome || ""),
+      escapeCSV(u.email || ""),
+      escapeCSV(u.stato || "Attivo"),
+      escapeCSV(u.is_utente_mensa !== false ? "Sì" : "No"),
+      escapeCSV(u.perm_mensa ? "Sì" : "No"),
+      escapeCSV(u.perm_manutenzione ? "Sì" : "No"),
+      escapeCSV(u.perm_spazi ? "Sì" : "No"),
+      escapeCSV(u.perm_admin ? "Sì" : "No"),
+      escapeCSV(u.notif_manutenzione ? "Sì" : "No"),
+      escapeCSV(u.notif_spazi ? "Sì" : "No"),
+      escapeCSV(u.notif_push ? "Sì" : "No"),
+      escapeCSV(u.password || "newman2026")
+    ];
+    rows.push(r.join(";"));
+  });
+
+  const csvContent = "\uFEFF" + rows.join("\r\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  const dataOggi = formatYMD(new Date());
+  link.setAttribute("href", url);
+  link.setAttribute("download", `residenti_newman_${dataOggi}.csv`);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+  mostraToast(`✅ File CSV esportato (${lista.length} residenti)!`, "success");
+};
+
+window.handleSalvaConfigurazioneChiesa = async function(event) {
+  if (event && event.preventDefault) event.preventDefault();
+  const mattInizio = document.getElementById("chiesa-mattina-inizio")?.value || "08:00";
+  const mattFine = document.getElementById("chiesa-mattina-fine")?.value || "13:00";
+  const pomInizio = document.getElementById("chiesa-pomeriggio-inizio")?.value || "16:30";
+  const pomFine = document.getElementById("chiesa-pomeriggio-fine")?.value || "19:30";
+  const messaDomenica = document.getElementById("chiesa-messa-domenica")?.value || "11:00";
+  const descComunitaria = document.getElementById("chiesa-descrizione-comunitaria")?.value || "";
+  const indicazioniSpazi = document.getElementById("spazi-indicazioni-generali")?.value || "";
+
+  const payload = {
+    Chiesa_Fascia_Mattina_Inizio: mattInizio,
+    Chiesa_Fascia_Mattina_Fine: mattFine,
+    Chiesa_Fascia_Pomeriggio_Inizio: pomInizio,
+    Chiesa_Fascia_Pomeriggio_Fine: pomFine,
+    Chiesa_Messa_Domenica: messaDomenica,
+    Chiesa_Descrizione_Comunitaria: descComunitaria,
+    Spazi_Indicazioni_Generali: indicazioniSpazi
+  };
+
+  try {
+    const res = await callApi("aggiornaConfig", payload);
+    if (res && res.success) {
+      Object.assign(appState.cachedConfig, payload);
+      mostraToast("✅ Orari Chiesa e indicazioni salvati con successo!", "success");
+      renderMasterSection();
+      if (appState.currentTab === "spazi") renderSpaziView();
+    } else {
+      mostraToast("Errore salvataggio: " + ((res && res.error) || "Riprova"), "danger");
+    }
+  } catch (err) {
+    Object.assign(appState.cachedConfig, payload);
+    mostraToast("✅ Orari Chiesa salvati localmente!", "success");
+    renderMasterSection();
+  }
 };
 
 window.eliminaUtente = async function(email, nome) {
@@ -11759,6 +12148,11 @@ function aggiornaPulsantiPastiAssenza() {
 window.aggiornaPulsantiPastiAssenza = aggiornaPulsantiPastiAssenza;
 
 function apriModalSegnalaAssenza(prefillData = {}) {
+  // Se è stato passato un evento DOM (click/touch) come primo argomento
+  if (prefillData instanceof Event || (prefillData && typeof prefillData.stopPropagation === "function" && !prefillData.date)) {
+    try { prefillData.stopPropagation(); prefillData.preventDefault(); } catch (e) {}
+    prefillData = {};
+  }
   window._modalOpenedTimestamp = Date.now();
   const modal = (typeof window.mostraModaleIstantanea === "function")
     ? window.mostraModaleIstantanea("modal-segnala-assenza")

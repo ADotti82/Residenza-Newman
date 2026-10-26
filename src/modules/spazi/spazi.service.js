@@ -39,30 +39,93 @@ export function filtraSlotPerFascia(slot, fascia) {
 }
 
 /**
- * Blocchi orari riservati della Chiesa per liturgie comunitarie
+ * Determina se uno slot orario della Chiesa rientra nelle fasce di celebrazione consentite
  */
-export function getBloccoComunitarioChiesa(slot, dataYmd) {
+export function isSlotChiesaConsentito(slot, config = {}) {
+  if (!slot) return true;
+  const startPart = slot.split(" - ")[0];
+  const [h, m] = startPart.split(":").map(Number);
+  const timeVal = h * 60 + m;
+
+  // Lettura fasce configurate (con fallback predefiniti 08:00-13:00 e 16:30-19:30)
+  const mattInizioStr = config.Chiesa_Fascia_Mattina_Inizio || "08:00";
+  const mattFineStr = config.Chiesa_Fascia_Mattina_Fine || "13:00";
+  const pomInizioStr = config.Chiesa_Fascia_Pomeriggio_Inizio || "16:30";
+  const pomFineStr = config.Chiesa_Fascia_Pomeriggio_Fine || "19:30";
+
+  const [mh1, mm1] = mattInizioStr.split(":").map(Number);
+  const [mh2, mm2] = mattFineStr.split(":").map(Number);
+  const [ph1, pm1] = pomInizioStr.split(":").map(Number);
+  const [ph2, pm2] = pomFineStr.split(":").map(Number);
+
+  const mattInizio = mh1 * 60 + (mm1 || 0);
+  const mattFine = mh2 * 60 + (mm2 || 0);
+  const pomInizio = ph1 * 60 + (pm1 || 0);
+  const pomFine = ph2 * 60 + (pm2 || 0);
+
+  const inMattina = (timeVal >= mattInizio && timeVal < mattFine);
+  const inPomeriggio = (timeVal >= pomInizio && timeVal < pomFine);
+
+  return inMattina || inPomeriggio;
+}
+
+/**
+ * Blocchi orari riservati della Chiesa per liturgie comunitarie e celebrazioni fisse
+ */
+export function getBloccoComunitarioChiesa(slot, dataYmd, config = {}) {
   if (!slot) return null;
-  // Blocco Santa Messa comunitaria ogni mattina (06:30 - 07:30: due slot 06:30-07:00 e 07:00-07:30)
-  if (slot === "06:30 - 07:00" || slot === "07:00 - 07:30" || slot === "06:30 - 07:30") {
+
+  // Calcolo giorno della settimana (0 = Domenica)
+  let dayOfWeek = -1;
+  if (dataYmd) {
+    const parts = String(dataYmd).split("-").map(Number);
+    if (parts.length === 3) {
+      const dt = new Date(parts[0], parts[1] - 1, parts[2]);
+      dayOfWeek = dt.getDay();
+    }
+  }
+
+  // Blocco Santa Messa comunitaria domenicale ore 11:00 (11:00 - 12:00)
+  const messaDomenicaOra = config.Chiesa_Messa_Domenica || "11:00";
+  const [dh, dm] = messaDomenicaOra.split(":").map(Number);
+  const dVal = (dh || 11) * 60 + (dm || 0);
+  const startPart = slot.split(" - ")[0];
+  const [sh, sm] = startPart.split(":").map(Number);
+  const sVal = sh * 60 + sm;
+
+  if (dayOfWeek === 0 && (sVal >= dVal && sVal < dVal + 60)) {
     return {
       titolo: "Santa Messa Comunitaria",
       icona: "⛪",
-      dettaglio: "Messa comunitaria del mattino (06:30 - 07:30)",
-      badge: "⛪ S. Messa Mattutina",
+      dettaglio: `Santa Messa della Comunità (Domenica, ore ${messaDomenicaOra})`,
+      badge: `⛪ S. Messa Comunitaria (${messaDomenicaOra})`,
       bloccato: true
     };
   }
-  // Blocco Santa Messa comunitaria serale (19:00 - 19:30)
-  if (slot === "19:00 - 19:30") {
+
+  // Blocco Santa Messa comunitaria feriale del mattino (06:30 - 07:30)
+  if (slot === "06:30 - 07:00" || slot === "07:00 - 07:30" || slot === "06:30 - 07:30") {
     return {
-      titolo: "Santa Messa Comunitaria (Sera)",
+      titolo: "Preghiera del Mattino",
       icona: "⛪",
-      dettaglio: "Messa comunitaria della sera (19:00 - 19:30)",
-      badge: "⛪ S. Messa Serale",
+      dettaglio: "Lodi e Messa comunitaria del mattino (06:30 - 07:30)",
+      badge: "⛪ Preghiera Mattutina",
       bloccato: true
     };
   }
+
+  // Verifica se lo slot ricade fuori dalle fasce orarie autorizzate
+  if (!isSlotChiesaConsentito(slot, config)) {
+    return {
+      titolo: "Fuori Orario Celebrazioni",
+      icona: "🔒",
+      dettaglio: "Slot non disponibile per celebrazioni (consentite solo 08:00-13:00 e 16:30-19:30)",
+      badge: "🔒 Fuori Orario Celebrazioni",
+      bloccato: true,
+      fuoriOrario: true
+    };
+  }
+
   return null;
 }
 
@@ -84,4 +147,5 @@ if (typeof window !== "undefined") {
   window.generaSlotOrari = generaSlotOrari;
   window.filtraSlotPerFascia = filtraSlotPerFascia;
   window.getBloccoComunitarioChiesa = getBloccoComunitarioChiesa;
+  window.isSlotChiesaConsentito = isSlotChiesaConsentito;
 }

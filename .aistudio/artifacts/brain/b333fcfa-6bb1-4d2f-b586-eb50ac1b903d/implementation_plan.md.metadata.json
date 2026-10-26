@@ -1,6 +1,6 @@
 {
-  "summary": "Piano di implementazione per: \n1. Visibilità selettiva della scheda Master (nascosta per utenti senza ruoli o notifiche Master)\n2. Monitoraggio e visualizzazione dell'iter completo delle richieste di accoglienza per i residenti\n3. Vista compatta a fisarmonica (accordion) con apertura al click per la gestione ruoli e permessi residenti",
-  "updatedAt": "2026-10-16T11:06:48.512238241Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Piano di implementazione per: 1) Esportazione residenti in formato CSV per Super Admin, 2) Verifica e gestione automatica scadenza/archiviazione comunicazione Direzione, 3) Vista giorno come predefinita nella Mensa e navigazione settimane a fondo pagina, 4) Correzione calcolo settimana e tempo nel Calendario Liturgico Romano, 5) Risoluzione mancata apertura al tocco della modale Segnala Assenza, 6) Sezione Master dedicata per orari Chiesa e vita comunitaria (08:00-13:00, 16:30-19:30, Messa domenicale ore 11:00), 7) Spazio pubblico indicazioni utilizzo ambienti (gruppi esigui), 8) Snellimento testi e fluidità UI anti-slop.",
+  "updatedAt":  "2026-10-26T08:05:12.459354619Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }

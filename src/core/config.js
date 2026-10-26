@@ -203,6 +203,13 @@ export const INITIAL_MOCK_DB = {
     Email_Notifiche_Master: "donandreadotti@gmail.com",
     Email_Mittente_Segnalazioni: "donandreadotti@gmail.com",
     Email_Amministrazione_Manutenzione: "amministrazione@residenzanewman.org",
+    Chiesa_Fascia_Mattina_Inizio: "08:00",
+    Chiesa_Fascia_Mattina_Fine: "13:00",
+    Chiesa_Fascia_Pomeriggio_Inizio: "16:30",
+    Chiesa_Fascia_Pomeriggio_Fine: "19:30",
+    Chiesa_Messa_Domenica: "11:00",
+    Chiesa_Descrizione_Comunitaria: "Orari per le possibili celebrazioni: dalle 08:00 alle 13:00 e dalle 16:30 alle 19:30. La domenica è fissa la Santa Messa comunitaria alle ore 11:00.",
+    Spazi_Indicazioni_Generali: "La Chiesa è disponibile per gruppi esigui e per momenti di preghiera o celebrazione personale e liturgica dei residenti.",
     Info_Regolamento: `REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN
 1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità sacerdotale e accademica è alla base della nostra convivenza.
 2. ORARI DI SILENZIO: Dalle ore 23:00 alle ore 07:30 del mattino è richiesto il silenzio nei corridoi e negli spazi comuni per favorire il riposo e la preghiera.

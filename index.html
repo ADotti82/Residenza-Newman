@@ -1837,7 +1837,7 @@
             </div>
             <span style="font-size: 12px; color: #2563eb; font-weight: 600;">Sintesi ↗</span>
           </button>
-          <button type="button" id="settings-btn-segnala-assenza" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); apriModalSegnalaAssenza();" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm); border-color: #4f46e5;">
+          <button type="button" id="settings-btn-segnala-assenza" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); setTimeout(() => { apriModalSegnalaAssenza(); }, 50);" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm); border-color: #4f46e5;">
             <div class="flex-align" style="gap: 10px;">
               <span style="font-size: 16px;">📅</span>
               <span style="font-weight: 600;">Segnala Assenza Programmata</span>
@@ -3539,6 +3539,10 @@
     };
 
     window.apriModalSegnalaAssenza = function(prefillData) {
+      if (prefillData instanceof Event || (prefillData && typeof prefillData.stopPropagation === "function" && !prefillData.date)) {
+        try { prefillData.stopPropagation(); prefillData.preventDefault(); } catch (e) {}
+        prefillData = {};
+      }
       window._modalOpenedTimestamp = Date.now();
       if (window._realApriModalSegnalaAssenza) return window._realApriModalSegnalaAssenza(prefillData);
       const m = window.mostraModaleIstantanea("modal-segnala-assenza");

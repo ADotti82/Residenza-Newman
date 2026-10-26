@@ -12,7 +12,7 @@ export const appState = {
   backendUrl: "",
   currentTab: "info",
   previousTab: "info",
-  mensaViewMode: "settimana",
+  mensaViewMode: "giorno",
   selectedDateMensa: null,
   cachedConfig: {},
   prenotazioniSpazi: [],
@@ -98,11 +98,15 @@ export function initStorage() {
       }
       if (parsed.utenti) {
         parsed.utenti.forEach(u => {
-          if (!u.email.includes("dotti") && !u.perm_admin && !u.is_master_spazi) {
+          const isDotti = String(u.email || "").toLowerCase().includes("dotti");
+          if (!isDotti && !u.perm_admin) {
             if (u.perm_spazi) { u.perm_spazi = false; needsSave = true; }
+            if (u.notif_manutenzione === undefined) { u.notif_manutenzione = false; needsSave = true; }
+            if (u.notif_spazi === undefined) { u.notif_spazi = false; needsSave = true; }
+          } else {
+            if (u.notif_manutenzione === undefined) { u.notif_manutenzione = true; needsSave = true; }
+            if (u.notif_spazi === undefined) { u.notif_spazi = true; needsSave = true; }
           }
-          if (u.notif_manutenzione === undefined) { u.notif_manutenzione = Boolean(u.perm_manutenzione || u.perm_admin); needsSave = true; }
-          if (u.notif_spazi === undefined) { u.notif_spazi = Boolean(u.perm_spazi || u.perm_admin); needsSave = true; }
           if (u.is_utente_mensa === undefined) { u.is_utente_mensa = true; needsSave = true; }
         });
       }

@@ -20,14 +20,16 @@ export function haPermessiMasterSpazi() {
 export function haPermessiMaster() {
   if (!appState.user) return false;
   const u = appState.user;
+  // Visibile solo ed esclusivamente a chi possiede almeno uno dei 4 ruoli specificati:
+  // 1. Super Admin (perm_admin)
+  // 2. Master Mensa (perm_mensa)
+  // 3. Notifica Guasti (notif_manutenzione)
+  // 4. Notifica Spazi (notif_spazi)
   return Boolean(
     u.perm_admin ||
     u.perm_mensa ||
-    u.perm_manutenzione ||
     u.notif_manutenzione ||
-    u.perm_spazi ||
-    u.notif_spazi ||
-    u.is_master_spazi
+    u.notif_spazi
   );
 }
 
@@ -153,8 +155,24 @@ export function checkAuthAndLoad() {
   if (savedUser) {
     try {
       appState.user = JSON.parse(savedUser);
-      if (appState.user && !appState.user.perm_admin && !appState.user.email?.includes("dotti") && !appState.user.is_master_spazi) {
-        appState.user.perm_spazi = false;
+      if (appState.user && appState.user.email) {
+        const uEmail = String(appState.user.email).toLowerCase().trim();
+        let dbUsers = [];
+        try {
+          const dbParsed = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || "{}");
+          dbUsers = dbParsed.utenti || [];
+        } catch (e) {}
+        const matched = dbUsers.find(u => String(u.email || "").toLowerCase().trim() === uEmail);
+        if (matched) {
+          appState.user = { ...appState.user, ...matched };
+          try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
+        } else if (!uEmail.includes("dotti") && !appState.user.perm_admin) {
+          appState.user.perm_admin = false;
+          appState.user.perm_mensa = false;
+          appState.user.notif_manutenzione = false;
+          appState.user.notif_spazi = false;
+          try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
+        }
       }
       aggiornaUIUtente();
       if (typeof window.caricaDatiBackend === "function") window.caricaDatiBackend();

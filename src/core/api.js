@@ -66,7 +66,7 @@ function mockBackendExecution(action, params) {
       const nome = String(params.nome || "").trim();
       const password = String(params.password || "newman2026").trim();
       if (db.utenti.some(u => u.email.toLowerCase() === email)) return { success: false, error: "Email già registrata" };
-      const nuovo = { email, nome, stato: "Approvato", perm_mensa: false, perm_manutenzione: false, perm_spazi: true, perm_admin: false, password, is_utente_mensa: true };
+      const nuovo = { email, nome, stato: "Approvato", perm_mensa: false, perm_manutenzione: false, perm_spazi: false, perm_admin: false, notif_manutenzione: false, notif_spazi: false, notif_push: false, password, is_utente_mensa: true };
       db.utenti.push(nuovo);
       localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
       return { success: true, status: "Approvato", message: "Registrazione completata con successo!", utente: nuovo };

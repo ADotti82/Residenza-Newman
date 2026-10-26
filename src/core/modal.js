@@ -8,9 +8,14 @@ export let modalOpenedTimestamp = 0;
 
 export function gestisciClickBackdrop(event, chiudiFn) {
   if (!event) return;
-  if (event.target !== event.currentTarget && !event.target.classList?.contains("modal-overlay")) return;
-  if (Date.now() - (modalOpenedTimestamp || 0) < 150) {
-    return; // Protezione 150ms contro tap che oltrepassano dall'apertura
+  // Solo ed esclusivamente se il click/tap è avvenuto direttamente sul backdrop oscurato esterno
+  if (event.target !== event.currentTarget) return;
+  if (!event.target.classList || !event.target.classList.contains("modal-overlay")) return;
+
+  // Protezione aumentata a 450ms: evita che il tap mobile che ha aperto la modale rimbalzi e chiuda all'istante la finestra
+  const elapsed = Date.now() - (modalOpenedTimestamp || (typeof window !== "undefined" ? window._modalOpenedTimestamp : 0) || 0);
+  if (elapsed < 450) {
+    return;
   }
   if (typeof chiudiFn === "function") {
     try { chiudiFn(event); } catch(e) { console.error(e); }
