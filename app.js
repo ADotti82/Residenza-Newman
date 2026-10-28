@@ -203,7 +203,7 @@ const appState = {
   backendUrl: "",
   currentTab: "info",
   previousTab: "info",
-  mensaViewMode: "settimana",
+  mensaViewMode: "giorno",
   selectedDateMensa: null,
   cachedConfig: {},
   prenotazioniSpazi: [],
@@ -1275,20 +1275,19 @@ function calcolaCalendarioRomano(date) {
     coloreTempo = "Verde";
     hexTempo = "#16a34a";
 
-    const lunediCorrente = new Date(y, m, d - ((dayOfWeek + 6) % 7));
+    // Nel Rito Romano la settimana liturgica va da Domenica a Sabato e prende il numero dalla Domenica che la apre.
+    const domenicaDellaSettimana = new Date(y, m, d - dayOfWeek);
 
     if (diffGiorniPasqua < -46) {
-      // 1° Periodo: Inizia il lunedì dopo il Battesimo del Signore
-      const lunediPrimoPeriodo = new Date(battesimo.getTime() + 86400000);
-      const diffSettimane = Math.floor((lunediCorrente.getTime() - lunediPrimoPeriodo.getTime()) / (7 * 86400000));
+      // 1° Periodo: Inizia il lunedì dopo il Battesimo del Signore (battesimo è Domenica)
+      const diffSettimane = Math.round((domenicaDellaSettimana.getTime() - battesimo.getTime()) / (7 * 86400000));
       settimanaNum = Math.max(1, diffSettimane + 1);
     } else {
       // 2° Periodo: Dopo Pentecoste fino alla I Domenica di Avvento.
-      // La 34ª Domenica è sempre quella immediatamente precedente la I Domenica di Avvento (Cristo Re).
+      // La XXXIV Domenica è sempre quella immediatamente precedente la I Domenica di Avvento (Cristo Re).
       const domenicaCristoRe = new Date(primaDomenicaAvvento.getTime() - 7 * 86400000);
-      const lunediCristoRe = new Date(domenicaCristoRe.getTime() - 6 * 86400000);
-      const diffDalla34 = Math.round((lunediCristoRe.getTime() - lunediCorrente.getTime()) / (7 * 86400000));
-      settimanaNum = Math.min(34, Math.max(7, 34 - diffDalla34));
+      const diffDalla34 = Math.round((domenicaCristoRe.getTime() - domenicaDellaSettimana.getTime()) / (7 * 86400000));
+      settimanaNum = Math.min(34, Math.max(1, 34 - diffDalla34));
     }
   }
 
@@ -3375,6 +3374,24 @@ function renderDailyDetailedView(dataSel) {
       </form>
     </div>
   `;
+
+  const lunediDellaSettimana = getLunediDellaSettimana(dataSel);
+  const domDellaSettimana = new Date(lunediDellaSettimana);
+  domDellaSettimana.setDate(lunediDellaSettimana.getDate() + 6);
+  const inizioFmt = formattaDataItaliana(lunediDellaSettimana);
+  const fineFmt = formattaDataItaliana(domDellaSettimana);
+
+  out += `
+    <div class="week-nav-bar" style="margin-top: 16px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 8px 12px; gap: 8px;">
+      <button type="button" class="week-nav-btn" onclick="cambiaSettimanaMensa(-1)" style="font-weight: 700; padding: 6px 14px; font-size: 13px;" title="Settimana Precedente">◀ Sett. Precedente</button>
+      <div style="font-size: 12px; font-weight: 700; color: var(--text-main); text-align: center;">
+        <span>Settimana ${inizioFmt} - ${fineFmt}</span>
+      </div>
+      <button type="button" class="week-nav-btn" onclick="cambiaSettimanaMensa(1)" style="font-weight: 700; padding: 6px 14px; font-size: 13px;" title="Settimana Successiva">Sett. Successiva ▶</button>
+    </div>
+  `;
+
+  return out;
 }
 
 function renderDayPills(currentSelected) {
@@ -8140,6 +8157,7 @@ function apriModalSettings() {
   if (boxPass) { boxPass.style.display = "none"; document.getElementById("form-cambia-password")?.reset(); }
 
   aggiornaPulsantiTema();
+  if (typeof window.renderAssenzeProfilo === "function") window.renderAssenzeProfilo();
   if (typeof window.aggiornaStatoUIPushNotifiche === "function") window.aggiornaStatoUIPushNotifiche();
   if (typeof window.mostraModaleIstantanea === "function") {
     window.mostraModaleIstantanea(modal);
@@ -8165,6 +8183,96 @@ function chiudiModalSettings() {
   }
 }
 window.chiudiModalSettings = chiudiModalSettings;
+
+function renderAssenzeProfilo() {
+  const container = document.getElementById("settings-assenze-attive-list");
+  const badgeStato = document.getElementById("settings-stato-presenza-badge");
+  if (!container && !badgeStato) return;
+
+  const userEmail = (appState.user && appState.user.email) ? String(appState.user.email).toLowerCase().trim() : "";
+  const oggiStr = (typeof formatYMD === "function") ? formatYMD(new Date()) : new Date().toISOString().slice(0, 10);
+  const tutte = appState.assenze || [];
+
+  const mieAssenze = userEmail ? tutte.filter(a => String(a.email || "").toLowerCase().trim() === userEmail) : tutte;
+  mieAssenze.sort((a, b) => String(a.data_inizio || "").localeCompare(String(b.data_inizio || "")));
+
+  const assenzaAttuale = mieAssenze.find(a => {
+    const start = a.data_inizio;
+    const end = a.data_fine || a.data_inizio;
+    return start <= oggiStr && end >= oggiStr;
+  });
+
+  const assenzeFuture = mieAssenze.filter(a => a.data_inizio > oggiStr);
+
+  if (badgeStato) {
+    if (assenzaAttuale) {
+      const fineFmt = (typeof formattaDataItaliana === "function") ? formattaDataItaliana(assenzaAttuale.data_fine || assenzaAttuale.data_inizio) : assenzaAttuale.data_fine;
+      badgeStato.style.background = "#fee2e2";
+      badgeStato.style.color = "#991b1b";
+      badgeStato.innerHTML = `🧳 Assente (fino al ${fineFmt})`;
+    } else {
+      badgeStato.style.background = "#dcfce7";
+      badgeStato.style.color = "#15803d";
+      badgeStato.innerHTML = `🟢 In Residenza`;
+    }
+  }
+
+  if (container) {
+    const assenzeRilevanti = [
+      ...(assenzaAttuale ? [assenzaAttuale] : []),
+      ...assenzeFuture
+    ];
+
+    if (assenzeRilevanti.length === 0) {
+      container.innerHTML = `
+        <div style="font-size: 12px; color: #64748b; font-style: italic; background: #ffffff; padding: 9px 12px; border-radius: 6px; border: 1px dashed #cbd5e1; text-align: center;">
+          Nessuna assenza programmata registrata al momento. Sei regolarmente presente in residenza.
+        </div>
+      `;
+    } else {
+      container.innerHTML = assenzeRilevanti.map(a => {
+        const isCurrent = (a === assenzaAttuale);
+        const startFmt = (typeof formattaDataItaliana === "function") ? formattaDataItaliana(a.data_inizio) : a.data_inizio;
+        const endFmt = (typeof formattaDataItaliana === "function") ? formattaDataItaliana(a.data_fine || a.data_inizio) : (a.data_fine || a.data_inizio);
+        const isSingle = (a.data_inizio === a.data_fine || !a.data_fine);
+        const rangeText = isSingle ? startFmt : `${startFmt} ➜ ${endFmt}`;
+        const pasti = (a.pasti_interessati && a.pasti_interessati.length) ? a.pasti_interessati.join(', ') : 'pranzo, cena';
+
+        return `
+          <div style="background: #ffffff; border: 1.5px solid ${isCurrent ? '#fca5a5' : '#c7d2fe'}; border-left: 4px solid ${isCurrent ? '#dc2626' : '#4f46e5'}; border-radius: 6px; padding: 10px 12px;">
+            <div class="flex-between" style="gap: 6px; margin-bottom: 4px; flex-wrap: wrap;">
+              <span style="font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.3px; color: ${isCurrent ? '#dc2626' : '#4338ca'};">
+                ${isCurrent ? '⚠️ Assenza in Corso' : '📅 Prossima Assenza'}
+              </span>
+              <span class="badge" style="background: #f1f5f9; color: #334155; font-size: 10.5px; font-weight: 700;">
+                ${escapeHtml(a.motivo || 'Assente')}
+              </span>
+            </div>
+            <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
+              ${rangeText}
+            </div>
+            <div style="font-size: 11.5px; color: ${a.assente_mensa ? '#c2410c' : '#64748b'}; font-weight: 600; margin-bottom: 6px;">
+              ${a.assente_mensa ? `🍽️ Mensa sospesa (${escapeHtml(pasti)})` : '🍽️ Mensa attiva'}
+            </div>
+            <div style="display: flex; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 6px; margin-top: 4px;">
+              <button type="button" class="btn btn-outline btn-sm" onclick="cancellaAssenzaDaProfilo('${escapeHtml(a.id)}')" style="font-size: 11px; padding: 3px 8px; color: #dc2626; border-color: #fca5a5; background: #fff; touch-action: manipulation;">
+                🗑️ Revoca / Rientro
+              </button>
+            </div>
+          </div>
+        `;
+      }).join("");
+    }
+  }
+}
+window.renderAssenzeProfilo = renderAssenzeProfilo;
+
+window.cancellaAssenzaDaProfilo = async function(id) {
+  if (typeof window.cancellaAssenzaUtente === "function") {
+    await window.cancellaAssenzaUtente(id);
+    renderAssenzeProfilo();
+  }
+};
 
 window.toggleVisibilitaPassword = function(inputId, btnEl) {
   const inp = document.getElementById(inputId);
@@ -12454,6 +12562,7 @@ window.handleSalvaSegnalazioneAssenza = async function(event) {
       mostraToast(sospendiMensa ? "Assenza registrata e pasti in mensa sospesi! 🍽️" : "Assenza registrata con successo!", "success");
       chiudiModalSegnalaAssenza();
 
+      if (typeof window.renderAssenzeProfilo === "function") window.renderAssenzeProfilo();
       if (typeof caricaDatiMaster === "function" && haPermessiMaster()) caricaDatiMaster();
       if (typeof renderMasterSection === "function") renderMasterSection();
       if (typeof renderMensaView === "function") renderMensaView();
@@ -12620,6 +12729,7 @@ window.cancellaAssenzaUtente = async function(id) {
         }
       }
 
+      if (typeof window.renderAssenzeProfilo === "function") window.renderAssenzeProfilo();
       if (typeof caricaDatiMaster === "function" && haPermessiMaster()) caricaDatiMaster();
       if (typeof renderMasterSection === "function") renderMasterSection();
       if (typeof renderMensaView === "function") renderMensaView();

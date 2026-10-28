@@ -1733,6 +1733,33 @@
         </div>
       </div>
 
+      <!-- SEZIONE CENTRALE: ASSENZE DALLA CASA & PERIODI PROLUNGATI -->
+      <div id="settings-card-assenze-casa" style="margin-bottom: 16px; background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: var(--radius-md); padding: 14px; box-shadow: 0 1px 3px rgba(79, 70, 229, 0.08);">
+        <div class="flex-between" style="margin-bottom: 8px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 20px;">🧳</span>
+            <strong style="font-size: 14px; color: #312e81;">Assenze dalla Casa</strong>
+          </div>
+          <span class="badge" id="settings-stato-presenza-badge" style="background: #dcfce7; color: #15803d; font-size: 11px; font-weight: 700;">🟢 In Residenza</span>
+        </div>
+        <p class="text-xs text-muted" style="margin: 0 0 10px 0; line-height: 1.45; color: #3730a3;">
+          Segnala i periodi in cui sei lontano dalla residenza (esami, visite in famiglia, viaggi). I pasti in mensa verranno sospesi automaticamente per evitare sprechi.
+        </p>
+
+        <!-- Elenco assenze attive o programmate del residente corrente -->
+        <div id="settings-assenze-attive-list" style="margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px;">
+          <!-- Popolato dinamicamente da renderAssenzeProfilo() -->
+        </div>
+
+        <button type="button" id="btn-profilo-segnala-assenza" class="btn btn-primary btn-block" onclick="apriModalAssenzaDaProfilo(event)" style="background: #4f46e5; border-color: #4338ca; padding: 11px 14px; font-size: 13.5px; font-weight: 700; display: flex; align-items: center; justify-content: space-between; border-radius: var(--radius-sm); touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
+          <span style="display: flex; align-items: center; gap: 8px;">
+            <span>🧳</span>
+            <span>Segnala Nuova Assenza dalla Casa</span>
+          </span>
+          <span style="font-size: 15px;">➜</span>
+        </button>
+      </div>
+
       <!-- NOTIFICHE PUSH OPZIONALI -->
       <div style="margin-bottom: 16px; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: var(--radius-md); padding: 12px 14px;">
         <div class="flex-between" style="margin-bottom: 6px;">
@@ -1759,6 +1786,7 @@
         <div id="push-perm-warning" style="display: none; margin-top: 8px; font-size: 11px; color: #dc2626;">
           ⚠️ I permessi di notifica sono bloccati nel tuo browser. Per attivarle, modificali nelle impostazioni del sito.
         </div>
+      </div>
       <!-- GESTIONE AGGIORNAMENTO APP E CACHE -->
       <div style="margin-bottom: 16px; background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: var(--radius-md); padding: 12px 14px;">
         <div class="flex-between" style="margin-bottom: 6px;">
@@ -1837,10 +1865,10 @@
             </div>
             <span style="font-size: 12px; color: #2563eb; font-weight: 600;">Sintesi ↗</span>
           </button>
-          <button type="button" id="settings-btn-segnala-assenza" class="btn btn-outline btn-block" onclick="chiudiModalSettings(); setTimeout(() => { apriModalSegnalaAssenza(); }, 50);" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm); border-color: #4f46e5;">
+          <button type="button" id="settings-btn-segnala-assenza" class="btn btn-outline btn-block" onclick="apriModalAssenzaDaProfilo(event)" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; text-align: left; font-size: 13px; border-radius: var(--radius-sm); border-color: #4f46e5; touch-action: manipulation; -webkit-tap-highlight-color: transparent;">
             <div class="flex-align" style="gap: 10px;">
-              <span style="font-size: 16px;">📅</span>
-              <span style="font-weight: 600;">Segnala Assenza Programmata</span>
+              <span style="font-size: 16px;">🧳</span>
+              <span style="font-weight: 600;">Segnala Assenza dalla Casa</span>
             </div>
             <span style="font-size: 12px; color: #4f46e5; font-weight: 700;">Segnala ↗</span>
           </button>
@@ -3124,9 +3152,9 @@
     <div class="modal-card" style="max-width: 460px;" onclick="event.stopPropagation()">
       <div class="modal-header" style="position: relative; margin-bottom: 16px;">
         <button type="button" onclick="chiudiModalSegnalaAssenza()" style="position: absolute; top: 0; right: 0; border: none; background: #f1f5f9; color: #475569; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Chiudi">✕</button>
-        <div class="modal-brand-badge" style="background: #4f46e5; color: #ffffff;">📅</div>
-        <h3 class="modal-title" style="font-size: 18px; color: #1e1b4b; margin: 0;">Segnala Assenza Programmata</h3>
-        <p class="modal-subtitle" style="font-size: 12.5px; margin: 4px 0 0 0;">Indica i giorni di assenza e sincronizza automaticamente la Mensa</p>
+        <div class="modal-brand-badge" style="background: #4f46e5; color: #ffffff;">🧳</div>
+        <h3 class="modal-title" style="font-size: 18px; color: #1e1b4b; margin: 0;">Segnala Assenza dalla Casa</h3>
+        <p class="modal-subtitle" style="font-size: 12.5px; margin: 4px 0 0 0;">Indica il periodo in cui sarai assente dalla residenza e sincronizza i pasti</p>
       </div>
 
       <form id="form-segnala-assenza" onsubmit="handleSalvaSegnalazioneAssenza(event)">
@@ -3408,9 +3436,12 @@
     window._modalOpenedTimestamp = 0;
     window.gestisciClickBackdrop = function(event, chiudiFn) {
       if (!event) return;
-      if (event.target !== event.currentTarget && !event.target.classList.contains("modal-overlay")) return;
-      if (Date.now() - (window._modalOpenedTimestamp || 0) < 150) {
-        return; // Protezione 150ms contro tap che oltrepassano dall'apertura
+      // Il tocco deve essere tassativamente sullo sfondo scuro esterno (.modal-overlay)
+      if (event.target !== event.currentTarget) return;
+      if (!event.target.classList || !event.target.classList.contains("modal-overlay")) return;
+      // Protezione 450ms contro tap sintetici/ghost-click oltrepassanti dall'apertura
+      if (Date.now() - (window._modalOpenedTimestamp || 0) < 450) {
+        return;
       }
       if (typeof chiudiFn === "function") {
         try { chiudiFn(event); } catch(e) { console.error(e); }
@@ -3420,9 +3451,28 @@
       }
     };
 
+    // Apertura sicura e mirata della modale Assenza dal profilo senza conflitti touch
+    window.apriModalAssenzaDaProfilo = function(event) {
+      if (event) {
+        try {
+          if (typeof event.stopPropagation === "function") event.stopPropagation();
+          if (typeof event.preventDefault === "function") event.preventDefault();
+        } catch (e) {}
+      }
+      window._modalOpenedTimestamp = Date.now() + 300;
+      if (typeof window.chiudiModalSettings === "function") {
+        window.chiudiModalSettings();
+      } else {
+        window.chiudiModale("modal-settings");
+      }
+      setTimeout(() => {
+        window.apriModalSegnalaAssenza();
+      }, 60);
+    };
+
     // Delegazione universale tocco/click su sfondo scuro e pulsanti di chiusura per tutte le finestre modali
     document.addEventListener("click", function(event) {
-      if (event.target && event.target.classList && event.target.classList.contains("modal-overlay")) {
+      if (event.target && event.target.classList && event.target.classList.contains("modal-overlay") && event.target === event.currentTarget) {
         window.gestisciClickBackdrop(event);
       }
       // Intercettazione delegata universale per qualsiasi pulsante di chiusura (✕, Chiudi, Annulla)
@@ -3457,9 +3507,8 @@
         }
       });
 
-      // Sposta la modale in fondo al body: questo forza Blink/Chromium ad invalidare
-      // e ridisegnare all'istante il layer visivo principale (DOM structural mutation invalidation)
-      if (m.parentNode !== document.body || m !== document.body.lastElementChild) {
+      // Assicura che la modale sia agganciata al DOM senza distaccarla se già presente (evita drop di touch events)
+      if (!m.parentNode) {
         document.body.appendChild(m);
       }
 

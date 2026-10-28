@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di implementazione per: 1) Esportazione residenti in formato CSV per Super Admin, 2) Verifica e gestione automatica scadenza/archiviazione comunicazione Direzione, 3) Vista giorno come predefinita nella Mensa e navigazione settimane a fondo pagina, 4) Correzione calcolo settimana e tempo nel Calendario Liturgico Romano, 5) Risoluzione mancata apertura al tocco della modale Segnala Assenza, 6) Sezione Master dedicata per orari Chiesa e vita comunitaria (08:00-13:00, 16:30-19:30, Messa domenicale ore 11:00), 7) Spazio pubblico indicazioni utilizzo ambienti (gruppi esigui), 8) Snellimento testi e fluidità UI anti-slop.",
-  "updatedAt":  "2026-10-26T08:05:12.459354619Z",
+  "summary":  "Piano di risoluzione e implementazione completata per la segnalazione assenze dalla casa, gestione dal menu profilo, esportazione CSV dei residenti, calendario liturgico, navigazione mensa e orari della chiesa.",
+  "updatedAt":  "2026-10-28T15:13:15.668203445Z",
   "requestFeedback":  true,
   "userFacing":  true
 }
