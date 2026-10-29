@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di risoluzione e implementazione completata per la segnalazione assenze dalla casa, gestione dal menu profilo, esportazione CSV dei residenti, calendario liturgico, navigazione mensa e orari della chiesa.",
-  "updatedAt":  "2026-10-28T15:13:15.668203445Z",
+  "summary":  "Piano di implementazione per la configurazione orari ambienti (Chiesa e Salone) completato con successo. Maschera modale dedicata nel pannello Master, visualizzazione filtrata solo degli orari consentiti e riporto delle indicazioni per i residenti.",
+  "updatedAt":  "2026-10-29T11:35:18.542205851Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

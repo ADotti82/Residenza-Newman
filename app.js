@@ -33,7 +33,7 @@ import {
 } from "./src/core/modal.js";
 import { calcolaProssimiGiorniCucina, filtraListaPresenzeCucina, toggleCucinaSpuntato } from "./src/modules/cucina/cucina.service.js";
 import { calcolaStatoDisponibilitaCamere, filtraRichiesteAccoglienza, validaDateSoggiorno } from "./src/modules/accoglienza/accoglienza.service.js";
-import { generaSlotOrari, filtraSlotPerFascia, getBloccoComunitarioChiesa, trovaPrenotazioneSlot } from "./src/modules/spazi/spazi.service.js";
+import { generaSlotOrari, filtraSlotPerFascia, getBloccoComunitarioChiesa, trovaPrenotazioneSlot, isSlotAmbienteConsentito } from "./src/modules/spazi/spazi.service.js";
 import { filtraTicketManutenzione, calcolaStatisticheManutenzione, processImageResize } from "./src/modules/manutenzione/manutenzione.service.js";
 import { filtraAvvisiBacheca, ordinaAvvisiBacheca, analizzaCSVEventi } from "./src/modules/bacheca/bacheca.service.js";
 import { calcolaTotalePendentiMaster, getDestinatariNotifiche } from "./src/modules/master/master.service.js";
@@ -62,6 +62,7 @@ window.validaDateSoggiorno = validaDateSoggiorno;
 window.generaSlotOrari = generaSlotOrari;
 window.filtraSlotPerFascia = filtraSlotPerFascia;
 window.getBloccoComunitarioChiesa = getBloccoComunitarioChiesa;
+window.isSlotAmbienteConsentito = isSlotAmbienteConsentito;
 window.trovaPrenotazioneSlot = trovaPrenotazioneSlot;
 window.filtraTicketManutenzione = filtraTicketManutenzione;
 window.calcolaStatisticheManutenzione = calcolaStatisticheManutenzione;
@@ -3562,9 +3563,15 @@ function renderSpaziView() {
     ribbonHtml += `<div class="date-chip ${isSel ? 'active' : ''}" onclick="cambiaDataSpazio('${dYMD}')"><span class="date-chip-day">${dayName}</span><span class="date-chip-num">${dayNum}</span><span class="date-chip-month">${monthName}</span></div>`;
   }
 
-    const inAttesaSpaziList = (appState.prenotazioniSpazi || []).filter(p => p.stato === "In Attesa");
-    const mieInAttesaList = (appState.prenotazioniSpazi || []).filter(p => appState.user && p.email && p.email.toLowerCase() === appState.user.email.toLowerCase() && p.stato === "In Attesa");
-    const isMasterSpazi = haPermessiMasterSpazi();
+    const isChiesa = (risorsaAttiva === "Chiesa");
+    const indicazioniTesto = isChiesa
+      ? (appState.cachedConfig?.Spazi_Indicazioni_Chiesa || appState.cachedConfig?.Spazi_Indicazioni_Generali || 'La Chiesa è disponibile per gruppi esigui e per la preghiera personale e liturgica dei residenti.')
+      : (appState.cachedConfig?.Spazi_Indicazioni_Salone || 'Il Salone Comunitario è disponibile per studio di gruppo, incontri e momenti ricreativi.');
+
+    const mattIni = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Mattina_Inizio || '08:00') : (appState.cachedConfig?.Salone_Fascia_Mattina_Inizio || '09:00');
+    const mattFin = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Mattina_Fine || '13:00') : (appState.cachedConfig?.Salone_Fascia_Mattina_Fine || '13:00');
+    const pomIni = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Inizio || '16:30') : (appState.cachedConfig?.Salone_Fascia_Pomeriggio_Inizio || '15:00');
+    const pomFin = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Fine || '19:30') : (appState.cachedConfig?.Salone_Fascia_Pomeriggio_Fine || '23:00');
 
     container.innerHTML = `
     <div class="card" style="margin-bottom: 12px;">
@@ -3574,28 +3581,34 @@ function renderSpaziView() {
             <span>🏛️</span> Prenotazione Ambienti Comuni
           </h2>
           <p class="card-desc" style="margin-top: 3px;">
-            Richiesta slot per Chiesa e Sala TV (approvazione Master).
+            Richiesta slot per Chiesa e Salone Comunitario (approvazione Master).
           </p>
         </div>
       </div>
 
-      <!-- Box Pubblico Indicazioni Ambienti e Chiesa per gruppi esigui -->
-      <div class="card-inner" style="background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%); border: 1.5px solid #d8b4fe; border-left: 5px solid #7c3aed; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(124, 58, 237, 0.08);">
-        <div style="display: flex; align-items: flex-start; gap: 10px;">
-          <span style="font-size: 22px; line-height: 1.1;">⛪</span>
-          <div style="flex: 1;">
-            <div style="font-size: 13.5px; font-weight: 800; color: #581c87; margin-bottom: 3px;">
-              Indicazioni Utilizzo Chiesa &amp; Ambienti
-            </div>
-            <div style="font-size: 12.5px; color: #4c1d95; line-height: 1.45;">
-              ${escapeHtml(appState.cachedConfig?.Spazi_Indicazioni_Generali || 'La Chiesa è disponibile per gruppi esigui e per la preghiera personale e liturgica dei residenti.')}
-            </div>
-            <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 11.5px; color: #6b21a8; font-weight: 600;">
-              <span>⏰ Tempi celebrazione: <strong>${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Mattina_Inizio || '08:00')} - ${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Mattina_Fine || '13:00')}</strong> e <strong>${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Inizio || '16:30')} - ${escapeHtml(appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Fine || '19:30')}</strong></span>
-              <span>·</span>
-              <span>🕊️ Domenica S. Messa comunitaria: <strong>ore ${escapeHtml(appState.cachedConfig?.Chiesa_Messa_Domenica || '11:00')}</strong></span>
+      <!-- Box Pubblico Indicazioni Ambienti (Dinamico per risorsa) -->
+      <div class="card-inner" style="background: ${isChiesa ? 'linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%)' : 'linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%)'}; border: 1.5px solid ${isChiesa ? '#d8b4fe' : '#bae6fd'}; border-left: 5px solid ${isChiesa ? '#7c3aed' : '#0284c7'}; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; flex-wrap: wrap;">
+          <div style="display: flex; align-items: flex-start; gap: 10px; flex: 1;">
+            <span style="font-size: 22px; line-height: 1.1;">${isChiesa ? '⛪' : '📺'}</span>
+            <div style="flex: 1;">
+              <div style="font-size: 13.5px; font-weight: 800; color: ${isChiesa ? '#581c87' : '#0369a1'}; margin-bottom: 3px;">
+                Indicazioni Utilizzo ${isChiesa ? 'Chiesa / Cappella' : 'Salone Comunitario'}
+              </div>
+              <div style="font-size: 12.5px; color: ${isChiesa ? '#4c1d95' : '#0c4a6e'}; line-height: 1.45;">
+                ${escapeHtml(indicazioniTesto)}
+              </div>
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; font-size: 11.5px; color: ${isChiesa ? '#6b21a8' : '#0284c7'}; font-weight: 600;">
+                <span>⏰ Orari disponibili: <strong>${escapeHtml(mattIni)} - ${escapeHtml(mattFin)}</strong> e <strong>${escapeHtml(pomIni)} - ${escapeHtml(pomFin)}</strong></span>
+                ${isChiesa ? `<span>·</span><span>🕊️ Domenica S. Messa comunitaria: <strong>ore ${escapeHtml(appState.cachedConfig?.Chiesa_Messa_Domenica || '11:00')}</strong></span>` : ''}
+              </div>
             </div>
           </div>
+          ${isMasterSpazi ? `
+            <button type="button" class="btn btn-outline btn-sm" onclick="apriModalConfiguraOrariAmbiente('${risorsaAttiva}')" style="font-size: 11px; padding: 4px 10px; font-weight: 700; border-color: ${isChiesa ? '#d8b4fe' : '#bae6fd'}; background: #ffffff; color: ${isChiesa ? '#6d28d9' : '#0369a1'}; border-radius: 6px; white-space: nowrap;">
+              ⚙️ Modifica Orari
+            </button>
+          ` : ''}
         </div>
       </div>
 
@@ -3656,12 +3669,12 @@ function renderSpaziView() {
         <button type="button" class="spazi-resource-btn ${risorsaAttiva === 'Chiesa' ? 'active' : ''}" onclick="cambiaRisorsaSpazio('Chiesa')">
           <span class="spazi-res-icon">⛪</span>
           <span class="spazi-res-title">Chiesa / Cappella</span>
-          <span class="spazi-res-sub">Slot 30 min</span>
+          <span class="spazi-res-sub">Fasce Celebrazione</span>
         </button>
-        <button type="button" class="spazi-resource-btn ${risorsaAttiva === 'Sala TV' ? 'active' : ''}" onclick="cambiaRisorsaSpazio('Sala TV')">
+        <button type="button" class="spazi-resource-btn ${(risorsaAttiva === 'Salone' || risorsaAttiva === 'Sala TV') ? 'active' : ''}" onclick="cambiaRisorsaSpazio('Salone')">
           <span class="spazi-res-icon">📺</span>
-          <span class="spazi-res-title">Sala TV / Cinema</span>
-          <span class="spazi-res-sub">Slot 30 min</span>
+          <span class="spazi-res-title">Salone Comunitario</span>
+          <span class="spazi-res-sub">Fasce Utilizzo</span>
         </button>
       </div>
 
@@ -3671,7 +3684,7 @@ function renderSpaziView() {
           <div class="flex-align" style="gap: 8px;">
             <span style="font-size: 20px;">📝</span>
             <div>
-              <strong style="font-size: 13.5px; color: #0f172a;">Richiedi ${risorsaAttiva === 'Chiesa' ? '⛪ Chiesa / Cappella' : '📺 Sala TV'}</strong>
+              <strong style="font-size: 13.5px; color: #0f172a;">Richiedi ${risorsaAttiva === 'Chiesa' ? '⛪ Chiesa / Cappella' : '📺 Salone Comunitario'}</strong>
               <div class="text-xs text-muted">Compila e conferma per inviare all'approvazione del Master</div>
             </div>
           </div>
@@ -3686,16 +3699,21 @@ function renderSpaziView() {
             <input type="date" id="inline-spazio-data" class="input-text" style="font-size: 12.5px; padding: 6px 8px;" value="${dataAttiva}" min="${oggiYMD}" onchange="cambiaDataSpazio(this.value)">
           </div>
           <div>
-            <label style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Slot Orario:</label>
+            <label style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Slot Orario Disponibile:</label>
             <select id="inline-spazio-slot" class="input-select" style="font-size: 12px; padding: 6px 8px; font-weight: 600;">
-              ${getTuttiSlotOrari30Min(risorsaAttiva, dataAttiva).map(s => {
-                if (risorsaAttiva === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
-                  const blocco = getBloccoComunitarioChiesa(s, dataAttiva, appState.cachedConfig);
-                  if (blocco) return `<option value="${s}" disabled style="color:#94a3b8; font-style:italic;">${s} - ${blocco.badge} (${blocco.fuoriOrario ? 'Non consentito' : 'Riservato'})</option>`;
-                }
-                const occ = (appState.prenotazioniSpazi || []).some(p => p.risorsa === risorsaAttiva && formattaDataConfronto(p.data) === formattaDataConfronto(dataAttiva) && p.slot_orario === s && p.stato !== "Rifiutata");
-                return occ ? `<option value="${s}" disabled style="color:#94a3b8;">${s} (Occupato)</option>` : `<option value="${s}">${s}</option>`;
-              }).join("")}
+              ${getTuttiSlotOrari30Min(risorsaAttiva, dataAttiva)
+                .filter(s => isSlotAmbienteConsentito(risorsaAttiva, s, appState.cachedConfig))
+                .map(s => {
+                  if (risorsaAttiva === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
+                    const blocco = getBloccoComunitarioChiesa(s, dataAttiva, appState.cachedConfig);
+                    if (blocco && !blocco.fuoriOrario) return `<option value="${s}" disabled style="color:#94a3b8; font-style:italic;">${s} - ${blocco.badge} (Riservato)</option>`;
+                  }
+                  const occ = (appState.prenotazioniSpazi || []).some(p => {
+                    const matchR = (risorsaAttiva === "Salone" || risorsaAttiva === "Sala TV") ? (p.risorsa === "Salone" || p.risorsa === "Sala TV") : (p.risorsa === risorsaAttiva);
+                    return matchR && formattaDataConfronto(p.data) === formattaDataConfronto(dataAttiva) && p.slot_orario === s && p.stato !== "Rifiutata";
+                  });
+                  return occ ? `<option value="${s}" disabled style="color:#94a3b8;">${s} (Occupato)</option>` : `<option value="${s}">${s} (Disponibile)</option>`;
+                }).join("")}
             </select>
           </div>
         </div>
@@ -3787,11 +3805,15 @@ function renderSlotSpazi() {
   const selData = appState.selectedSpazioData || formatYMD(new Date());
   const selFascia = appState.selectedSpazioFascia || "tutti";
   const tuttiSlot = getTuttiSlotOrari30Min(selRisorsa, selData);
-  const slotFiltrati = tuttiSlot.filter(s => filtraSlotPerFascia(s, selFascia));
+  // Mostra SOLO gli orari validi e consentiti alla prenotazione (fascia consentita per la risorsa)
+  const slotConsentiti = tuttiSlot.filter(s => isSlotAmbienteConsentito(selRisorsa, s, appState.cachedConfig));
+  const slotFiltrati = slotConsentiti.filter(s => filtraSlotPerFascia(s, selFascia));
 
   const occupati = (appState.prenotazioniSpazi || []).filter(p => {
     const pData = formattaDataConfronto(p.data);
-    return p.risorsa === selRisorsa && pData === selData;
+    const matchRisorsa = (p.risorsa === selRisorsa) || 
+      ((selRisorsa === "Salone" || selRisorsa === "Sala TV") && (p.risorsa === "Salone" || p.risorsa === "Sala TV"));
+    return matchRisorsa && pData === selData;
   });
   const occupatiMap = {};
   occupati.forEach(p => { occupatiMap[p.slot_orario] = p; });
@@ -3806,31 +3828,22 @@ function renderSlotSpazi() {
     if (selRisorsa === "Chiesa") {
       const bloccoComunitario = getBloccoComunitarioChiesa(slot, selData, appState.cachedConfig);
       if (bloccoComunitario) {
-        if (bloccoComunitario.fuoriOrario && !isMasterSpazi) {
-          html += `
-            <div class="slot-card-v2" style="background: #f8fafc; border-left: 4px solid #cbd5e1; box-shadow: none; opacity: 0.75; cursor: not-allowed;" title="${escapeHtml(bloccoComunitario.dettaglio)}">
-              <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
-                <div class="slot-time-text" style="font-weight: 700; color: #64748b;">${slot}</div>
-                <span class="badge" style="background: #e2e8f0; color: #475569; font-size: 10px; font-weight: 600;">🔒 Fuori Orario</span>
-              </div>
-              <div style="margin-top: 3px; font-size: 11px; color: #94a3b8;">
-                Celebrazioni non consentite
-              </div>
-            </div>
-          `;
+        if (bloccoComunitario.fuoriOrario) {
+          // Gli orari al di fuori delle fasce sono già esclusi dalla visualizzazione per rendere fluida la consultazione
           return;
-        } else if (!bloccoComunitario.fuoriOrario) {
+        } else {
+          // Evento liturgico fisso (es. Messa Comunitaria Domenica 11:00)
           html += `
-            <div class="slot-card-v2" style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%); border-left: 4px solid #0284c7; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: default;" title="Slot istituzionale riservato: ${bloccoComunitario.titolo}">
+            <div class="slot-card-v2" style="background: linear-gradient(135deg, #f0fdf4 0%, #e0f2fe 100%); border-left: 4px solid #0284c7; box-shadow: 0 1px 3px rgba(0,0,0,0.06); cursor: default;" title="Slot istituzionale riservato: ${escapeHtml(bloccoComunitario.titolo)}">
               <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
                 <div class="slot-time-text" style="font-weight: 800; color: #0369a1;">${slot}</div>
-                <span class="badge" style="background: #0284c7; color: #fff; font-size: 10.5px; font-weight: 700;">${bloccoComunitario.icona} Riservato</span>
+                <span class="badge" style="background: #0284c7; color: #fff; font-size: 10.5px; font-weight: 700;">${bloccoComunitario.icona || '🕊️'} Riservato</span>
               </div>
               <div style="margin-top: 4px; font-size: 12px; font-weight: 800; color: #0f172a; line-height: 1.3;">
-                ${bloccoComunitario.titolo}
+                ${escapeHtml(bloccoComunitario.titolo)}
               </div>
               <div style="margin-top: 2px; font-size: 11px; color: #475569;">
-                🔒 ${bloccoComunitario.dettaglio}
+                🔒 ${escapeHtml(bloccoComunitario.dettaglio || '')}
               </div>
             </div>
           `;
@@ -3870,8 +3883,14 @@ function renderSlotSpazi() {
     }
   });
 
-  grid.innerHTML = html || `<p class="empty-state-text" style="grid-column: 1 / -1;">Nessuno slot trovato.</p>`;
-  if (summaryEl) summaryEl.innerHTML = `<span>Ambiente: <strong>${selRisorsa}</strong> • ${selData}</span><span class="badge" style="background:#f1f5f9; font-weight: 700;">${disponibiliFascia} / ${totaliFascia} liberi</span>`;
+  const emptyMsg = totaliFascia === 0
+    ? `Nessun orario consentito per ${selRisorsa === 'Chiesa' ? 'la Chiesa' : 'il Salone'} nella fascia selezionata.`
+    : `Nessuno slot trovato per i filtri selezionati.`;
+  grid.innerHTML = html || `<p class="empty-state-text" style="grid-column: 1 / -1; padding: 20px; text-align: center; color: #64748b; background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1;">${emptyMsg}</p>`;
+  if (summaryEl) {
+    const nomeVisualizzato = (selRisorsa === "Salone" || selRisorsa === "Sala TV") ? "Salone Comunitario" : "Chiesa / Cappella";
+    summaryEl.innerHTML = `<span>Ambiente: <strong>${nomeVisualizzato}</strong> • ${selData}</span><span class="badge" style="background:#f1f5f9; font-weight: 700;">${disponibiliFascia} / ${totaliFascia} orari disponibili</span>`;
+  }
   renderMiePrenotazioniSpazi();
 }
 
@@ -3909,9 +3928,12 @@ function popolaSelectSlotSpazioModal(risorsa, data, slotPredefinito) {
   if (!select) return;
   const dataConfronto = formattaDataConfronto(data);
   const tuttiSlot = getTuttiSlotOrari30Min(risorsa, dataConfronto);
+  // Mostra SOLO gli orari validi e consentiti alla prenotazione
+  const slotConsentiti = tuttiSlot.filter(s => isSlotAmbienteConsentito(risorsa, s, appState.cachedConfig));
 
   const occupati = (appState.prenotazioniSpazi || []).filter(p => {
-    return p.risorsa === risorsa && formattaDataConfronto(p.data) === dataConfronto && p.stato !== "Rifiutata";
+    const matchRis = (p.risorsa === risorsa) || ((risorsa === "Salone" || risorsa === "Sala TV") && (p.risorsa === "Salone" || p.risorsa === "Sala TV"));
+    return matchRis && formattaDataConfronto(p.data) === dataConfronto && p.stato !== "Rifiutata";
   });
   const occupatiMap = {};
   occupati.forEach(p => { occupatiMap[p.slot_orario] = p; });
@@ -3920,11 +3942,11 @@ function popolaSelectSlotSpazioModal(risorsa, data, slotPredefinito) {
   let trovatoPredefinito = false;
   let primoDisponibile = null;
 
-  tuttiSlot.forEach(s => {
+  slotConsentiti.forEach(s => {
     if (risorsa === "Chiesa") {
       const blocco = getBloccoComunitarioChiesa(s, dataConfronto, appState.cachedConfig);
-      if (blocco) {
-        html += `<option value="${s}" disabled style="color: #94a3b8; font-style: italic;">${s} - ${blocco.badge} (${blocco.fuoriOrario ? 'Non consentito' : 'Riservato'})</option>`;
+      if (blocco && !blocco.fuoriOrario) {
+        html += `<option value="${s}" disabled style="color: #94a3b8; font-style: italic;">${s} - ${blocco.titolo} (Riservato)</option>`;
         return;
       }
     }
@@ -3941,16 +3963,16 @@ function popolaSelectSlotSpazioModal(risorsa, data, slotPredefinito) {
     }
   });
 
-  select.innerHTML = html;
+  select.innerHTML = html || `<option value="" disabled>Nessun orario consentito</option>`;
   if (slotPredefinito && (trovatoPredefinito || true)) {
     select.value = slotPredefinito;
     slotInPrenotazione = slotPredefinito;
   } else if (primoDisponibile) {
     select.value = primoDisponibile;
     slotInPrenotazione = primoDisponibile;
-  } else if (tuttiSlot[0]) {
-    select.value = tuttiSlot[0];
-    slotInPrenotazione = tuttiSlot[0];
+  } else if (slotConsentiti[0]) {
+    select.value = slotConsentiti[0];
+    slotInPrenotazione = slotConsentiti[0];
   }
 }
 
@@ -6264,6 +6286,12 @@ function renderMasterSection() {
           </div>
           <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap;">
             <span class="badge" style="background: #fdf2f8; color: #9d174d; font-weight: 700;">In Attesa: ${inAttesaSpaziList.length}</span>
+            <button type="button" class="btn btn-sm btn-outline" onclick="apriModalConfiguraOrariAmbiente('Chiesa')" style="border-color: #7c3aed; color: #6d28d9; background: #faf5ff; font-weight: 700;" title="Configura orari di apertura e celebrazione della Chiesa">
+              ⚙️ Orari Chiesa
+            </button>
+            <button type="button" class="btn btn-sm btn-outline" onclick="apriModalConfiguraOrariAmbiente('Salone')" style="border-color: #0284c7; color: #0369a1; background: #f0f9ff; font-weight: 700;" title="Configura orari di apertura e utilizzo del Salone">
+              ⚙️ Orari Salone
+            </button>
             <button type="button" class="btn btn-sm btn-primary" onclick="apriModalMasterAppuntamento()" style="background: #9d174d; border-color: #831843; font-weight: 700;">
               ➕ Inserisci Appuntamento
             </button>
@@ -6394,7 +6422,12 @@ function renderMasterSection() {
               <span class="text-xs text-muted">Definisci fasce orarie consentite per celebrazioni, Messa domenicale fissa e indicazioni ambienti</span>
             </div>
           </div>
-          <span class="badge" style="background: #ede9fe; color: #6d28d9; font-weight: 700;">Configurazione Attiva</span>
+          <div style="display: flex; gap: 6px; align-items: center;">
+            <button type="button" class="btn btn-sm btn-outline" onclick="apriModalConfiguraOrariAmbiente('Salone')" style="border-color: #0284c7; color: #0369a1; background: #f0f9ff; font-weight: 700;" title="Configura gli orari di apertura del Salone">
+              ⚙️ Configura Salone
+            </button>
+            <span class="badge" style="background: #ede9fe; color: #6d28d9; font-weight: 700;">Configurazione Attiva</span>
+          </div>
         </div>
 
         <form onsubmit="handleSalvaConfigurazioneChiesa(event)" style="margin-top: 14px;">
@@ -7083,6 +7116,7 @@ window.handleSalvaConfigurazioneChiesa = async function(event) {
     Chiesa_Fascia_Pomeriggio_Fine: pomFine,
     Chiesa_Messa_Domenica: messaDomenica,
     Chiesa_Descrizione_Comunitaria: descComunitaria,
+    Spazi_Indicazioni_Chiesa: indicazioniSpazi,
     Spazi_Indicazioni_Generali: indicazioniSpazi
   };
 
@@ -7100,6 +7134,157 @@ window.handleSalvaConfigurazioneChiesa = async function(event) {
     Object.assign(appState.cachedConfig, payload);
     mostraToast("✅ Orari Chiesa salvati localmente!", "success");
     renderMasterSection();
+  }
+};
+
+window.apriModalConfiguraOrariAmbiente = function(targetAmbiente = "Chiesa") {
+  window._modalOpenedTimestamp = Date.now();
+  const m = (typeof window.mostraModaleIstantanea === "function")
+    ? window.mostraModaleIstantanea("modal-configura-orari-ambiente")
+    : document.getElementById("modal-configura-orari-ambiente");
+  if (!m) return;
+  m.classList.add("open");
+  m.style.setProperty("display", "flex", "important");
+  m.style.setProperty("z-index", "999999", "important");
+  m.style.setProperty("visibility", "visible", "important");
+  m.style.setProperty("opacity", "1", "important");
+  document.body.classList.add("modal-is-open");
+  void m.offsetHeight;
+
+  selezionaAmbienteConfigurazioneOrari(targetAmbiente);
+};
+
+window.chiudiModalConfiguraOrariAmbiente = function() {
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-configura-orari-ambiente");
+  } else {
+    const m = document.getElementById("modal-configura-orari-ambiente");
+    if (m) m.style.display = "none";
+  }
+};
+
+window.selezionaAmbienteConfigurazioneOrari = function(targetAmbiente) {
+  const isChiesa = (targetAmbiente === "Chiesa");
+  const targetHidden = document.getElementById("orari-ambiente-target");
+  if (targetHidden) targetHidden.value = isChiesa ? "Chiesa" : "Salone";
+
+  const btnChiesa = document.getElementById("btn-toggle-orari-chiesa");
+  const btnSalone = document.getElementById("btn-toggle-orari-salone");
+  if (btnChiesa) {
+    btnChiesa.style.background = isChiesa ? "#7c3aed" : "#ffffff";
+    btnChiesa.style.color = isChiesa ? "#ffffff" : "#475569";
+    btnChiesa.style.border = isChiesa ? "none" : "1px solid #cbd5e1";
+  }
+  if (btnSalone) {
+    btnSalone.style.background = !isChiesa ? "#0284c7" : "#ffffff";
+    btnSalone.style.color = !isChiesa ? "#ffffff" : "#475569";
+    btnSalone.style.border = !isChiesa ? "none" : "1px solid #cbd5e1";
+  }
+
+  const badgeEl = document.getElementById("orari-ambiente-badge");
+  const titoloEl = document.getElementById("orari-ambiente-titolo");
+  const subEl = document.getElementById("orari-ambiente-sottotitolo");
+  const boxDomenica = document.getElementById("cfg-box-chiesa-domenica");
+  const btnSubmit = document.getElementById("btn-submit-orari-ambiente");
+
+  if (badgeEl) {
+    badgeEl.textContent = isChiesa ? "⛪" : "📺";
+    badgeEl.style.background = isChiesa ? "#7c3aed" : "#0284c7";
+  }
+  if (titoloEl) {
+    titoloEl.textContent = isChiesa ? "Configura Orari Chiesa / Cappella" : "Configura Orari Salone (Sala TV)";
+  }
+  if (subEl) {
+    subEl.textContent = isChiesa
+      ? "Definisci fasce orarie per celebrazioni e Santa Messa comunitaria domenicale"
+      : "Definisci fasce orarie in cui il Salone è utilizzabile dai residenti";
+  }
+  if (boxDomenica) {
+    boxDomenica.style.display = isChiesa ? "block" : "none";
+  }
+  if (btnSubmit) {
+    btnSubmit.style.background = isChiesa ? "#7c3aed" : "#0284c7";
+    btnSubmit.style.borderColor = isChiesa ? "#6d28d9" : "#0369a1";
+  }
+
+  const inpMattInizio = document.getElementById("cfg-ambiente-matt-inizio");
+  const inpMattFine = document.getElementById("cfg-ambiente-matt-fine");
+  const inpPomInizio = document.getElementById("cfg-ambiente-pom-inizio");
+  const inpPomFine = document.getElementById("cfg-ambiente-pom-fine");
+  const inpDomenica = document.getElementById("cfg-chiesa-messa-domenica");
+  const txtIndicazioni = document.getElementById("cfg-ambiente-indicazioni");
+
+  if (isChiesa) {
+    if (inpMattInizio) inpMattInizio.value = appState.cachedConfig?.Chiesa_Fascia_Mattina_Inizio || "08:00";
+    if (inpMattFine) inpMattFine.value = appState.cachedConfig?.Chiesa_Fascia_Mattina_Fine || "13:00";
+    if (inpPomInizio) inpPomInizio.value = appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Inizio || "16:30";
+    if (inpPomFine) inpPomFine.value = appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Fine || "19:30";
+    if (inpDomenica) inpDomenica.value = appState.cachedConfig?.Chiesa_Messa_Domenica || "11:00";
+    if (txtIndicazioni) txtIndicazioni.value = appState.cachedConfig?.Spazi_Indicazioni_Chiesa || appState.cachedConfig?.Spazi_Indicazioni_Generali || "La Chiesa è disponibile per gruppi esigui e per la preghiera personale e liturgica dei residenti.";
+  } else {
+    if (inpMattInizio) inpMattInizio.value = appState.cachedConfig?.Salone_Fascia_Mattina_Inizio || "09:00";
+    if (inpMattFine) inpMattFine.value = appState.cachedConfig?.Salone_Fascia_Mattina_Fine || "13:00";
+    if (inpPomInizio) inpPomInizio.value = appState.cachedConfig?.Salone_Fascia_Pomeriggio_Inizio || "15:00";
+    if (inpPomFine) inpPomFine.value = appState.cachedConfig?.Salone_Fascia_Pomeriggio_Fine || "23:00";
+    if (txtIndicazioni) txtIndicazioni.value = appState.cachedConfig?.Spazi_Indicazioni_Salone || "Il Salone Comunitario è disponibile per studio di gruppo, incontri e momenti ricreativi.";
+  }
+};
+
+window.handleSalvaOrariAmbienteMaster = async function(event) {
+  if (event && event.preventDefault) event.preventDefault();
+  const target = document.getElementById("orari-ambiente-target")?.value || "Chiesa";
+  const isChiesa = (target === "Chiesa");
+
+  const mattInizio = document.getElementById("cfg-ambiente-matt-inizio")?.value || (isChiesa ? "08:00" : "09:00");
+  const mattFine = document.getElementById("cfg-ambiente-matt-fine")?.value || "13:00";
+  const pomInizio = document.getElementById("cfg-ambiente-pom-inizio")?.value || (isChiesa ? "16:30" : "15:00");
+  const pomFine = document.getElementById("cfg-ambiente-pom-fine")?.value || (isChiesa ? "19:30" : "23:00");
+  const indicazioni = document.getElementById("cfg-ambiente-indicazioni")?.value || "";
+
+  let payload = {};
+  if (isChiesa) {
+    const messaDomenica = document.getElementById("cfg-chiesa-messa-domenica")?.value || "11:00";
+    payload = {
+      Chiesa_Fascia_Mattina_Inizio: mattInizio,
+      Chiesa_Fascia_Mattina_Fine: mattFine,
+      Chiesa_Fascia_Pomeriggio_Inizio: pomInizio,
+      Chiesa_Fascia_Pomeriggio_Fine: pomFine,
+      Chiesa_Messa_Domenica: messaDomenica,
+      Spazi_Indicazioni_Chiesa: indicazioni,
+      Spazi_Indicazioni_Generali: indicazioni
+    };
+  } else {
+    payload = {
+      Salone_Fascia_Mattina_Inizio: mattInizio,
+      Salone_Fascia_Mattina_Fine: mattFine,
+      Salone_Fascia_Pomeriggio_Inizio: pomInizio,
+      Salone_Fascia_Pomeriggio_Fine: pomFine,
+      Spazi_Indicazioni_Salone: indicazioni
+    };
+  }
+
+  const btnSubmit = document.getElementById("btn-submit-orari-ambiente");
+  if (btnSubmit) { btnSubmit.disabled = true; btnSubmit.textContent = "Salvataggio..."; }
+
+  try {
+    const res = await callApi("aggiornaConfig", payload);
+    if (res && res.success) {
+      Object.assign(appState.cachedConfig, payload);
+      mostraToast(`✅ Orari e regole ${isChiesa ? 'Chiesa' : 'Salone'} aggiornati con successo!`, "success");
+      chiudiModalConfiguraOrariAmbiente();
+      renderSpaziView();
+      if (appState.currentTab === "master") renderMasterSection();
+    } else {
+      mostraToast("Errore salvataggio: " + ((res && res.error) || "Riprova"), "danger");
+    }
+  } catch (err) {
+    Object.assign(appState.cachedConfig, payload);
+    mostraToast(`✅ Orari ${isChiesa ? 'Chiesa' : 'Salone'} aggiornati localmente!`, "success");
+    chiudiModalConfiguraOrariAmbiente();
+    renderSpaziView();
+    if (appState.currentTab === "master") renderMasterSection();
+  } finally {
+    if (btnSubmit) { btnSubmit.disabled = false; btnSubmit.textContent = "💾 Salva Orari & Regole"; }
   }
 };
 

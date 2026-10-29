@@ -39,34 +39,64 @@ export function filtraSlotPerFascia(slot, fascia) {
 }
 
 /**
- * Determina se uno slot orario della Chiesa rientra nelle fasce di celebrazione consentite
+ * Determina se uno slot orario rientra nelle fasce consentite per l'ambiente specificato
  */
-export function isSlotChiesaConsentito(slot, config = {}) {
+export function isSlotAmbienteConsentito(risorsa, slot, config = {}) {
   if (!slot) return true;
   const startPart = slot.split(" - ")[0];
   const [h, m] = startPart.split(":").map(Number);
   const timeVal = h * 60 + m;
 
-  // Lettura fasce configurate (con fallback predefiniti 08:00-13:00 e 16:30-19:30)
-  const mattInizioStr = config.Chiesa_Fascia_Mattina_Inizio || "08:00";
-  const mattFineStr = config.Chiesa_Fascia_Mattina_Fine || "13:00";
-  const pomInizioStr = config.Chiesa_Fascia_Pomeriggio_Inizio || "16:30";
-  const pomFineStr = config.Chiesa_Fascia_Pomeriggio_Fine || "19:30";
+  if (risorsa === "Chiesa") {
+    const mattInizioStr = config.Chiesa_Fascia_Mattina_Inizio || "08:00";
+    const mattFineStr = config.Chiesa_Fascia_Mattina_Fine || "13:00";
+    const pomInizioStr = config.Chiesa_Fascia_Pomeriggio_Inizio || "16:30";
+    const pomFineStr = config.Chiesa_Fascia_Pomeriggio_Fine || "19:30";
 
-  const [mh1, mm1] = mattInizioStr.split(":").map(Number);
-  const [mh2, mm2] = mattFineStr.split(":").map(Number);
-  const [ph1, pm1] = pomInizioStr.split(":").map(Number);
-  const [ph2, pm2] = pomFineStr.split(":").map(Number);
+    const [mh1, mm1] = mattInizioStr.split(":").map(Number);
+    const [mh2, mm2] = mattFineStr.split(":").map(Number);
+    const [ph1, pm1] = pomInizioStr.split(":").map(Number);
+    const [ph2, pm2] = pomFineStr.split(":").map(Number);
 
-  const mattInizio = mh1 * 60 + (mm1 || 0);
-  const mattFine = mh2 * 60 + (mm2 || 0);
-  const pomInizio = ph1 * 60 + (pm1 || 0);
-  const pomFine = ph2 * 60 + (pm2 || 0);
+    const mattInizio = mh1 * 60 + (mm1 || 0);
+    const mattFine = mh2 * 60 + (mm2 || 0);
+    const pomInizio = ph1 * 60 + (pm1 || 0);
+    const pomFine = ph2 * 60 + (pm2 || 0);
 
-  const inMattina = (timeVal >= mattInizio && timeVal < mattFine);
-  const inPomeriggio = (timeVal >= pomInizio && timeVal < pomFine);
+    const inMattina = (timeVal >= mattInizio && timeVal < mattFine);
+    const inPomeriggio = (timeVal >= pomInizio && timeVal < pomFine);
+    return inMattina || inPomeriggio;
+  }
 
-  return inMattina || inPomeriggio;
+  if (risorsa === "Salone" || risorsa === "Sala TV") {
+    const mattInizioStr = config.Salone_Fascia_Mattina_Inizio || "09:00";
+    const mattFineStr = config.Salone_Fascia_Mattina_Fine || "13:00";
+    const pomInizioStr = config.Salone_Fascia_Pomeriggio_Inizio || "15:00";
+    const pomFineStr = config.Salone_Fascia_Pomeriggio_Fine || "23:00";
+
+    const [mh1, mm1] = mattInizioStr.split(":").map(Number);
+    const [mh2, mm2] = mattFineStr.split(":").map(Number);
+    const [ph1, pm1] = pomInizioStr.split(":").map(Number);
+    const [ph2, pm2] = pomFineStr.split(":").map(Number);
+
+    const mattInizio = mh1 * 60 + (mm1 || 0);
+    const mattFine = mh2 * 60 + (mm2 || 0);
+    const pomInizio = ph1 * 60 + (pm1 || 0);
+    const pomFine = ph2 * 60 + (pm2 || 0);
+
+    const inMattina = (timeVal >= mattInizio && timeVal < mattFine);
+    const inPomeriggio = (timeVal >= pomInizio && timeVal < pomFine);
+    return inMattina || inPomeriggio;
+  }
+
+  return true;
+}
+
+/**
+ * Determina se uno slot orario della Chiesa rientra nelle fasce di celebrazione consentite
+ */
+export function isSlotChiesaConsentito(slot, config = {}) {
+  return isSlotAmbienteConsentito("Chiesa", slot, config);
 }
 
 /**
@@ -148,4 +178,5 @@ if (typeof window !== "undefined") {
   window.filtraSlotPerFascia = filtraSlotPerFascia;
   window.getBloccoComunitarioChiesa = getBloccoComunitarioChiesa;
   window.isSlotChiesaConsentito = isSlotChiesaConsentito;
+  window.isSlotAmbienteConsentito = isSlotAmbienteConsentito;
 }

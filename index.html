@@ -3259,6 +3259,95 @@
     </div>
   </div>
 
+  <!-- MODAL CONFIGURAZIONE ORARI & REGOLE AMBIENTE (CHIESA E SALONE) -->
+  <div class="modal-overlay" id="modal-configura-orari-ambiente" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalConfiguraOrariAmbiente)">
+    <div class="modal-card" style="max-width: 520px;" onclick="event.stopPropagation()">
+      <div class="modal-header" style="position: relative; margin-bottom: 16px;">
+        <button type="button" onclick="chiudiModalConfiguraOrariAmbiente()" style="position: absolute; top: 0; right: 0; border: none; background: #f1f5f9; color: #475569; width: 32px; height: 32px; border-radius: 50%; font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center;" title="Chiudi">✕</button>
+        <div class="modal-brand-badge" id="orari-ambiente-badge" style="background: #7c3aed; color: #ffffff;">⚙️</div>
+        <h3 class="modal-title" id="orari-ambiente-titolo" style="font-size: 18px; color: #1e1b4b; margin: 0;">Configura Orari Ambiente</h3>
+        <p class="modal-subtitle" id="orari-ambiente-sottotitolo" style="font-size: 12.5px; margin: 4px 0 0 0;">Definisci fasce orarie disponibili e indicazioni per i residenti</p>
+      </div>
+
+      <form id="form-configura-orari-ambiente" onsubmit="handleSalvaOrariAmbienteMaster(event)">
+        <input type="hidden" id="orari-ambiente-target" value="Chiesa">
+
+        <!-- Scelta rapida ambiente in alto -->
+        <div style="display: flex; gap: 8px; margin-bottom: 14px; background: #f1f5f9; padding: 4px; border-radius: 8px;">
+          <button type="button" id="btn-toggle-orari-chiesa" class="btn btn-sm" onclick="selezionaAmbienteConfigurazioneOrari('Chiesa')" style="flex: 1; font-weight: 700; border-radius: 6px; background: #7c3aed; color: #fff; border: none; padding: 7px 10px; font-size: 12.5px;">⛪ Chiesa / Cappella</button>
+          <button type="button" id="btn-toggle-orari-salone" class="btn btn-sm" onclick="selezionaAmbienteConfigurazioneOrari('Salone')" style="flex: 1; font-weight: 700; border-radius: 6px; background: #ffffff; color: #475569; border: 1px solid #cbd5e1; padding: 7px 10px; font-size: 12.5px;">📺 Salone (Sala TV)</button>
+        </div>
+
+        <!-- Box Fasce Orarie Consentite -->
+        <div style="background: #faf5ff; border: 1.5px solid #e9d5ff; border-radius: 8px; padding: 14px; margin-bottom: 12px;" id="box-fasce-orari-ambiente">
+          <div style="font-size: 13.5px; font-weight: 800; color: #581c87; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>⏰</span> <span id="lbl-fasce-orari-titolo">Fasce Orarie Utilizzo Consentite</span>
+          </div>
+          <p class="text-xs text-muted" style="margin: 0 0 10px 0; line-height: 1.4;">
+            Nella pagina di prenotazione verranno mostrati <strong>esclusivamente gli slot compresi in queste fasce</strong>.
+          </p>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
+            <div>
+              <label for="cfg-ambiente-matt-inizio" style="font-size: 11.5px; font-weight: 700; color: #581c87; margin-bottom: 2px;">🌅 Mattina Inizio:</label>
+              <input type="time" id="cfg-ambiente-matt-inizio" class="input-text" style="font-size: 13px; font-weight: 700; padding: 7px 10px;" required>
+            </div>
+            <div>
+              <label for="cfg-ambiente-matt-fine" style="font-size: 11.5px; font-weight: 700; color: #581c87; margin-bottom: 2px;">🌅 Mattina Fine:</label>
+              <input type="time" id="cfg-ambiente-matt-fine" class="input-text" style="font-size: 13px; font-weight: 700; padding: 7px 10px;" required>
+            </div>
+          </div>
+
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <div>
+              <label for="cfg-ambiente-pom-inizio" style="font-size: 11.5px; font-weight: 700; color: #581c87; margin-bottom: 2px;">🌇 Pomeriggio Inizio:</label>
+              <input type="time" id="cfg-ambiente-pom-inizio" class="input-text" style="font-size: 13px; font-weight: 700; padding: 7px 10px;" required>
+            </div>
+            <div>
+              <label for="cfg-ambiente-pom-fine" style="font-size: 11.5px; font-weight: 700; color: #581c87; margin-bottom: 2px;">🌇 Pomeriggio/Sera Fine:</label>
+              <input type="time" id="cfg-ambiente-pom-fine" class="input-text" style="font-size: 13px; font-weight: 700; padding: 7px 10px;" required>
+            </div>
+          </div>
+        </div>
+
+        <!-- Box Opzione Specifica Chiesa (Messa Comunitaria Domenica) -->
+        <div id="cfg-box-chiesa-domenica" style="background: #fdf2f8; border: 1.5px solid #fbcfe8; border-radius: 8px; padding: 12px 14px; margin-bottom: 12px;">
+          <div style="font-size: 13px; font-weight: 800; color: #9d174d; margin-bottom: 4px; display: flex; align-items: center; gap: 6px;">
+            <span>🕊️</span> Santa Messa Comunitaria Domenicale
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="max-width: 140px;">
+              <label for="cfg-chiesa-messa-domenica" style="font-size: 11.5px; font-weight: 700; color: #9d174d; margin-bottom: 2px;">Orario Domenica:</label>
+              <input type="time" id="cfg-chiesa-messa-domenica" class="input-text" style="font-size: 13px; font-weight: 700; padding: 6px 8px;" value="11:00">
+            </div>
+            <div style="font-size: 11px; color: #831843; line-height: 1.35; flex: 1;">
+              Ogni domenica questo orario blocca automaticamente la Chiesa come <em>"Riservato Santa Messa Comunitaria"</em>.
+            </div>
+          </div>
+        </div>
+
+        <!-- Box Indicazioni Pubbliche per Residenti -->
+        <div style="background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 8px; padding: 12px 14px; margin-bottom: 16px;">
+          <label for="cfg-ambiente-indicazioni" style="font-size: 12.5px; font-weight: 800; color: #1e293b; margin-bottom: 4px; display: block;">
+            📢 Indicazioni Pubbliche sull'Utilizzo dell'Ambiente:
+          </label>
+          <textarea id="cfg-ambiente-indicazioni" class="input-textarea" rows="2" style="font-size: 12.5px; line-height: 1.45; width: 100%;" placeholder="Es. Disponibile per gruppi esigui, studio o preghiera..."></textarea>
+          <p class="text-xs text-muted" style="margin: 4px 0 0 0;">
+            Questo avviso comparirà in cima alla pagina di prenotazione quando il residente seleziona questo ambiente.
+          </p>
+        </div>
+
+        <!-- Footer Azioni -->
+        <div style="display: flex; gap: 8px; justify-content: flex-end; padding-top: 12px; border-top: 1px solid #e2e8f0;">
+          <button type="button" class="btn btn-secondary" onclick="chiudiModalConfiguraOrariAmbiente()" style="font-weight: 600;">Annulla</button>
+          <button type="submit" class="btn btn-primary" id="btn-submit-orari-ambiente" style="background: #7c3aed; border-color: #6d28d9; font-weight: 700; padding: 8px 18px;">
+            💾 Salva Orari &amp; Regole
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- MODAL DETTAGLIO GIORNO ASSENZE -->
   <div class="modal-overlay" id="modal-dettaglio-giorno-assenze" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalDettaglioGiornoAssenze)">
     <div class="modal-card" style="max-width: 520px;" onclick="event.stopPropagation()">
@@ -3715,6 +3804,7 @@
     window.chiudiModalElencoPastiCucina = function() { window.chiudiModale("modal-elenco-pasti-cucina"); };
     window.chiudiModalMasterAppuntamento = function() { window.chiudiModale("modal-master-nuovo-appuntamento"); };
     window.chiudiModalSegnalaAssenza = function() { window.chiudiModale("modal-segnala-assenza"); };
+    window.chiudiModalConfiguraOrariAmbiente = function() { window.chiudiModale("modal-configura-orari-ambiente"); };
 
     // Helper globale di emergenza per sbloccare la UI in caso di modali bloccate
     window.chiudiTutteLeModali = function() {

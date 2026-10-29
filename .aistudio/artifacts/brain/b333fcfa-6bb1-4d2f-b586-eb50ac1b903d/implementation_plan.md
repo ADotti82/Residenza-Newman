@@ -1,58 +1,37 @@
-# Risoluzione Completata: Assenze dalla Casa & Funzionalità Residenza Newman
+# Piano di Implementazione: Configurazione Orari Ambienti (Chiesa e Salone) & Griglia Slot Filtrata
 
-Tutti gli interventi pianificati sono stati implementati e verificati con successo:
-
----
-
-### 1. Risoluzione Definitiva Bug Apertura Modale Assenze su Dispositivi Mobili
-- **Eliminazione Ghost-Click & Tap-Through**:
-  - Implementata la funzione dedicata `window.apriModalAssenzaDaProfilo(event)` che gestisce i tocchi mobile isolando la propagazione degli eventi (`stopPropagation`, `preventDefault`).
-  - Aumentata la soglia di protezione temporale in `gestisciClickBackdrop` da 150ms a **450ms**, azzerando il rischio che i click sintetici generati da smartphone chiudano istantaneamente la modale.
-  - Rafforzato il controllo sull'evento di chiusura del backdrop (`event.target === event.currentTarget` e classe `modal-overlay`), impedendo chiusure involontarie durante tocchi su elementi interni.
-  - Rimossa la mutazione distruttiva del DOM (`appendChild` continuo) in `mostraModaleIstantanea`, preservando i listener di tocco attivi sui dispositivi iOS Safari e Android.
+Tutte le funzionalità concordate sono state completate con successo.
 
 ---
 
-### 2. Gestione Centralizzata "Assenze dalla Casa" nel Menu Profilo / Impostazioni
-- **Nuova Sezione Dedicata nel Profilo (`#settings-card-assenze-casa`)**:
-  - Badge di stato in tempo reale per il residente:
-    - 🟢 **In Residenza** se presente.
-    - 🧳 **Assente fino al [Data]** se è in corso un'assenza registrata.
-  - Lista dinamica delle assenze in corso e programmate con indicazione delle date, del motivo e dello stato di sospensione dei pasti in mensa.
-  - Pulsante rapido **"🗑️ Revoca / Rientro"** per annullare o rientrare anticipatamente da un'assenza con un solo tocco e ripristinare i pasti.
-  - Pulsante primario in evidenza **"🧳 Segnala Nuova Assenza dalla Casa"** con navigazione protetta e reattività immediata al tocco.
+### 1. Maschera Dedicata di Configurazione Orari nel Pannello Master ✅ Completato
+- **Pulsanti di Configurazione dedicati nella scheda Ambienti del Master**:
+  - `⚙️ Orari Chiesa`: apre la maschera con orari mattutini (08:00–13:00 predefiniti), pomeridiani (16:30–19:30 predefiniti), Santa Messa domenicale comunitaria fissa (11:00) e indicazioni d'uso (es. gruppi esigui).
+  - `⚙️ Orari Salone`: apre la maschera per definire gli orari consentiti di apertura e utilizzo del Salone (09:00–13:00 e 15:00–23:00 predefiniti), blocchi comunitari e note per i residenti.
+- **Struttura della Maschera Modale (`modal-configura-orari-ambiente`)**:
+  - Selettore dell'ambiente con pulsanti dedicati (Chiesa / Salone) e campi contestualizzati.
+  - Orari inizio e fine fascia mattina e pomeriggio/sera.
+  - Orario evento liturgico/comunitario ricorrente (S. Messa comunitaria fissa).
+  - Testo delle indicazioni d'uso visibili a tutti i residenti.
+  - Salvataggio centralizzato su `appState.cachedConfig` e sincronizzazione API persistente (`aggiornaConfig`).
 
 ---
 
-### 3. Esportazione Residenti in Formato CSV
-- Pulsante dedicato **"📊 Esporta Residenti (CSV)"** nel pannello Master (scheda Residenti).
-- Generazione conforme allo standard RFC 4180 con separatore `;` e **BOM UTF-8 (`\uFEFF`)** per compatibilità immediata con Microsoft Excel italiano, LibreOffice e Google Fogli.
-- Include anagrafica, ruoli, permessi speciali (Mensa, Manutenzione, Ambienti, Super Admin) e preferenze notifiche.
+### 2. Riporto degli Orari e Indicazioni nella Pagina Prenotazione Ambienti ✅ Completato
+- **Header Informativo Dinamico per Ambiente**:
+  - Mostra le fasce orarie consentite per l'ambiente attivo (Chiesa vs Salone).
+  - Mostra la nota d'uso comunitaria (es. Chiesa disponibile per gruppi esigui).
+  - Mostra la Messa comunitaria fissa domenicale per la Chiesa.
+  - Pulsante diretto `⚙️ Modifica Orari` per gli utenti Master.
 
 ---
 
-### 4. Scomparsa e Archiviazione Automatica Comunicazioni Direzione
-- Verifica puntuale delle date di pubblicazione e scadenza della comunicazione ufficiale.
-- Al superamento della data di scadenza (`Date.now() > Messaggio_Supermaster_Data_Scadenza`), il messaggio scompare automaticamente sia dalla **Bacheca** che dalla sezione **La Residenza** per tutti i residenti.
-- Nel pannello Master, la comunicazione scaduta viene contrassegnata con badge esplicito di archiviazione per consentire all'amministratore di consultarla, rinnovarla o rimuoverla.
-
----
-
-### 5. Mensa: Vista Giornaliera Predefinita & Navigazione a Fondo Pagina
-- La visualizzazione predefinita della Mensa è ora impostata sulla **Vista Giorno (`'giorno'`)**.
-- Aggiunti pulsanti di navigazione tra le settimane (**◀ Sett. Precedente** e **Sett. Successiva ▶**) sia nella vista settimanale sia in fondo alla pagina della vista giornaliera, rendendo immediato lo scorrimento senza dover risalire in cima allo schermo.
-
----
-
-### 6. Correzione Calendario Liturgico Romano
-- Ricalibrata la formula di calcolo del Tempo Ordinario basandola sulla settimana da Domenica a Sabato nel Rito Romano.
-- Eliminato lo sfasamento di una settimana nel periodo post-Pentecoste fino alla 34ª Domenica del Tempo Ordinario (Cristo Re).
-
----
-
-### 7. Gestione Orari Cappella / Chiesa nel Master & Linee Guida
-- Configurazione Master attiva per:
-  - Fascia celebrazioni mattutina: **08:00 – 13:00**
-  - Fascia celebrazioni pomeridiana/serale: **16:30 – 19:30**
-  - S. Messa comunitaria domenicale: orario fisso alle **11:00**
-  - Box pubblico visibile a tutti i residenti con indicazioni d'uso (disponibilità della Chiesa per gruppi esigui e per la preghiera personale/liturgica).
+### 3. Visualizzazione Filtrata dei Soli Orari Validi (Libero / Occupato) ✅ Completato
+- **Eliminazione degli Slot Fuori Orario**:
+  - La griglia mostra **esclusivamente gli orari consentiti** per la giornata e la risorsa corrente, eliminando il rumore dei blocchi inattivi.
+  - Gestione pulita e immediata degli stati:
+    - 🟢 **Disponibile**: slot libero cliccabile per prenotare.
+    - 🔒 **Occupato**: slot già prenotato da altri residenti (o in attesa).
+    - 🕊️ **Riservato**: liturgia fissa (es. S. Messa domenicale alle 11:00).
+    - ⭐ **Mio Slot**: prenotazione del residente corrente con possibilità di cancellazione rapida.
+  - Sia la tendina nel modale di prenotazione che il form rapido inline propongono solo gli orari validi.
