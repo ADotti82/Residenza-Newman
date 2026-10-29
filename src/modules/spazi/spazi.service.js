@@ -42,16 +42,17 @@ export function filtraSlotPerFascia(slot, fascia) {
  * Determina se uno slot orario rientra nelle fasce consentite per l'ambiente specificato
  */
 export function isSlotAmbienteConsentito(risorsa, slot, config = {}) {
+  const cfg = config || {};
   if (!slot) return true;
   const startPart = slot.split(" - ")[0];
   const [h, m] = startPart.split(":").map(Number);
   const timeVal = h * 60 + m;
 
   if (risorsa === "Chiesa") {
-    const mattInizioStr = config.Chiesa_Fascia_Mattina_Inizio || "08:00";
-    const mattFineStr = config.Chiesa_Fascia_Mattina_Fine || "13:00";
-    const pomInizioStr = config.Chiesa_Fascia_Pomeriggio_Inizio || "16:30";
-    const pomFineStr = config.Chiesa_Fascia_Pomeriggio_Fine || "19:30";
+    const mattInizioStr = cfg.Chiesa_Fascia_Mattina_Inizio || "08:00";
+    const mattFineStr = cfg.Chiesa_Fascia_Mattina_Fine || "13:00";
+    const pomInizioStr = cfg.Chiesa_Fascia_Pomeriggio_Inizio || "16:30";
+    const pomFineStr = cfg.Chiesa_Fascia_Pomeriggio_Fine || "19:30";
 
     const [mh1, mm1] = mattInizioStr.split(":").map(Number);
     const [mh2, mm2] = mattFineStr.split(":").map(Number);
@@ -69,10 +70,10 @@ export function isSlotAmbienteConsentito(risorsa, slot, config = {}) {
   }
 
   if (risorsa === "Salone" || risorsa === "Sala TV") {
-    const mattInizioStr = config.Salone_Fascia_Mattina_Inizio || "09:00";
-    const mattFineStr = config.Salone_Fascia_Mattina_Fine || "13:00";
-    const pomInizioStr = config.Salone_Fascia_Pomeriggio_Inizio || "15:00";
-    const pomFineStr = config.Salone_Fascia_Pomeriggio_Fine || "23:00";
+    const mattInizioStr = cfg.Salone_Fascia_Mattina_Inizio || "09:00";
+    const mattFineStr = cfg.Salone_Fascia_Mattina_Fine || "13:00";
+    const pomInizioStr = cfg.Salone_Fascia_Pomeriggio_Inizio || "15:00";
+    const pomFineStr = cfg.Salone_Fascia_Pomeriggio_Fine || "23:00";
 
     const [mh1, mm1] = mattInizioStr.split(":").map(Number);
     const [mh2, mm2] = mattFineStr.split(":").map(Number);
@@ -103,6 +104,7 @@ export function isSlotChiesaConsentito(slot, config = {}) {
  * Blocchi orari riservati della Chiesa per liturgie comunitarie e celebrazioni fisse
  */
 export function getBloccoComunitarioChiesa(slot, dataYmd, config = {}) {
+  const cfg = config || {};
   if (!slot) return null;
 
   // Calcolo giorno della settimana (0 = Domenica)
@@ -116,7 +118,7 @@ export function getBloccoComunitarioChiesa(slot, dataYmd, config = {}) {
   }
 
   // Blocco Santa Messa comunitaria domenicale ore 11:00 (11:00 - 12:00)
-  const messaDomenicaOra = config.Chiesa_Messa_Domenica || "11:00";
+  const messaDomenicaOra = cfg.Chiesa_Messa_Domenica || "11:00";
   const [dh, dm] = messaDomenicaOra.split(":").map(Number);
   const dVal = (dh || 11) * 60 + (dm || 0);
   const startPart = slot.split(" - ")[0];

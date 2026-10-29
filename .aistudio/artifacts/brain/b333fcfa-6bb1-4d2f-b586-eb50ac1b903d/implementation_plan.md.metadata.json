@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di implementazione per la configurazione orari ambienti (Chiesa e Salone) completato con successo. Maschera modale dedicata nel pannello Master, visualizzazione filtrata solo degli orari consentiti e riporto delle indicazioni per i residenti.",
-  "updatedAt":  "2026-10-29T11:35:18.542205851Z",
+  "summary":  "Risoluzione problema di caricamento e visualizzazione del menu Spazi, ripristino delle dichiarazioni dei ruoli e orari consentiti.",
+  "updatedAt":  "2026-10-29T12:09:33.073768494Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

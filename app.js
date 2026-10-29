@@ -3550,6 +3550,13 @@ function renderSpaziView() {
   const giorniSettimanaBrevi = ["DOM", "LUN", "MAR", "MER", "GIO", "VEN", "SAB"];
   const mesiBrevi = ["GEN", "FEB", "MAR", "APR", "MAG", "GIU", "LUG", "AGO", "SET", "OTT", "NOV", "DIC"];
 
+  const isMasterSpazi = haPermessiMasterSpazi();
+  const currentUserEmail = appState.user ? String(appState.user.email || "").toLowerCase() : "";
+  const inAttesaSpaziList = (appState.prenotazioniSpazi || []).filter(p => p.stato === "In Attesa");
+  const mieInAttesaList = (appState.prenotazioniSpazi || []).filter(p => {
+    return p.stato === "In Attesa" && currentUserEmail && String(p.email || "").toLowerCase() === currentUserEmail;
+  });
+
   let ribbonHtml = "";
   const baseDate = new Date();
   for (let i = 0; i < 14; i++) {
@@ -3563,15 +3570,15 @@ function renderSpaziView() {
     ribbonHtml += `<div class="date-chip ${isSel ? 'active' : ''}" onclick="cambiaDataSpazio('${dYMD}')"><span class="date-chip-day">${dayName}</span><span class="date-chip-num">${dayNum}</span><span class="date-chip-month">${monthName}</span></div>`;
   }
 
-    const isChiesa = (risorsaAttiva === "Chiesa");
-    const indicazioniTesto = isChiesa
-      ? (appState.cachedConfig?.Spazi_Indicazioni_Chiesa || appState.cachedConfig?.Spazi_Indicazioni_Generali || 'La Chiesa è disponibile per gruppi esigui e per la preghiera personale e liturgica dei residenti.')
-      : (appState.cachedConfig?.Spazi_Indicazioni_Salone || 'Il Salone Comunitario è disponibile per studio di gruppo, incontri e momenti ricreativi.');
+  const isChiesa = (risorsaAttiva === "Chiesa");
+  const indicazioniTesto = isChiesa
+    ? (appState.cachedConfig?.Spazi_Indicazioni_Chiesa || appState.cachedConfig?.Spazi_Indicazioni_Generali || 'La Chiesa è disponibile per gruppi esigui e per la preghiera personale e liturgica dei residenti.')
+    : (appState.cachedConfig?.Spazi_Indicazioni_Salone || 'Il Salone Comunitario è disponibile per studio di gruppo, incontri e momenti ricreativi.');
 
-    const mattIni = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Mattina_Inizio || '08:00') : (appState.cachedConfig?.Salone_Fascia_Mattina_Inizio || '09:00');
-    const mattFin = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Mattina_Fine || '13:00') : (appState.cachedConfig?.Salone_Fascia_Mattina_Fine || '13:00');
-    const pomIni = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Inizio || '16:30') : (appState.cachedConfig?.Salone_Fascia_Pomeriggio_Inizio || '15:00');
-    const pomFin = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Fine || '19:30') : (appState.cachedConfig?.Salone_Fascia_Pomeriggio_Fine || '23:00');
+  const mattIni = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Mattina_Inizio || '08:00') : (appState.cachedConfig?.Salone_Fascia_Mattina_Inizio || '09:00');
+  const mattFin = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Mattina_Fine || '13:00') : (appState.cachedConfig?.Salone_Fascia_Mattina_Fine || '13:00');
+  const pomIni = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Inizio || '16:30') : (appState.cachedConfig?.Salone_Fascia_Pomeriggio_Inizio || '15:00');
+  const pomFin = isChiesa ? (appState.cachedConfig?.Chiesa_Fascia_Pomeriggio_Fine || '19:30') : (appState.cachedConfig?.Salone_Fascia_Pomeriggio_Fine || '23:00');
 
     container.innerHTML = `
     <div class="card" style="margin-bottom: 12px;">
@@ -3701,19 +3708,22 @@ function renderSpaziView() {
           <div>
             <label style="font-size: 11.5px; font-weight: 700; color: #334155; display: block; margin-bottom: 2px;">Slot Orario Disponibile:</label>
             <select id="inline-spazio-slot" class="input-select" style="font-size: 12px; padding: 6px 8px; font-weight: 600;">
-              ${getTuttiSlotOrari30Min(risorsaAttiva, dataAttiva)
-                .filter(s => isSlotAmbienteConsentito(risorsaAttiva, s, appState.cachedConfig))
-                .map(s => {
-                  if (risorsaAttiva === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
-                    const blocco = getBloccoComunitarioChiesa(s, dataAttiva, appState.cachedConfig);
-                    if (blocco && !blocco.fuoriOrario) return `<option value="${s}" disabled style="color:#94a3b8; font-style:italic;">${s} - ${blocco.badge} (Riservato)</option>`;
-                  }
-                  const occ = (appState.prenotazioniSpazi || []).some(p => {
-                    const matchR = (risorsaAttiva === "Salone" || risorsaAttiva === "Sala TV") ? (p.risorsa === "Salone" || p.risorsa === "Sala TV") : (p.risorsa === risorsaAttiva);
-                    return matchR && formattaDataConfronto(p.data) === formattaDataConfronto(dataAttiva) && p.slot_orario === s && p.stato !== "Rifiutata";
+              ${(() => {
+                const optList = getTuttiSlotOrari30Min(risorsaAttiva, dataAttiva)
+                  .filter(s => isSlotAmbienteConsentito(risorsaAttiva, s, appState.cachedConfig))
+                  .map(s => {
+                    if (risorsaAttiva === "Chiesa" && typeof getBloccoComunitarioChiesa === "function") {
+                      const blocco = getBloccoComunitarioChiesa(s, dataAttiva, appState.cachedConfig);
+                      if (blocco && !blocco.fuoriOrario) return `<option value="${s}" disabled style="color:#94a3b8; font-style:italic;">${s} - ${blocco.badge} (Riservato)</option>`;
+                    }
+                    const occ = (appState.prenotazioniSpazi || []).some(p => {
+                      const matchR = (risorsaAttiva === "Salone" || risorsaAttiva === "Sala TV") ? (p.risorsa === "Salone" || p.risorsa === "Sala TV") : (p.risorsa === risorsaAttiva);
+                      return matchR && formattaDataConfronto(p.data) === formattaDataConfronto(dataAttiva) && p.slot_orario === s && p.stato !== "Rifiutata";
+                    });
+                    return occ ? `<option value="${s}" disabled style="color:#94a3b8;">${s} (Occupato)</option>` : `<option value="${s}">${s} (Disponibile)</option>`;
                   });
-                  return occ ? `<option value="${s}" disabled style="color:#94a3b8;">${s} (Occupato)</option>` : `<option value="${s}">${s} (Disponibile)</option>`;
-                }).join("")}
+                return optList.length > 0 ? optList.join("") : `<option value="" disabled selected>Nessun orario consentito</option>`;
+              })()}
             </select>
           </div>
         </div>

@@ -1,6 +1,6 @@
 # Piano di Implementazione: Configurazione Orari Ambienti (Chiesa e Salone) & Griglia Slot Filtrata
 
-Tutte le funzionalità concordate sono state completate con successo.
+Tutte le funzionalità concordate e la risoluzione del rendering del menu Spazi sono state completate con successo.
 
 ---
 
@@ -35,3 +35,10 @@ Tutte le funzionalità concordate sono state completate con successo.
     - 🕊️ **Riservato**: liturgia fissa (es. S. Messa domenicale alle 11:00).
     - ⭐ **Mio Slot**: prenotazione del residente corrente con possibilità di cancellazione rapida.
   - Sia la tendina nel modale di prenotazione che il form rapido inline propongono solo gli orari validi.
+
+---
+
+### 4. Ripristino del Rendering della Scheda Spazi ✅ Completato
+- Corretta la mancata inizializzazione delle variabili di controllo ruoli e richieste in attesa (`isMasterSpazi`, `inAttesaSpaziList`, `mieInAttesaList`) all'interno di `renderSpaziView()`.
+- Resa difensiva la lettura della configurazione orari in `spazi.service.js` anche in caso di configurazione locale o cache iniziale nulla.
+- La pagina **Spazi** ora carica istantaneamente l'intestazione, il selettore Chiesa/Salone, il nastro date, il modulo rapido e la griglia con i soli orari disponibili.
