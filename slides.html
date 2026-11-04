@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Residenza Card. Newman - Guida e Presentazione per i Residenti</title>
+  <meta name="description" content="Presentazione e diapositive per l'utilizzo dell'applicazione della Residenza Cardinal Newman: Pasti, Lavanderia, Chiesa, Salone, Manutenzioni e Convivenza.">
+  <link rel="icon" type="image/webp" href="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp">
+  
+  <!-- Font Google e Font Awesome -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <style>
+    /* ==========================================================================
+       DESIGN SYSTEM & COLORI BORDEAUX COORDINATI
+       ========================================================================== */
+    :root {
+      --primary: #831843;         /* Bordeaux primario */
+      --primary-dark: #500724;    /* Bordeaux intenso/cardinalizio */
+      --primary-light: #9d174d;   /* Bordeaux acceso per accenti */
+      --primary-subtle: #fdf2f8;  /* Tinta bordeaux ultra leggera */
+      --primary-border: #fbcfe8;  /* Bordo coordinato */
+      
+      --accent: #d97706;          /* Ambra caldo/dorato */
+      --accent-light: #fef3c7;
+      
+      --slate-900: #0f172a;       /* Testo primario */
+      --slate-700: #334155;       /* Testo secondario */
+      --slate-500: #64748b;       /* Testo di supporto */
+      --slate-200: #e2e8f0;       /* Bordi neutri */
+      --slate-100: #f1f5f9;       /* Sfondi neutri */
+      --slate-50: #f8fafc;        /* Superficie sfondo */
+      
+      --success: #15803d;
+      --success-bg: #dcfce7;
+      --info: #0284c7;
+      --info-bg: #e0f2fe;
+
+      --font-heading: 'Plus Jakarta Sans', system-ui, sans-serif;
+      --font-serif: 'Playfair Display', Georgia, serif;
+      --font-body: 'Plus Jakarta Sans', system-ui, sans-serif;
+      
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(131, 24, 67, 0.08), 0 2px 4px -2px rgba(131, 24, 67, 0.05);
+      --shadow-lg: 0 10px 15px -3px rgba(131, 24, 67, 0.1), 0 4px 6px -4px rgba(131, 24, 67, 0.05);
+      --shadow-xl: 0 20px 25px -5px rgba(131, 24, 67, 0.15), 0 8px 10px -6px rgba(131, 24, 67, 0.08);
+      
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 18px;
+      --radius-xl: 24px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--font-body);
+      background-color: #1e1118;
+      color: var(--slate-900);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      overflow-x: hidden;
+      padding: 20px;
+    }
+
+    /* ==========================================================================
+       CONTAINER PRINCIPALE SLIDES (VIEWPORT 16:9)
+       ========================================================================== */
+    .deck-container {
+      width: 100%;
+      max-width: 1240px;
+      aspect-ratio: 16 / 9;
+      min-height: 640px;
+      background: #ffffff;
+      border-radius: var(--radius-xl);
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.1);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .slide {
+      width: 100%;
+      height: 100%;
+      padding: 44px 54px;
+      display: none;
+      flex-direction: column;
+      justify-content: space-between;
+      position: absolute;
+      top: 0;
+      left: 0;
+      opacity: 0;
+      transform: translateX(30px);
+      transition: opacity 0.35s ease-out, transform 0.35s ease-out;
+      background: radial-gradient(circle at top right, #fff1f2 0%, #ffffff 40%);
+    }
+
+    .slide.active {
+      display: flex;
+      opacity: 1;
+      transform: translateX(0);
+      position: relative;
+    }
+
+    /* ==========================================================================
+       HEADER DIAPOSITIVA
+       ========================================================================== */
+    .slide-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 2px solid var(--primary-border);
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }
+
+    .slide-header-left {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .slide-icon-box {
+      width: 48px;
+      height: 48px;
+      border-radius: var(--radius-md);
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      box-shadow: 0 4px 10px rgba(131, 24, 67, 0.3);
+      flex-shrink: 0;
+    }
+
+    .slide-title-wrap h2 {
+      font-family: var(--font-heading);
+      font-size: 1.65rem;
+      font-weight: 800;
+      color: var(--primary-dark);
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .slide-title-wrap p {
+      font-size: 0.88rem;
+      color: var(--slate-500);
+      font-weight: 500;
+      margin-top: 2px;
+    }
+
+    .slide-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 9999px;
+      background-color: var(--primary-subtle);
+      color: var(--primary);
+      border: 1px solid var(--primary-border);
+      font-size: 0.78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ==========================================================================
+       CORPO DIAPOSITIVA & GRIGLIE
+       ========================================================================== */
+    .slide-body {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      gap: 20px;
+    }
+
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .grid-3 {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      align-items: stretch;
+    }
+
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      align-items: stretch;
+    }
+
+    /* Card informative */
+    .info-card {
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      border-radius: var(--radius-lg);
+      padding: 22px;
+      box-shadow: var(--shadow-sm);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      border-top: 4px solid var(--primary);
+    }
+
+    .info-card.accent {
+      border-top-color: var(--accent);
+      background: linear-gradient(180deg, #fffbeb 0%, #ffffff 100%);
+    }
+
+    .info-card.success {
+      border-top-color: var(--success);
+      background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+    }
+
+    .info-card.highlight {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #ffffff;
+      border-color: var(--primary-dark);
+      border-top: none;
+    }
+    .info-card.highlight h3, 
+    .info-card.highlight p,
+    .info-card.highlight li {
+      color: #ffffff !important;
+    }
+
+    .card-title {
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--slate-900);
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-title i {
+      color: var(--primary);
+    }
+
+    .info-card.highlight .card-title i {
+      color: var(--accent-light);
+    }
+
+    .card-text {
+      font-size: 0.92rem;
+      line-height: 1.55;
+      color: var(--slate-700);
+    }
+
+    .card-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .card-list li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      font-size: 0.88rem;
+      color: var(--slate-700);
+      line-height: 1.45;
+    }
+
+    .card-list li i {
+      color: var(--primary);
+      margin-top: 3px;
+      font-size: 0.85rem;
+      flex-shrink: 0;
+    }
+
+    /* Step numerati con grafica pulita */
+    .step-box {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      background: #ffffff;
+      border: 1px solid var(--primary-border);
+      padding: 16px;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .step-num {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: var(--primary);
+      color: #ffffff;
+      font-weight: 800;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+    }
+
+    .step-content h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin-bottom: 4px;
+    }
+
+    .step-content p {
+      font-size: 0.85rem;
+      color: var(--slate-700);
+      line-height: 1.45;
+    }
+
+    /* Banner "Regola d'Oro" o "Nota per i Residenti" */
+    .golden-rule-banner {
+      background: linear-gradient(90deg, #fff1f2 0%, #fdf2f8 100%);
+      border: 1px solid var(--primary-border);
+      border-left: 5px solid var(--primary);
+      padding: 14px 20px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-top: 8px;
+    }
+
+    .golden-rule-banner i {
+      font-size: 1.5rem;
+      color: var(--primary);
+      flex-shrink: 0;
+    }
+
+    .golden-rule-text h5 {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .golden-rule-text p {
+      font-size: 0.85rem;
+      color: var(--slate-700);
+      margin-top: 2px;
+    }
+
+    /* ==========================================================================
+       FOOTER DIAPOSITIVA
+       ========================================================================== */
+    .slide-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 1px solid var(--slate-200);
+      padding-top: 14px;
+      margin-top: 16px;
+      font-size: 0.8rem;
+      color: var(--slate-500);
+    }
+
+    .slide-footer-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .slide-footer-left img {
+      width: 22px;
+      height: 22px;
+      border-radius: 4px;
+      object-fit: cover;
+    }
+
+    .slide-footer-right {
+      font-weight: 600;
+      color: var(--primary);
+    }
+
+    /* ==========================================================================
+       SLIDE 1 - COVER SPECIALE
+       ========================================================================== */
+    .cover-slide {
+      background: radial-gradient(circle at 85% 15%, #4c0519 0%, #831843 45%, #500724 100%) !important;
+      color: #ffffff !important;
+      justify-content: center;
+      text-align: center;
+      padding: 50px 70px;
+    }
+
+    .cover-slide .slide-header,
+    .cover-slide .slide-footer {
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .cover-badge-top {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      backdrop-filter: blur(8px);
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin-bottom: 24px;
+    }
+
+    .cover-title {
+      font-family: var(--font-serif);
+      font-size: 3.2rem;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1.15;
+      margin-bottom: 16px;
+      text-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    .cover-subtitle {
+      font-size: 1.25rem;
+      color: #fbcfe8;
+      max-width: 780px;
+      margin: 0 auto 36px auto;
+      line-height: 1.6;
+      font-weight: 400;
+    }
+
+    .cover-pillars {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      max-width: 960px;
+      margin: 0 auto;
+    }
+
+    .cover-pill {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.25);
+      backdrop-filter: blur(6px);
+      padding: 18px 14px;
+      border-radius: var(--radius-lg);
+      transition: transform 0.2s ease;
+    }
+
+    .cover-pill i {
+      font-size: 1.8rem;
+      color: #fef08a;
+      margin-bottom: 10px;
+      display: block;
+    }
+
+    .cover-pill h4 {
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: #ffffff;
+      margin-bottom: 4px;
+    }
+
+    .cover-pill p {
+      font-size: 0.78rem;
+      color: #fbcfe8;
+      line-height: 1.35;
+    }
+
+    /* ==========================================================================
+       DOCK DI CONTROLLO INTERATTIVO (NAVIGAZIONE A SCHERMO)
+       ========================================================================== */
+    .controls-dock {
+      margin-top: 20px;
+      background: rgba(255, 255, 255, 0.95);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      padding: 10px 20px;
+      border-radius: 9999px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+      z-index: 100;
+    }
+
+    .dock-btn {
+      background: #ffffff;
+      border: 1px solid var(--slate-200);
+      color: var(--slate-700);
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: all 0.2s ease;
+    }
+
+    .dock-btn:hover {
+      background: var(--primary-subtle);
+      color: var(--primary);
+      border-color: var(--primary-border);
+      transform: translateY(-2px);
+    }
+
+    .dock-btn-cta {
+      background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%);
+      color: #ffffff !important;
+      border: none;
+      padding: 0 18px;
+      border-radius: 9999px;
+      width: auto;
+      height: 40px;
+      font-weight: 700;
+      font-size: 0.88rem;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      box-shadow: 0 4px 10px rgba(131, 24, 67, 0.35);
+    }
+
+    .dock-btn-cta:hover {
+      opacity: 0.95;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 14px rgba(131, 24, 67, 0.45);
+    }
+
+    .dock-counter {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      min-width: 90px;
+      text-align: center;
+    }
+
+    .dock-divider {
+      width: 1px;
+      height: 24px;
+      background: var(--slate-200);
+    }
+
+    /* Barra di avanzamento sottile sopra le slide */
+    .progress-bar-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 5px;
+      background: rgba(0, 0, 0, 0.05);
+      z-index: 50;
+    }
+
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary) 0%, var(--accent) 100%);
+      width: 12.5%;
+      transition: width 0.3s ease;
+    }
+
+    /* ==========================================================================
+       STILI DI STAMPA & SALVATAGGIO PDF IMMENSAMENTE CURATI (@media print)
+       ========================================================================== */
+    @media print {
+      @page {
+        size: landscape;
+        margin: 0;
+      }
+
+      body {
+        background-color: #ffffff !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        color: #0f172a !important;
+        display: block !important;
+      }
+
+      /* Nasconde tutti i controlli a schermo, dock e barre */
+      .controls-dock,
+      .progress-bar-container,
+      .no-print {
+        display: none !important;
+      }
+
+      .deck-container {
+        width: 100vw !important;
+        max-width: none !important;
+        aspect-ratio: auto !important;
+        min-height: auto !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+        background: transparent !important;
+        display: block !important;
+        position: static !important;
+      }
+
+      /* Ogni slide diventa una pagina A4/16:9 orizzontale perfetta */
+      .slide {
+        display: flex !important;
+        position: relative !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        max-height: 100vh !important;
+        opacity: 1 !important;
+        transform: none !important;
+        box-sizing: border-box !important;
+        padding: 40px 50px !important;
+        page-break-after: always !important;
+        page-break-inside: avoid !important;
+        break-inside: avoid !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      .cover-slide {
+        background: radial-gradient(circle at 85% 15%, #4c0519 0%, #831843 45%, #500724 100%) !important;
+        color: #ffffff !important;
+      }
+
+      .info-card, .step-box, .golden-rule-banner, .cover-pill {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ==========================================================================
+       CONTAINER PRINCIPALE DIAPOSITIVE (16:9)
+       ========================================================================== -->
+  <div class="deck-container" id="deckContainer">
+    
+    <!-- Barra di avanzamento orizzontale -->
+    <div class="progress-bar-container">
+      <div class="progress-bar-fill" id="progressBar"></div>
+    </div>
+
+    <!-- ==========================================================================
+         SLIDE 1: COPERTINA E BENVENUTO
+         ========================================================================== -->
+    <div class="slide cover-slide active" data-slide="1">
+      <div style="position: absolute; top: 30px; left: 50px; display: flex; align-items: center; gap: 12px;">
+        <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" alt="Logo" style="width: 36px; height: 36px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.3);">
+        <span style="font-weight: 700; letter-spacing: 0.05em; font-size: 0.9rem; text-transform: uppercase;">Residenza Card. Newman</span>
+      </div>
+
+      <div style="margin: auto 0; text-align: center;">
+        <div class="cover-badge-top">
+          <i class="fa-solid fa-house-chimney-window"></i> Guida Ufficiale per i Residenti
+        </div>
+        
+        <h1 class="cover-title">Benvenuti nella Nuova App</h1>
+        <p class="cover-subtitle">
+          Uno strumento digitale pensato per agevolare la vita quotidiana, promuovere il rispetto reciproco e gestire con serenità pasti, lavanderia e spazi comuni.
+        </p>
+
+        <div class="cover-pillars">
+          <div class="cover-pill">
+            <i class="fa-solid fa-utensils"></i>
+            <h4>Modulo Pasti</h4>
+            <p>Prenotazioni e disdette rapide con orari limite chiari</p>
+          </div>
+          <div class="cover-pill">
+            <i class="fa-solid fa-soap"></i>
+            <h4>Lavanderia</h4>
+            <p>Turni macchine trasparenti e rispetto degli orari</p>
+          </div>
+          <div class="cover-pill">
+            <i class="fa-solid fa-church"></i>
+            <h4>Chiesa & Salone</h4>
+            <p>Spazi comuni condivisi per preghiera, studio e svago</p>
+          </div>
+          <div class="cover-pill">
+            <i class="fa-solid fa-wrench"></i>
+            <h4>Manutenzioni</h4>
+            <p>Segnalazione guasti immediata e tracciamento interventi</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer" style="border-color: rgba(255,255,255,0.2); color: #fbcfe8;">
+        <div>Residenza Cardinal Newman • Edizione Residenti</div>
+        <div style="color: #ffffff; font-weight: 700;">Diapositiva 1 di 8</div>
+      </div>
+    </div>
+
+
+    <!-- ==========================================================================
+         SLIDE 2: ACCESSO, PROFILO PERSONALE & ASSENZE
+         ========================================================================== -->
+    <div class="slide" data-slide="2">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <div class="slide-icon-box">
+            <i class="fa-solid fa-id-card"></i>
+          </div>
+          <div class="slide-title-wrap">
+            <h2>Accesso, Profilo & Gestione Assenze</h2>
+            <p>Il tuo punto di riferimento personale per comunicare con la casa</p>
+          </div>
+        </div>
+        <div class="slide-badge">
+          <i class="fa-solid fa-user-check"></i> Profilo Utente
+        </div>
+      </div>
+
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="info-card">
+            <div>
+              <div class="card-title">
+                <i class="fa-solid fa-key"></i> Primo Accesso
+              </div>
+              <p class="card-text">
+                Accedi inserendo il tuo nome utente e la password assegnata. Il sistema mantiene memorizzata la tua sessione sul tuo smartphone per evitarti accessi continui.
+              </p>
+            </div>
+            <ul class="card-list">
+              <li><i class="fa-solid fa-check"></i> Accesso sicuro su qualsiasi dispositivo</li>
+              <li><i class="fa-solid fa-check"></i> Funziona come app (PWA) sul telefono</li>
+            </ul>
+          </div>
+
+          <div class="info-card">
+            <div>
+              <div class="card-title">
+                <i class="fa-solid fa-circle-user"></i> Scheda Personale
+              </div>
+              <p class="card-text">
+                Verifica i tuoi dati, la tua stanza e registra eventuali note importanti o intolleranze alimentari affinché siano sempre note a chi si occupa dei servizi.
+              </p>
+            </div>
+            <ul class="card-list">
+              <li><i class="fa-solid fa-check"></i> Numero di camera e contatti aggiornati</li>
+              <li><i class="fa-solid fa-check"></i> Indicazione preferenze alimentari</li>
+            </ul>
+          </div>
+
+          <div class="info-card highlight">
+            <div>
+              <div class="card-title">
+                <i class="fa-solid fa-suitcase-rolling"></i> Assenze dalla Casa
+              </div>
+              <p class="card-text">
+                Devi assentarti per il weekend, vacanze o motivi di studio/famiglia? Segnalalo in anticipo dal menu del tuo profilo con un solo tocco!
+              </p>
+            </div>
+            <ul class="card-list">
+              <li><i class="fa-solid fa-calendar-minus"></i> Sospende automaticamente i pasti</li>
+              <li><i class="fa-solid fa-leaf"></i> Zero spreco di cibo in cucina</li>
+              <li><i class="fa-solid fa-shield-halved"></i> Più sicurezza per la comunità</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="golden-rule-banner">
+          <i class="fa-solid fa-circle-info"></i>
+          <div class="golden-rule-text">
+            <h5>Perché è importante segnalare l'assenza prolungata?</h5>
+            <p>Segnalare le assenze dal profilo aiuta la cuoca a dosare la spesa e garantisce ai responsabili di sapere chi è presente in casa in caso di emergenze.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="slide-footer-left">
+          <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" alt="Logo">
+          <span>Residenza Card. Newman • Gestione Personale</span>
+        </div>
+        <div class="slide-footer-right">Diapositiva 2 di 8</div>
+      </div>
+    </div>
+
+
+    <!-- ==========================================================================
+         SLIDE 3: MODULO PASTI
+         ========================================================================== -->
+    <div class="slide" data-slide="3">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <div class="slide-icon-box">
+            <i class="fa-solid fa-utensils"></i>
+          </div>
+          <div class="slide-title-wrap">
+            <h2>Modulo Pasti: Pranzo, Cena & Ospiti</h2>
+            <p>Organizzazione della mensa comunitaria e lotta agli sprechi alimentari</p>
+          </div>
+        </div>
+        <div class="slide-badge">
+          <i class="fa-solid fa-bowl-food"></i> Mensa Comunitaria
+        </div>
+      </div>
+
+      <div class="slide-body">
+        <div class="grid-2">
+          <div class="info-card">
+            <div>
+              <div class="card-title">
+                <i class="fa-solid fa-calendar-check"></i> Come Funziona la Prenotazione
+              </div>
+              <p class="card-text">
+                Ogni giorno puoi visualizzare il menu previsto e confermare la tua presenza a tavola per il Pranzo e per la Cena.
+              </p>
+              <ul class="card-list" style="margin-top: 14px;">
+                <li><i class="fa-solid fa-circle-check"></i> <strong>Verde (Presente):</strong> Il tuo posto a tavola è confermato.</li>
+                <li><i class="fa-solid fa-circle-xmark"></i> <strong>Rosso (Assente):</strong> La cucina sa che non ci sarai e risparmia la porzione.</li>
+                <li><i class="fa-solid fa-user-plus"></i> <strong>Ospiti:</strong> Puoi registrare familiari o colleghi invitati a tavola con il dovuto anticipo.</li>
+              </ul>
+            </div>
+          </div>
+
+          <div class="info-card accent">
+            <div>
+              <div class="card-title">
+                <i class="fa-solid fa-clock"></i> Rispetto degli Orari Limite (Deadline)
+              </div>
+              <p class="card-text">
+                Per permettere l'acquisto degli ingredienti freschi e la preparazione dei piatti, le prenotazioni e disdette si chiudono a orari prestabiliti:
+              </p>
+              <div style="display: flex; gap: 14px; margin-top: 14px;">
+                <div style="flex: 1; background: #ffffff; border: 1px solid #fcd34d; border-radius: var(--radius-md); padding: 12px; text-align: center;">
+                  <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #b45309;">Pranzo</div>
+                  <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary); margin: 4px 0;">Entro le 10:30</div>
+                  <div style="font-size: 0.75rem; color: var(--slate-500);">Chiusura lista cuoca</div>
+                </div>
+                <div style="flex: 1; background: #ffffff; border: 1px solid #fcd34d; border-radius: var(--radius-md); padding: 12px; text-align: center;">
+                  <div style="font-size: 0.75rem; text-transform: uppercase; font-weight: 700; color: #b45309;">Cena</div>
+                  <div style="font-size: 1.25rem; font-weight: 800; color: var(--primary); margin: 4px 0;">Entro le 17:00</div>
+                  <div style="font-size: 0.75rem; color: var(--slate-500);">Chiusura lista cuoca</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="golden-rule-banner">
+          <i class="fa-solid fa-hand-holding-heart"></i>
+          <div class="golden-rule-text">
+            <h5>Un gesto di responsabilità e fratellanza</h5>
+            <p>Se sai di mangiare fuori casa, disdici sempre il tuo pasto dall'app prima della scadenza: eviteremo che cibo cucinato con cura finisca gettato.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="slide-footer-left">
+          <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" alt="Logo">
+          <span>Residenza Card. Newman • Servizio Mensa</span>
+        </div>
+        <div class="slide-footer-right">Diapositiva 3 di 8</div>
+      </div>
+    </div>
+
+
+    <!-- ==========================================================================
+         SLIDE 4: MODULO LAVANDERIA
+         ========================================================================== -->
+    <div class="slide" data-slide="4">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <div class="slide-icon-box">
+            <i class="fa-solid fa-soap"></i>
+          </div>
+          <div class="slide-title-wrap">
+            <h2>Modulo Lavanderia: Macchine & Rispetto dei Turni</h2>
+            <p>Organizzazione trasparente per lavatrici e asciugatrici senza code o conflitti</p>
+          </div>
+        </div>
+        <div class="slide-badge">
+          <i class="fa-solid fa-shirt"></i> Turni Lavanderia
+        </div>
+      </div>
+
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="step-box">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Verifica Stato in Tempo Reale</h4>
+              <p>Apri la sezione Lavanderia per vedere istantaneamente quali lavatrici o asciugatrici sono libere, in funzione o prenotate.</p>
+            </div>
+          </div>
+
+          <div class="step-box">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Prenota la Tua Fascia Oraria</h4>
+              <p>Seleziona l'apparecchio e prenota lo slot che preferisci per il tuo lavaggio o asciugatura nel corso della giornata.</p>
+            </div>
+          </div>
+
+          <div class="step-box">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>Scarica Subito il Bucato!</h4>
+              <p>Imposta una sveglia sul tuo telefono per ritirare i vestiti non appena il programma finisce, lasciando il cestello pronto per il coinquilino.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 8px;">
+          <div class="info-card success">
+            <div class="card-title">
+              <i class="fa-solid fa-circle-check"></i> Buone Pratiche
+            </div>
+            <ul class="card-list">
+              <li><i class="fa-solid fa-check"></i> Usa detersivi dosati senza eccedere per non rovinare le guarnizioni.</li>
+              <li><i class="fa-solid fa-check"></i> Pulisci il filtro della lanugine dell'asciugatrice al termine del ciclo.</li>
+              <li><i class="fa-solid fa-check"></i> Lascia l'oblò leggermente socchiuso per arieggiare il cestello.</li>
+            </ul>
+          </div>
+
+          <div class="info-card">
+            <div class="card-title" style="color: var(--primary);">
+              <i class="fa-solid fa-triangle-exclamation"></i> Cosa Evitare
+            </div>
+            <ul class="card-list">
+              <li><i class="fa-solid fa-xmark" style="color: #dc2626;"></i> Non occupare più slot contemporaneamente se non strettamente necessario.</li>
+              <li><i class="fa-solid fa-xmark" style="color: #dc2626;"></i> Non lasciare il bucato bagnato dentro la macchina per ore dopo il lavaggio.</li>
+              <li><i class="fa-solid fa-xmark" style="color: #dc2626;"></i> Non forzare la maniglia durante i cicli bloccati di sicurezza.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="slide-footer-left">
+          <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" alt="Logo">
+          <span>Residenza Card. Newman • Gestione Lavanderia</span>
+        </div>
+        <div class="slide-footer-right">Diapositiva 4 di 8</div>
+      </div>
+    </div>
+
+
+    <!-- ==========================================================================
+         SLIDE 5: SPAZI COMUNI - LA CHIESA
+         ========================================================================== -->
+    <div class="slide" data-slide="5">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <div class="slide-icon-box">
+            <i class="fa-solid fa-church"></i>
+          </div>
+          <div class="slide-title-wrap">
+            <h2>Spazi Comuni: La Chiesa della Residenza</h2>
+            <p>Cuore spirituale della casa: orari di apertura, rispetto del silenzio e liturgia</p>
+          </div>
+        </div>
+        <div class="slide-badge">
+          <i class="fa-solid fa-cross"></i> Luogo di Preghiera
+        </div>
+      </div>
+
+      <div class="slide-body">
+        <div class="grid-2">
+          <div class="info-card">
+            <div>
+              <div class="card-title">
+                <i class="fa-solid fa-sun"></i> Fasce Orarie di Utilizzo
+              </div>
+              <p class="card-text">
+                La Chiesa è accessibile a tutti i residenti per il raccoglimento e la preghiera personale nelle seguenti fasce configurate:
+              </p>
+              <div style="background: var(--primary-subtle); border: 1px solid var(--primary-border); border-radius: var(--radius-md); padding: 14px; margin-top: 14px;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                  <strong style="color: var(--primary-dark);"><i class="fa-regular fa-clock"></i> Fascia Mattutina:</strong>
+                  <span style="font-weight: 700; color: var(--primary);">08:00 – 13:00</span>
+                </div>
+                <div style="display: flex; justify-content: space-between;">
+                  <strong style="color: var(--primary-dark);"><i class="fa-regular fa-clock"></i> Fascia Pomeridiana:</strong>
+                  <span style="font-weight: 700; color: var(--primary);">16:30 – 19:30</span>
+                </div>
+              </div>
+              <p style="font-size: 0.82rem; color: var(--slate-500); margin-top: 10px;">
+                * Gli orari intermedi sono dedicati al decoro e al riposo della casa.
+              </p>
+            </div>
+          </div>
+
+          <div class="info-card highlight">
+            <div>
+              <div class="card-title">
+                <i class="fa-solid fa-users"></i> Momenti Comunitari Protetti
+              </div>
+              <p class="card-text">
+                Durante le funzioni comunitarie ufficiali, lo spazio è riservato all'intera comunità:
+              </p>
+              <div style="background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); border-radius: var(--radius-md); padding: 14px; margin-top: 14px;">
+                <div style="font-weight: 700; font-size: 1.05rem; margin-bottom: 4px; color: #fef08a;">
+                  <i class="fa-solid fa-bell"></i> Santa Messa Comunitaria
+                </div>
+                <div style="font-size: 0.88rem; color: #ffffff;">
+                  Ogni domenica alle ore <strong>11:00</strong> (slot bloccato automaticamente nell'app: non è possibile sovrapporre prenotazioni private).
+                </div>
+              </div>
+              <p class="card-text" style="margin-top: 12px; font-size: 0.84rem;">
+                Per celebrazioni speciali o animazioni musicali di gruppo, invia la richiesta con congruo anticipo.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="golden-rule-banner">
+          <i class="fa-solid fa-dove"></i>
+          <div class="golden-rule-text">
+            <h5>Regola fondamentale: Rispetto del Sacro e del Silenzio</h5>
+            <p>La Chiesa è un luogo di raccoglimento per tutti. Mantieni il silenzio, silenzia i telefoni e lascia sempre l'altare e i banchi in perfetto ordine.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="slide-footer-left">
+          <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" alt="Logo">
+          <span>Residenza Card. Newman • Chiesa & Liturgia</span>
+        </div>
+        <div class="slide-footer-right">Diapositiva 5 di 8</div>
+      </div>
+    </div>
+
+
+    <!-- ==========================================================================
+         SLIDE 6: SPAZI COMUNI - IL SALONE COMUNITARIO
+         ========================================================================== -->
+    <div class="slide" data-slide="6">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <div class="slide-icon-box">
+            <i class="fa-solid fa-couch"></i>
+          </div>
+          <div class="slide-title-wrap">
+            <h2>Spazi Comuni: Il Salone Comunitario</h2>
+            <p>Studio condiviso, ricreazione e incontri in un ambiente accogliente</p>
+          </div>
+        </div>
+        <div class="slide-badge">
+          <i class="fa-solid fa-people-group"></i> Spazio Condiviso
+        </div>
+      </div>
+
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="info-card">
+            <div class="card-title">
+              <i class="fa-solid fa-calendar-day"></i> Fasce Orarie
+            </div>
+            <p class="card-text">
+              Il Salone è a disposizione dei residenti per sessioni di studio, lettura o ritrovi:
+            </p>
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="background: var(--slate-50); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--slate-200); font-size: 0.85rem;">
+                <strong>Mattino:</strong> 09:00 – 13:00
+              </div>
+              <div style="background: var(--slate-50); padding: 8px 12px; border-radius: 6px; border: 1px solid var(--slate-200); font-size: 0.85rem;">
+                <strong>Pomeriggio/Sera:</strong> 15:00 – 23:00
+              </div>
+            </div>
+          </div>
+
+          <div class="info-card accent">
+            <div class="card-title">
+              <i class="fa-solid fa-magnifying-glass"></i> Verifica Disponibilità
+            </div>
+            <p class="card-text">
+              Nella schermata di prenotazione visualizzi <strong>solo gli orari effettivi</strong> con stato:
+            </p>
+            <div style="margin-top: 12px; display: flex; flex-direction: column; gap: 8px;">
+              <div style="background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.85rem;">
+                <i class="fa-solid fa-check"></i> DISPONIBILE: Prenotabile subito
+              </div>
+              <div style="background: #fef2f2; border: 1px solid #fecaca; color: #991b1b; padding: 8px 12px; border-radius: 6px; font-weight: 700; font-size: 0.85rem;">
+                <i class="fa-solid fa-lock"></i> OCCUPATO: Già riservato
+              </div>
+            </div>
+          </div>
+
+          <div class="info-card">
+            <div class="card-title">
+              <i class="fa-solid fa-broom"></i> Regole di Riconsegna
+            </div>
+            <p class="card-text">
+              Chi prenota o usufruisce del Salone è responsabile della riconsegna in ottimo stato:
+            </p>
+            <ul class="card-list">
+              <li><i class="fa-solid fa-check"></i> Riordinare sedie, tavoli e poltrone</li>
+              <li><i class="fa-solid fa-check"></i> Spegnere luci e aria condizionata</li>
+              <li><i class="fa-solid fa-check"></i> Chiudere finestre e porte al termine</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="golden-rule-banner">
+          <i class="fa-solid fa-volume-xmark"></i>
+          <div class="golden-rule-text">
+            <h5>Orario di silenzio notturno: Dalle ore 23:00</h5>
+            <p>A partire dalle ore 23:00 cala il silenzio nella casa per consentire a tutti il dovuto riposo e lo studio notturno nelle stanze.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="slide-footer-left">
+          <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" alt="Logo">
+          <span>Residenza Card. Newman • Salone Comunitario</span>
+        </div>
+        <div class="slide-footer-right">Diapositiva 6 di 8</div>
+      </div>
+    </div>
+
+
+    <!-- ==========================================================================
+         SLIDE 7: MANUTENZIONI & SEGNALAZIONE GUASTI
+         ========================================================================== -->
+    <div class="slide" data-slide="7">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <div class="slide-icon-box">
+            <i class="fa-solid fa-wrench"></i>
+          </div>
+          <div class="slide-title-wrap">
+            <h2>Manutenzioni & Segnalazione Guasti</h2>
+            <p>Come intervenire prontamente per preservare il comfort e le strutture della residenza</p>
+          </div>
+        </div>
+        <div class="slide-badge">
+          <i class="fa-solid fa-screwdriver-wrench"></i> Supporto Tecnico
+        </div>
+      </div>
+
+      <div class="slide-body">
+        <div class="grid-3">
+          <div class="step-box">
+            <div class="step-num">1</div>
+            <div class="step-content">
+              <h4>Apri il Modulo Segnalazioni</h4>
+              <p>Dalla sezione dedicata, clicca su <strong>"Nuovo Ticket"</strong> per avviare la richiesta di intervento tecnico.</p>
+            </div>
+          </div>
+
+          <div class="step-box">
+            <div class="step-num">2</div>
+            <div class="step-content">
+              <h4>Indica Luogo & Dettagli</h4>
+              <p>Specifica la tua camera, il bagno o lo spazio comune interessato con una descrizione accurata del malfunzionamento.</p>
+            </div>
+          </div>
+
+          <div class="step-box">
+            <div class="step-num">3</div>
+            <div class="step-content">
+              <h4>Seleziona la Priorità</h4>
+              <p>Imposta il livello corretto (Bassa per piccole cose, Media per uso quotidiano, Alta solo per perdite d'acqua o urgenze gravi).</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid-2" style="margin-top: 8px;">
+          <div class="info-card">
+            <div class="card-title">
+              <i class="fa-solid fa-list-check"></i> Monitoraggio dello Stato
+            </div>
+            <p class="card-text">
+              Puoi seguire l'avanzamento della tua richiesta direttamente nell'app attraverso le etichette di stato:
+            </p>
+            <div style="display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap;">
+              <span style="background: #fef3c7; color: #b45309; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.8rem;">IN ATTESA</span>
+              <span style="background: #e0f2fe; color: #0369a1; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.8rem;">PRESO IN CARICO</span>
+              <span style="background: #dcfce7; color: #15803d; padding: 4px 10px; border-radius: 6px; font-weight: 700; font-size: 0.8rem;">RISOLTO</span>
+            </div>
+          </div>
+
+          <div class="info-card">
+            <div class="card-title">
+              <i class="fa-solid fa-user-shield"></i> Suggerimento Utile
+            </div>
+            <p class="card-text">
+              Non attendere che un piccolo problema (es. rubinetto che gocciola o maniglia allentata) peggiori: segnalalo tempestivamente per permettere al tecnico di intervenire prima che causi danni maggiori.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="slide-footer-left">
+          <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" alt="Logo">
+          <span>Residenza Card. Newman • Assistenza Tecnica</span>
+        </div>
+        <div class="slide-footer-right">Diapositiva 7 di 8</div>
+      </div>
+    </div>
+
+
+    <!-- ==========================================================================
+         SLIDE 8: BACHECA & RIEPILOGO BUONE PRATICHE
+         ========================================================================== -->
+    <div class="slide" data-slide="8">
+      <div class="slide-header">
+        <div class="slide-header-left">
+          <div class="slide-icon-box">
+            <i class="fa-solid fa-bullhorn"></i>
+          </div>
+          <div class="slide-title-wrap">
+            <h2>Bacheca & Le 5 Regole della Casa</h2>
+            <p>Riepilogo delle buone pratiche per vivere un anno sereno e fraterno</p>
+          </div>
+        </div>
+        <div class="slide-badge">
+          <i class="fa-solid fa-heart"></i> Vita Comunitaria
+        </div>
+      </div>
+
+      <div class="slide-body">
+        <div class="grid-2">
+          <div class="info-card highlight">
+            <div class="card-title">
+              <i class="fa-solid fa-newspaper"></i> Consulta Sempre la Bacheca
+            </div>
+            <p class="card-text">
+              La Bacheca dell'app è il canale primario per:
+            </p>
+            <ul class="card-list" style="margin-top: 14px;">
+              <li><i class="fa-solid fa-circle-check"></i> Comunicazioni urgenti della Direzione e dei Padri</li>
+              <li><i class="fa-solid fa-circle-check"></i> Calendario delle festività e incontri comunitari</li>
+              <li><i class="fa-solid fa-circle-check"></i> Variazioni di orario per pranzi o cene festive</li>
+              <li><i class="fa-solid fa-circle-check"></i> Iniziative culturali e momenti ricreativi di casa</li>
+            </ul>
+          </div>
+
+          <div class="info-card">
+            <div class="card-title" style="color: var(--primary);">
+              <i class="fa-solid fa-star"></i> Il "Decalogo" del Buon Residente
+            </div>
+            <ul class="card-list" style="gap: 8px;">
+              <li><strong>1. Puntualità:</strong> Rispetta le scadenze dei pasti (10:30 pranzo, 17:00 cena).</li>
+              <li><strong>2. Condivisione:</strong> Scarica subito le lavatrici al termine del programma.</li>
+              <li><strong>3. Trasparenza:</strong> Segnala le assenze lunghe per non sprecare cibo.</li>
+              <li><strong>4. Rispetto:</strong> Mantieni puliti e ordinati la Chiesa e il Salone comune.</li>
+              <li><strong>5. Cura:</strong> Segnala con precisione eventuali guasti o necessità di riparazione.</li>
+            </ul>
+          </div>
+        </div>
+
+        <div style="background: linear-gradient(135deg, #fdf2f8 0%, #fff1f2 100%); border: 1px solid var(--primary-border); border-radius: var(--radius-lg); padding: 16px 24px; display: flex; align-items: center; justify-content: space-between; margin-top: 8px;">
+          <div style="display: flex; align-items: center; gap: 14px;">
+            <div style="width: 44px; height: 44px; border-radius: 50%; background: var(--primary); color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">
+              <i class="fa-solid fa-hands-holding"></i>
+            </div>
+            <div>
+              <h4 style="font-size: 0.95rem; font-weight: 700; color: var(--primary-dark);">Buon Anno Accademico e Buona Convivenza!</h4>
+              <p style="font-size: 0.85rem; color: var(--slate-700);">Per qualsiasi dubbio o assistenza tecnica, rivolgiti ai responsabili di casa o ai Master dei singoli servizi.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="slide-footer">
+        <div class="slide-footer-left">
+          <img src="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp" alt="Logo">
+          <span>Residenza Card. Newman • Regolamento & Convivenza</span>
+        </div>
+        <div class="slide-footer-right">Diapositiva 8 di 8</div>
+      </div>
+    </div>
+
+  </div> <!-- fine .deck-container -->
+
+
+  <!-- ==========================================================================
+       DOCK DI CONTROLLO INTERATTIVO (NASCOSTO IN STAMPA/PDF)
+       ========================================================================== -->
+  <div class="controls-dock no-print" id="controlsDock">
+    <button class="dock-btn" id="prevBtn" title="Diapositiva precedente (Freccia Sinistra)">
+      <i class="fa-solid fa-chevron-left"></i>
+    </button>
+
+    <div class="dock-counter" id="slideCounter">Slide 1 di 8</div>
+
+    <button class="dock-btn" id="nextBtn" title="Diapositiva successiva (Freccia Destra o Spazio)">
+      <i class="fa-solid fa-chevron-right"></i>
+    </button>
+
+    <div class="dock-divider"></div>
+
+    <!-- Bottone Download/Stampa in PDF -->
+    <button class="dock-btn-cta" id="printPdfBtn" title="Scarica o stampa direttamente in formato PDF orizzontale">
+      <i class="fa-solid fa-file-pdf"></i>
+      <span>Scarica / Salva PDF</span>
+    </button>
+
+    <!-- Bottone Schermo Intero -->
+    <button class="dock-btn" id="fullscreenBtn" title="Presenta a Schermo Intero (F)">
+      <i class="fa-solid fa-expand"></i>
+    </button>
+
+    <!-- Torna all'App -->
+    <a href="/" class="dock-btn" title="Vai all'Applicazione della Residenza" style="text-decoration: none;">
+      <i class="fa-solid fa-arrow-up-right-from-square"></i>
+    </a>
+  </div>
+
+
+  <!-- ==========================================================================
+       SCRIPT INTERATTIVO: NAVIGAZIONE, SHORTCUTS & PRINT
+       ========================================================================== -->
+  <script>
+    (function() {
+      const slides = document.querySelectorAll('.slide');
+      const totalSlides = slides.length;
+      let currentIndex = 0;
+
+      const prevBtn = document.getElementById('prevBtn');
+      const nextBtn = document.getElementById('nextBtn');
+      const slideCounter = document.getElementById('slideCounter');
+      const progressBar = document.getElementById('progressBar');
+      const printPdfBtn = document.getElementById('printPdfBtn');
+      const fullscreenBtn = document.getElementById('fullscreenBtn');
+      const deckContainer = document.getElementById('deckContainer');
+
+      function updateSlide(newIndex) {
+        if (newIndex < 0) newIndex = 0;
+        if (newIndex >= totalSlides) newIndex = totalSlides - 1;
+
+        slides[currentIndex].classList.remove('active');
+        currentIndex = newIndex;
+        slides[currentIndex].classList.add('active');
+
+        // Aggiorna contatore e barra
+        slideCounter.textContent = `Slide ${currentIndex + 1} di ${totalSlides}`;
+        const pct = ((currentIndex + 1) / totalSlides) * 100;
+        progressBar.style.width = pct + '%';
+
+        // Disabilita/abilita bottoni navigazione
+        prevBtn.style.opacity = currentIndex === 0 ? '0.4' : '1';
+        prevBtn.style.pointerEvents = currentIndex === 0 ? 'none' : 'auto';
+
+        nextBtn.style.opacity = currentIndex === totalSlides - 1 ? '0.4' : '1';
+        nextBtn.style.pointerEvents = currentIndex === totalSlides - 1 ? 'none' : 'auto';
+      }
+
+      prevBtn.addEventListener('click', () => updateSlide(currentIndex - 1));
+      nextBtn.addEventListener('click', () => updateSlide(currentIndex + 1));
+
+      // Navigazione da tastiera
+      window.addEventListener('keydown', (e) => {
+        if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+          e.preventDefault();
+          updateSlide(currentIndex + 1);
+        } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+          e.preventDefault();
+          updateSlide(currentIndex - 1);
+        } else if (e.key === 'f' || e.key === 'F') {
+          toggleFullscreen();
+        } else if (e.key === 'p' || e.key === 'P') {
+          if (e.ctrlKey || e.metaKey) {
+            // standard browser print
+          }
+        }
+      });
+
+      // Funzione Schermo Intero
+      function toggleFullscreen() {
+        if (!document.fullscreenElement) {
+          deckContainer.requestFullscreen().catch(err => {
+            console.warn('Errore fullscreen:', err);
+          });
+        } else {
+          document.exitFullscreen().catch(err => {});
+        }
+      }
+      fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+      // Funzione Stampa / Salva PDF
+      printPdfBtn.addEventListener('click', () => {
+        // Suggerimento per l'utente prima della stampa
+        window.print();
+      });
+
+      // Inizializza
+      updateSlide(0);
+    })();
+  </script>
+</body>
+</html>

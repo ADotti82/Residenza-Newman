@@ -1958,7 +1958,7 @@ function renderResidenzaView() {
 
   const rawReg = appState.cachedConfig?.Info_Regolamento;
   const regText = (rawReg && typeof rawReg === "string" && rawReg.trim().length > 5) ? rawReg.trim()
-    : `REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN\n1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità è alla base della convivenza.`;
+    : `REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN\n1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità è alla base della convivenza.\n2. ORARI MENSA & SERVIZIO:\n• Pranzo Feriale (Lun–Ven): ore 14:30 (limite prenotazione/disdetta: ore 09:00)\n• Pranzo Weekend (Sab–Dom): ore 13:00 (limite prenotazione/disdetta: ore 09:00)\n• Cena (Lun–Dom): ore 19:30 (limite prenotazione/disdetta: ore 14:30)\n• Pranzo al Sacco: Martedì (entro Domenica ore 18:00) e Giovedì (entro Martedì ore 18:00).`;
 
   const rawCont = appState.cachedConfig?.Info_Contatti;
   const contText = (rawCont && typeof rawCont === "string" && rawCont.trim().length > 5) ? rawCont.trim()
@@ -2734,9 +2734,18 @@ window.impostaOspitiRapido = async function(dataStr, tipoPasto, val) {
 
 function initDateSelectorMensa() { appState.selectedDateMensa = new Date(); }
 
-function getOrariLimitePasti() {
+function getOrarioServizioPranzo(dataTarget) {
+  if (!dataTarget) return "14:30";
+  const d = (dataTarget instanceof Date) ? dataTarget : new Date(String(dataTarget).includes("T") ? dataTarget : String(dataTarget) + "T12:00:00");
+  const day = d.getDay(); // 0: Domenica, 6: Sabato
+  return (day === 0 || day === 6) ? "13:00" : "14:30";
+}
+
+function getOrariLimitePasti(dataTarget) {
   const cfg = appState.cachedConfig || {};
   return {
+    orarioServizioPranzo: getOrarioServizioPranzo(dataTarget),
+    orarioServizioCena: "19:30",
     limitePranzo: cfg.Orario_Limite_Pranzo || "09:00",
     limiteCena: cfg.Orario_Limite_Cena || "14:30",
     limiteBusta: cfg.Orario_Limite_Busta || "14:00"
@@ -2758,7 +2767,7 @@ function isPranzoBloccato(dataSelezionata) {
   const dataOggi = new Date(adesso.getFullYear(), adesso.getMonth(), adesso.getDate());
   if (dataScelta < dataOggi) return true;
   if (dataScelta > dataOggi) return false;
-  const { limitePranzo } = getOrariLimitePasti();
+  const { limitePranzo } = getOrariLimitePasti(dataSelezionata);
   const { ore: limiteOre, minuti: limiteMin } = parseTimeHHMM(limitePranzo, 9, 0);
   return (adesso.getHours() > limiteOre) || (adesso.getHours() === limiteOre && adesso.getMinutes() >= limiteMin);
 }
@@ -2770,7 +2779,7 @@ function isCenaBloccata(dataSelezionata) {
   const dataOggi = new Date(adesso.getFullYear(), adesso.getMonth(), adesso.getDate());
   if (dataScelta < dataOggi) return true;
   if (dataScelta > dataOggi) return false;
-  const { limiteCena } = getOrariLimitePasti();
+  const { limiteCena } = getOrariLimitePasti(dataSelezionata);
   const { ore: limiteOre, minuti: limiteMin } = parseTimeHHMM(limiteCena, 14, 30);
   return (adesso.getHours() > limiteOre) || (adesso.getHours() === limiteOre && adesso.getMinutes() >= limiteMin);
 }
@@ -2945,7 +2954,7 @@ function renderMensaView() {
       </div>
       <div class="mensa-day-pills">${renderDayPills(dataSel)}</div>
       <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 6px 10px; margin-top: 8px; font-size: 11.5px; color: #475569; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
-        <span>⏰ <strong>Limiti:</strong> Pranzo entro <strong>${getOrariLimitePasti().limitePranzo}</strong> • Cena entro <strong>${getOrariLimitePasti().limiteCena}</strong> • Busta entro <strong>${getOrariLimitePasti().limiteBusta}</strong> (ieri)</span>
+        <span>⏰ <strong>Limiti prenotazione:</strong> Pranzo entro le <strong>${getOrariLimitePasti(dataSel).limitePranzo}</strong> (servizio ${getOrarioServizioPranzo(dataSel)}) • Cena entro le <strong>${getOrariLimitePasti(dataSel).limiteCena}</strong> (servizio 19:30) • Buste Mar/Gio entro 18:00</span>
         ${isMaster ? `<button type="button" class="btn-link" onclick="switchTab('master')" style="font-size: 11px; text-decoration: underline; color: var(--primary);">⚙️ Modifica orari</button>` : ''}
       </div>
       ${appState.bypassTimeLock ? '<div class="banner-test-mode">⚙️ Modalità Test: Blocchi orari disattivati</div>' : ''}
@@ -3031,7 +3040,7 @@ function renderWeeklyScrollView(lunediDate) {
         <div class="weekly-meal-row">
           <div class="weekly-meal-header">
             <div class="weekly-meal-title">
-              <span>☀️ Pranzo (14:30)</span>
+              <span>☀️ Pranzo (${getOrarioServizioPranzo(d)})</span>
               ${statoPranzo.isAssente ? `
                 <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
               ` : (statoPranzo.isPresente ? `
@@ -3197,7 +3206,7 @@ function renderDailyDetailedView(dataSel) {
         <div class="flex-align">
           <span class="meal-icon">☀️</span>
           <div>
-            <h3 class="meal-title">Pranzo delle 14:30</h3>
+            <h3 class="meal-title">Pranzo delle ${getOrarioServizioPranzo(dataSel)}</h3>
             <span class="meal-sub">${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? '🔒 Chiuso' : '🟢 Prenotazioni aperte'}</span>
           </div>
         </div>
@@ -6659,8 +6668,8 @@ function renderMasterSection() {
           <h4 style="margin: 0 0 10px 0; color: #9a3412; font-size: 14px;">⏰ Orari Limite &amp; Notifiche</h4>
           <form onsubmit="handleSalvaOrariLimite(event)">
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-bottom: 12px;">
-              <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">☀️ Limite Pranzo</label><input type="text" id="cfg-limite-pranzo" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Pranzo || '09:00')}" required style="font-weight: 700; font-size: 13px;"></div>
-              <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">🌙 Limite Cena</label><input type="text" id="cfg-limite-cena" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Cena || '14:30')}" required style="font-weight: 700; font-size: 13px;"></div>
+              <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">☀️ Limite Pranzo (default 09:00)</label><input type="text" id="cfg-limite-pranzo" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Pranzo || '09:00')}" required style="font-weight: 700; font-size: 13px;"></div>
+              <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">🌙 Limite Cena (default 14:30)</label><input type="text" id="cfg-limite-cena" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Cena || '14:30')}" required style="font-weight: 700; font-size: 13px;"></div>
               <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">🥪 Limite Busta Martedì</label><input type="text" id="cfg-limite-busta-martedi" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Busta_Martedi || '18:00')}" placeholder="Dom ore 18:00" required style="font-weight: 700; font-size: 13px;"></div>
               <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">🥪 Limite Busta Giovedì</label><input type="text" id="cfg-limite-busta-giovedi" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Busta_Giovedi || '18:00')}" placeholder="Mar ore 18:00" required style="font-weight: 700; font-size: 13px;"></div>
               <div class="form-group" style="margin: 0;"><label style="font-size: 12px; font-weight: 700; color: #7c2d12;">🥪 Limite Busta Standard</label><input type="text" id="cfg-limite-busta" class="input-text" value="${escapeHtml(appState.cachedConfig.Orario_Limite_Busta || '14:00')}" required style="font-weight: 700; font-size: 13px;"></div>
@@ -9098,6 +9107,7 @@ window.renderCucinaView = function() {
   const variazionePranzo = getVariazioneCuocaPerData(dataFiltroYMD, "pranzo");
   const variazioneCena = getVariazioneCuocaPerData(dataFiltroYMD, "cena");
   const infoBusta = getDettaglioRegolaBusta(dataObj, true);
+  const orarioPranzoCucina = getOrarioServizioPranzo(dataObj);
 
   const dataVar = appState.cachedConfig.Data_Variazione_Menu;
   const testoVar = appState.cachedConfig.Testo_Variazione;
@@ -9184,7 +9194,7 @@ window.renderCucinaView = function() {
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px; font-size: 12px;">
               ${(countRitardiPranzo > 0 || countOspitiPranzo > 0) ? `
                 <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 6px; padding: 6px 10px;">
-                  <strong style="color: #c2410c;">☀️ Pranzo (14:30):</strong>
+                  <strong style="color: #c2410c;">☀️ Pranzo (${orarioPranzoCucina}):</strong>
                   ${countRitardiPranzo > 0 ? `<div style="color: #991b1b; margin-top: 2px;">⏰ <strong>Ritardi (${countRitardiPranzo}):</strong> ${listaPranzo.filter(p => p.ritardo).map(p => escapeHtml(p.nome || p.email.split('@')[0])).join(', ')}</div>` : ''}
                   ${countOspitiPranzo > 0 ? `<div style="color: #92400e; margin-top: 2px;">👥 <strong>Ospiti (+${countOspitiPranzo}):</strong> ${listaPranzo.filter(p => p.ospiti > 0).map(p => `${escapeHtml(p.nome || p.email.split('@')[0])} (+${p.ospiti})`).join(', ')}</div>` : ''}
                 </div>
@@ -9228,7 +9238,7 @@ window.renderCucinaView = function() {
           <div style="background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 12px 14px;">
             <div class="flex-between" style="margin-bottom: 8px;">
               <strong style="color: #c2410c; font-size: 14.5px; display: flex; align-items: center; gap: 6px;">
-                <span>☀️ Pranzo (14:30)</span>
+                <span>☀️ Pranzo (${orarioPranzoCucina})</span>
                 ${isTuesdayOrThursday ? '<span class="badge" style="background: #fef08a; color: #854d0e; font-size: 10.5px;">🥪 Pranzo al Sacco</span>' : ''}
               </strong>
               ${!isTuesdayOrThursday ? `<button type="button" class="btn-link-cuoca no-print" onclick="apriModalModificaMenu('${cicloSettimana}', '${giornoKey}')" style="font-size: 11px;">✏️ Modifica</button>` : ''}
@@ -9314,7 +9324,7 @@ window.renderCucinaView = function() {
               <span style="font-size: 26px;">☀️</span>
               <div>
                 <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                  <h3 style="margin: 0; font-size: 17.5px; color: #c2410c; font-weight: 800;">Pranzo (14:30)</h3>
+                  <h3 style="margin: 0; font-size: 17.5px; color: #c2410c; font-weight: 800;">Pranzo (${orarioPranzoCucina})</h3>
                   ${countRitardiPranzo > 0 ? `<span class="badge" style="background: #dc2626; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(220,38,38,0.25);">⏰ ${countRitardiPranzo} ${countRitardiPranzo === 1 ? 'RITARDO' : 'RITARDI'}</span>` : ''}
                   ${countOspitiPranzo > 0 ? `<span class="badge" style="background: #d97706; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(217,119,6,0.25);">👥 +${countOspitiPranzo} ${countOspitiPranzo === 1 ? 'OSPITE' : 'OSPITI'}</span>` : ''}
                 </div>
@@ -10727,7 +10737,8 @@ window.copiaTestoPresentazione = function() {
       `- iPhone (Safari): icona Condividi -> "Aggiungi alla schermata Home" -> Aggiungi.\n` +
       `- Android (Chrome): menu 3 puntini -> "Aggiungi a schermata Home" / "Installa applicazione".\n\n` +
       `2. REGOLE MENSA E BUSTE:\n` +
-      `- Pranzo ore 14:30 | Cena ore 19:30.\n` +
+      `- Orari Servizio: Pranzo Lun–Ven ore 14:30 | Pranzo Sab–Dom ore 13:00 | Cena ore 19:30.\n` +
+      `- Limiti prenotazione/disdetta: Pranzo entro le ore 09:00 | Cena entro le ore 14:30.\n` +
       `- Busta al sacco Martedì: richiesta entro Domenica ore 18:00.\n` +
       `- Busta al sacco Giovedì: richiesta entro Martedì ore 18:00.\n\n` +
       `3. COME AGGIORNARE L'APP SUL TELEFONO:\n` +

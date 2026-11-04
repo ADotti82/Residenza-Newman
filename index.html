@@ -1951,7 +1951,7 @@
         <div class="form-group">
           <label for="cuoca-modal-pasto">Pasto di applicazione</label>
           <select id="cuoca-modal-pasto" class="input-select" onchange="onCuocaModalPastoChange()">
-            <option value="pranzo">🍽️ Solo Pranzo (14:30)</option>
+            <option value="pranzo">🍽️ Solo Pranzo (14:30 feriali / 13:00 weekend)</option>
             <option value="cena">🌙 Solo Cena (19:30)</option>
             <option value="entrambi">🔄 Entrambi i pasti (Pranzo e Cena)</option>
           </select>
@@ -2725,21 +2725,31 @@
       </div>
       <div style="flex: 1; overflow-y: auto; padding-right: 6px; margin: 4px 0 10px 0; font-size: 13px; line-height: 1.55; color: #334155;" id="guida-content-body">
         <div class="card-inner guida-section" id="guida-sec-mensa" style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; padding: 14px; margin-bottom: 12px;">
-          <h4 style="margin: 0 0 6px 0; color: #92400e; font-size: 14.5px; display: flex; align-items: center; gap: 8px;">
-            <span>🍽️</span> <strong>Mensa, Orari &amp; Busta Pranzo (Martedì e Giovedì)</strong>
+          <h4 style="margin: 0 0 8px 0; color: #92400e; font-size: 14.5px; display: flex; align-items: center; gap: 8px;">
+            <span>🍽️</span> <strong>Mensa Comunitaria, Orari di Servizio &amp; Regole di Prenotazione</strong>
           </h4>
           <ul style="margin: 0; padding-left: 18px; color: #78350f;">
             <li style="margin-bottom: 6px;">
-              <strong>Orari limite prenotazione/disdetta:</strong> Pranzo entro le <strong>13:30</strong> (1h prima delle 14:30) | Cena entro le <strong>18:30</strong> (1h prima delle 19:30).
+              <strong>Orari di Servizio Pasti in Sala:</strong>
+              <div style="margin: 3px 0 5px 0; font-size: 12.5px;">
+                • <strong>Pranzo Feriale (Lun–Ven):</strong> ore <strong>14:30</strong><br>
+                • <strong>Pranzo Fine Settimana (Sab–Dom):</strong> ore <strong>13:00</strong><br>
+                • <strong>Cena (tutti i giorni, Lun–Dom):</strong> ore <strong>19:30</strong>
+              </div>
             </li>
             <li style="margin-bottom: 6px;">
-              <strong>Martedì e Giovedì a Pranzo (Busta al Sacco):</strong> In questi due giorni il servizio in sala non è previsto ed è attiva esclusivamente la busta da asporto.
+              <strong>Termine perentorio prenotazione / disdetta:</strong>
+              <div style="margin: 3px 0 5px 0; font-size: 12.5px;">
+                • <strong>Pranzo (tutti i giorni):</strong> entro le ore <strong>09:00</strong> del giorno stesso.<br>
+                • <strong>Cena (tutti i giorni):</strong> entro le ore <strong>14:30</strong> del pomeriggio stesso.<br>
+                <em>Superata l'ora limite, il registro presenze viene bloccato per consentire al personale di cucina approvvigionamento e preparazione.</em>
+              </div>
             </li>
             <li style="margin-bottom: 6px;">
-                <strong>Composizione Busta:</strong> Comprende <em>pasto, frutta e snack/dolce, acqua e succo</em>. Prenotabile entro le 14:00 del giorno precedente.
+              <strong>Martedì e Giovedì a Pranzo (Busta al Sacco):</strong> In questi due giorni non vi è servizio in sala ed è attiva unicamente la busta da asporto (comprende <em>pasto, frutta e snack/dolce, acqua e succo</em>). Scadenze perentorie: <strong>Domenica ore 18:00</strong> per la busta del martedì; <strong>Martedì ore 18:00</strong> per la busta del giovedì.
             </li>
             <li>
-              <strong>Ritiro Ritardato:</strong> È possibile indicare il rientro posticipato per trovare il piatto o la busta riposta nominalmente dalla cuoca.
+              <strong>Piatto da Parte / Ritiro Ritardato:</strong> In caso di rientro posticipato rispetto all'orario di inizio pasto, selezionare l'opzione "In Ritardo" per far conservare nominalmente la porzione dalla cuoca, pronta da riscaldare al rientro.
             </li>
           </ul>
         </div>
@@ -2915,7 +2925,7 @@
                 <span class="badge" style="background: #fef3c7; color: #92400e; font-weight: 800;">Centrale</span>
               </div>
               <ul style="margin: 0; padding-left: 20px; color: #78350f;">
-                <li><strong>Presenze Giornaliere:</strong> I residenti confermano la presenza o assenza a Pranzo (14:30) e Cena (19:30), indicando eventuali ritardi o ospiti esterni aggiuntivi a proprio carico.</li>
+                <li><strong>Presenze Giornaliere:</strong> I residenti confermano presenza o assenza a Pranzo (14:30 feriali, 13:00 weekend) e Cena (19:30), indicando eventuali ritardi o pasti ospiti. Termine prenotazione/disdetta: Pranzo entro le ore 09:00, Cena entro le ore 14:30.</li>
                 <li><strong>Regola Busta al Sacco (Martedì e Giovedì):</strong> Nelle giornate di lezioni universitarie fuori sede, la mensa predispone il pranzo al sacco. L'app automatizza le scadenze: la busta del martedì va scelta entro <strong>domenica ore 18:00</strong>; quella del giovedì entro <strong>martedì ore 18:00</strong>.</li>
                 <li><strong>Registro Cucina &amp; Visualizzazione Cuoca:</strong> Schermo touch dedicato per il personale di cucina, con conteggi aggiornati in tempo reale (sala vs busta vs ritardi), menù previsto del giorno, lista nominale dei residenti con spunte interattive di avvenuto ritiro e stampa cartacea.</li>
                 <li><strong>Menù Ciclico delle 2 Settimane:</strong> Consultazione e modifica completa di primi, secondi, contorni e dessert per tutti i 14 giorni del ciclo alimentare.</li>
