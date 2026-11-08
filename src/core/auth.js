@@ -8,41 +8,63 @@ import { STORAGE_KEYS } from "./config.js";
 import { appState } from "./state.js";
 import { chiudiModalSettings } from "./modal.js";
 
+export function isTruthyVal(val) {
+  if (val === true) return true;
+  if (!val) return false;
+  const s = String(val).toLowerCase().trim();
+  return s === "true" || s === "1" || s === "si" || s === "sì" || s === "yes" || s === "y";
+}
+
 export function haPermessiMasterSpazi() {
   if (!appState.user) return false;
+  const u = appState.user;
+  const em = String(u.email || "").toLowerCase().trim();
+  const ruolo = String(u.ruolo || "").toLowerCase().trim();
   return Boolean(
-    appState.user.perm_admin ||
-    appState.user.is_master_spazi ||
-    (appState.user.perm_spazi && (appState.user.email?.toLowerCase().includes("dotti") || appState.user.ruolo === "Master"))
+    isTruthyVal(u.perm_admin) ||
+    isTruthyVal(u.is_master_spazi) ||
+    isTruthyVal(u.perm_spazi) ||
+    isTruthyVal(u.notif_spazi) ||
+    ruolo === "master" ||
+    ruolo === "admin" ||
+    em.includes("dotti")
   );
 }
 
 export function haPermessiMaster() {
   if (!appState.user) return false;
   const u = appState.user;
-  // Visibile solo ed esclusivamente a chi possiede almeno uno dei 4 ruoli specificati:
-  // 1. Super Admin (perm_admin)
-  // 2. Master Mensa (perm_mensa)
-  // 3. Notifica Guasti (notif_manutenzione)
-  // 4. Notifica Spazi (notif_spazi)
+  const em = String(u.email || "").toLowerCase().trim();
+  const ruolo = String(u.ruolo || "").toLowerCase().trim();
+
+  // Super-admin principale, o ruolo Master/Admin nel foglio
+  if (em.includes("dotti") || ruolo === "master" || ruolo === "admin" || ruolo === "direttore" || ruolo === "vicedirettore" || ruolo === "vice-direttore") {
+    return true;
+  }
+
+  // Visibile a chiunque abbia almeno uno dei permessi gestionali con coercizione sicura
   return Boolean(
-    u.perm_admin ||
-    u.perm_mensa ||
-    u.notif_manutenzione ||
-    u.notif_spazi
+    isTruthyVal(u.perm_admin) ||
+    isTruthyVal(u.perm_mensa) ||
+    isTruthyVal(u.perm_manutenzione) ||
+    isTruthyVal(u.notif_manutenzione) ||
+    isTruthyVal(u.perm_spazi) ||
+    isTruthyVal(u.notif_spazi) ||
+    isTruthyVal(u.is_master_spazi)
   );
 }
 
 export function haPermessiMasterMensa() {
   if (!appState.user) return false;
-  const em = String(appState.user.email || "").toLowerCase();
-  const ruolo = String(appState.user.ruolo || "").toLowerCase();
+  const em = String(appState.user.email || "").toLowerCase().trim();
+  const ruolo = String(appState.user.ruolo || "").toLowerCase().trim();
   return Boolean(
-    appState.user.perm_mensa ||
-    appState.user.perm_admin ||
+    isTruthyVal(appState.user.perm_mensa) ||
+    isTruthyVal(appState.user.perm_admin) ||
     ruolo === "cuoca" ||
     ruolo === "cuoco" ||
     ruolo === "master" ||
+    ruolo === "admin" ||
     em.includes("cuoca") ||
     em.includes("cucina") ||
     em.includes("dotti")
@@ -51,7 +73,16 @@ export function haPermessiMasterMensa() {
 
 export function haPermessiMasterManutenzione() {
   if (!appState.user) return false;
-  return Boolean(appState.user.perm_manutenzione || appState.user.notif_manutenzione || appState.user.perm_admin);
+  const em = String(appState.user.email || "").toLowerCase().trim();
+  const ruolo = String(appState.user.ruolo || "").toLowerCase().trim();
+  return Boolean(
+    isTruthyVal(appState.user.perm_manutenzione) ||
+    isTruthyVal(appState.user.notif_manutenzione) ||
+    isTruthyVal(appState.user.perm_admin) ||
+    ruolo === "master" ||
+    ruolo === "admin" ||
+    em.includes("dotti")
+  );
 }
 
 export function aggiornaUIUtente() {
@@ -71,11 +102,13 @@ export function aggiornaUIUtente() {
     if (userName) userName.innerText = appState.user.nome;
     if (userRole) {
       let ruoli = [];
-      if (appState.user.perm_admin) ruoli.push("Admin");
-      if (appState.user.perm_mensa) ruoli.push("Mensa");
-      if (appState.user.perm_manutenzione) ruoli.push("Tecnico");
-      if (appState.user.perm_spazi || appState.user.is_master_spazi) ruoli.push("Spazi");
-      userRole.innerText = ruoli.length > 0 ? ruoli.join(" • ") : "Residente";
+      const rLower = String(appState.user.ruolo || "").toLowerCase().trim();
+      const isMasterRuolo = rLower === "master" || rLower === "admin";
+      if (isTruthyVal(appState.user.perm_admin) || isMasterRuolo) ruoli.push("Admin");
+      if (isTruthyVal(appState.user.perm_mensa)) ruoli.push("Mensa");
+      if (isTruthyVal(appState.user.perm_manutenzione)) ruoli.push("Tecnico");
+      if (isTruthyVal(appState.user.perm_spazi) || isTruthyVal(appState.user.is_master_spazi)) ruoli.push("Spazi");
+      userRole.innerText = ruoli.length > 0 ? ruoli.join(" • ") : (appState.user.ruolo || "Residente");
     }
     const isMaster = haPermessiMaster();
     if (masterNav) masterNav.style.display = isMaster ? "flex" : "none";
@@ -166,12 +199,6 @@ export function checkAuthAndLoad() {
         if (matched) {
           appState.user = { ...appState.user, ...matched };
           try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
-        } else if (!uEmail.includes("dotti") && !appState.user.perm_admin) {
-          appState.user.perm_admin = false;
-          appState.user.perm_mensa = false;
-          appState.user.notif_manutenzione = false;
-          appState.user.notif_spazi = false;
-          try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
         }
       }
       aggiornaUIUtente();
@@ -188,6 +215,7 @@ export function checkAuthAndLoad() {
 }
 
 if (typeof window !== "undefined") {
+  window.isTruthyVal = isTruthyVal;
   window.haPermessiMasterSpazi = haPermessiMasterSpazi;
   window.haPermessiMaster = haPermessiMaster;
   window.haPermessiMasterMensa = haPermessiMasterMensa;

@@ -11,8 +11,10 @@
   <meta name="theme-color" content="#14213d">
   <link rel="preconnect" href="https://script.google.com" crossorigin>
   <link rel="dns-prefetch" href="https://script.google.com">
-  <link rel="icon" type="image/webp" href="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp">
-  <link rel="apple-touch-icon" href="052a904e-e80d-4afb-82d5-ca5c18ebabda.webp">
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon.png">
+  <link rel="icon" type="image/webp" href="/052a904e-e80d-4afb-82d5-ca5c18ebabda.webp">
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
   <link rel="manifest" href="/manifest.json">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
@@ -1787,7 +1789,32 @@
         <div id="push-perm-warning" style="display: none; margin-top: 8px; font-size: 11px; color: #dc2626;">
           ⚠️ I permessi di notifica sono bloccati nel tuo browser. Per attivarle, modificali nelle impostazioni del sito.
         </div>
+      <!-- GUIDA E INSTALLAZIONE PWA (ANDROID & IPHONE) -->
+      <div style="margin-bottom: 16px; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: var(--radius-md); padding: 12px 14px;">
+        <div class="flex-between" style="margin-bottom: 6px;">
+          <div class="flex-align" style="gap: 8px;">
+            <span style="font-size: 20px;">📱</span>
+            <strong style="font-size: 13.5px; color: #166534;">Installazione su Smartphone</strong>
+          </div>
+          <span class="badge" style="background: #dcfce7; color: #15803d; font-size: 10.5px; font-weight: 700;">WebAPK PWA</span>
+        </div>
+        <p class="text-xs text-muted" style="margin: 0 0 10px 0; line-height: 1.45; color: #14532d;">
+          Per non perdere l'icona sul telefono e usare l'app a schermo intero come un'applicazione nativa:
+        </p>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          <button type="button" id="btn-settings-installa-pwa" class="btn btn-sm btn-block" onclick="avviaInstallazionePWA()" style="background: #16a34a; color: #fff; font-weight: 700; border-color: #16a34a; padding: 9px 12px; font-size: 13px; display: none;">
+            📲 Installa Subito sulla Schermata Home
+          </button>
+          <div id="settings-pwa-info-help" class="text-xs" style="background: #ffffff; border: 1px solid #dcfce7; border-radius: var(--radius-sm); padding: 9px 10px; color: #166534; line-height: 1.45;">
+            <strong>Su Android (Google Chrome):</strong> tocca i <strong>3 puntini in alto a destra (⋮)</strong> e premi <strong>"Installa applicazione"</strong> o <strong>"Aggiungi a schermata Home"</strong>.<br>
+            <strong>Su iPhone (Safari):</strong> tocca il pulsante Condividi <strong>(quadrato con freccia in su)</strong> e seleziona <strong>"Aggiungi a Schermata Home"</strong>.
+          </div>
+          <button type="button" class="btn btn-sm btn-outline btn-block" onclick="copiaLinkUfficialeApp()" style="font-size: 12px; font-weight: 600; border-color: #86efac; background: #ffffff; color: #15803d; padding: 8px 12px;">
+            📋 Copia Link Ufficiale Condiviso
+          </button>
+        </div>
       </div>
+
       <!-- GESTIONE AGGIORNAMENTO APP E CACHE -->
       <div style="margin-bottom: 16px; background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: var(--radius-md); padding: 12px 14px;">
         <div class="flex-between" style="margin-bottom: 6px;">
@@ -3530,31 +3557,58 @@
       window.location.replace(cleanPath);
     };
 
-    let deferredPrompt;
+    let deferredPrompt = null;
     const btnInstall = document.getElementById('btn-install-pwa');
+    const btnSettingsInstall = document.getElementById('btn-settings-installa-pwa');
 
     window.addEventListener('beforeinstallprompt', (e) => {
       e.preventDefault();
       deferredPrompt = e;
       if (btnInstall) btnInstall.classList.remove('hidden');
+      if (btnSettingsInstall) btnSettingsInstall.style.display = 'block';
     });
 
-    if (btnInstall) {
-      btnInstall.addEventListener('click', async () => {
-        if (!deferredPrompt) return;
+    window.avviaInstallazionePWA = async function() {
+      if (deferredPrompt) {
         deferredPrompt.prompt();
         const { outcome } = await deferredPrompt.userChoice;
         if (outcome === 'accepted') {
-          console.log('App installata con successo');
+          if (typeof window.mostraToast === 'function') window.mostraToast('✅ Installazione avviata con successo!', 'success');
         }
         deferredPrompt = null;
-        btnInstall.classList.add('hidden');
+        if (btnInstall) btnInstall.classList.add('hidden');
+        if (btnSettingsInstall) btnSettingsInstall.style.display = 'none';
+      } else {
+        if (typeof window.mostraToast === 'function') {
+          window.mostraToast('📱 Su Chrome: tocca i 3 puntini ⋮ in alto a destra e premi "Installa applicazione"', 'info');
+        }
+      }
+    };
+
+    if (btnInstall) {
+      btnInstall.addEventListener('click', () => {
+        window.avviaInstallazionePWA();
       });
     }
+
+    window.copiaLinkUfficialeApp = function() {
+      const url = "https://ais-pre-vpcxvtz2egvmf5h4kfa2uc-1018595949951.asia-southeast1.run.app";
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(url).then(() => {
+          if (typeof window.mostraToast === 'function') window.mostraToast('✅ Link ufficiale copiato negli appunti!', 'success');
+        }).catch(() => {
+          prompt('Copia il link ufficiale dell\'app:', url);
+        });
+      } else {
+        prompt('Copia il link ufficiale dell\'app:', url);
+      }
+    };
 
     window.addEventListener('appinstalled', () => {
       deferredPrompt = null;
       if (btnInstall) btnInstall.classList.add('hidden');
+      if (btnSettingsInstall) btnSettingsInstall.style.display = 'none';
+      if (typeof window.mostraToast === 'function') window.mostraToast('🎉 Residenza Newman installata sulla Schermata Home!', 'success');
     });
 
     // Prevenzione ghost-click e gestione sicura tocco mobile su backdrop modali

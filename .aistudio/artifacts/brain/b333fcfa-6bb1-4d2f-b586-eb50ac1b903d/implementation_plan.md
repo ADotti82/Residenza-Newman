@@ -1,102 +1,68 @@
-# Visualizzazione Nominativa Buste da Asporto su Click nel Riepilogo Vista Cuoca
+# Piano d'Azione: Risoluzione Disinstallazione PWA e Ripristino Permanente della Stellina Amministratore
 
-Predisposizione nella Vista Cuoca (Registro Cucina) della visualizzazione rapida dei residenti che hanno prenotato la busta da asporto, accessibile cliccando direttamente sui contatori di riepilogo (badge segnalazioni in testata e riassunto porzioni del pasto), mostrando unicamente il nome e cognome essenziale di ciascun richiedente in qualsiasi data dell'anno.
-
----
-
-### Decisioni Confermate dall'Utente
-
-> [!IMPORTANT]
-> - **Punto di Attivazione**: L'elenco si apre **cliccando sul riepilogo** dalla Vista Cuoca (dal badge in testata e dalla voce delle porzioni buste nella scheda del pasto).
-> - **Dettagli Visualizzati**: **Solo nome e cognome essenziale** (es. *Mario Rossi*), senza sovraccarico di email, orari tecnici o dati superflui.
-> - **Tempistica di Comparsa**: **Sempre**, in qualsiasi data in cui siano state prenotate una o più buste (non limitato al solo martedì/giovedì).
+## Obiettivo
+1. **Garantire la presenza continua e non volatile della stellina dell'amministrazione** (`nav-tab-master`) per Don Andrea Dotti e per **qualsiasi utente avente ruolo "Master", "Admin" o deleghe nel foglio presenze**, eliminando i blocchi di codice che ne azzeravano i permessi in locale.
+2. **Risolvere la sparizione e disinstallazione automatica dell'app sui dispositivi Android con Google Chrome**, correggendo le anomalie di conformità WebAPK (mancanza di `id`, assenza delle icone obbligatorie 192x192 e 512x512, disallineamento Service Worker e gestione link canonico).
 
 ---
 
-## 1. Panoramica & Concetto Chiave
+## 1. Analisi delle Cause Accertate
 
-Il personale di cucina, durante la preparazione dei pasti, necessita di una consultazione immediata per confezionare le buste da asporto ed etichettarle nominalmente:
-1. **Accesso con Singolo Click**: Cliccando sul contatore `🥪 X Buste` presente sia nel riepilogo delle segnalazioni in alto sia nel sommario delle porzioni di pasto, si apre istantaneamente il pannello dedicato.
-2. **Semplicità Estrema**: La lista riporta chiaramente la numerazione progressiva, la casella di spunta di avvenuto confezionamento e il **solo nome e cognome** del residente, con caratteri grandi e leggibili anche a distanza o su tablet da banco cucina.
-3. **Copertura Completa**: La funzionalità si attiva dinamicamente per qualsiasi giorno (giorni ordinari di lezioni fuori sede martedì/giovedì, ma anche eventuali richieste straordinarie autorizzate negli altri giorni).
+### A. Sparizione della Stellina Amministrazione
+- **Cancellazione permessi a runtime (`app.js` e `src/core/auth.js`)**: All'avvio dell'app (`checkAuthAndLoad`) e a ogni sync con il backend (`caricaDatiBackend`), il codice verificava se l'utente era presente nell'array locale. Se non trovato e se l'email non conteneva "dotti", il codice eseguiva:
+  `appState.user.perm_admin = false; appState.user.perm_mensa = false; appState.user.notif_manutenzione = false; appState.user.notif_spazi = false;`
+  sovrascrivendo e azzerando istantaneamente il profilo salvato in `localStorage`.
+- **Riconoscimento restrittivo in `haPermessiMaster()`**: La funzione controllava solo 4 booleani specifici (`perm_admin`, `perm_mensa`, `notif_manutenzione`, `notif_spazi`), ignorando `ruolo === "Master"`, `ruolo === "Admin"`, `is_master_spazi` e i valori testuali restituiti dai fogli Google (`"TRUE"`, `"SI"`, `"1"`).
 
----
-
-## 2. Esperienza Utente & Design Visivo
-
-### Flusso Cuoca (Schermata Registro Cucina)
-1. **Segnalazioni in Alto (Banner Alert)**:
-   - Se `countBustePranzo > 0`: oltre a eventuali ritardi e ospiti, compare il badge arancione interattivo:
-     `[ 🥪 ${countBustePranzo} BUSTE DA PREPARARE 🔍 ]`
-   - Il cursore a puntatore e l'evidenziazione visiva invitano al tocco.
-2. **Scheda Dettaglio Pranzo / Cena**:
-   - Nella riga di conteggio porzioni:
-     `🍲 Totale porzioni (${inSala} sala, 🥪 ${buste} buste)`: la dicitura `${buste} buste` è resa cliccabile con feedback visivo.
-3. **Pannello Modale Dedicato Buste (`modal-buste-prenotate`)**:
-   - **Intestazione**: Titolo con icona `🥪 Buste da Asporto Prenotate` e data italiana chiara (`📅 Martedì 10 Novembre 2026`).
-   - **Elenco Essenziale**: Elenco pulito e ordinato:
-     `1. ☑ Mario Rossi`
-     `2. ☐ Luigi Bianchi`
-   - **Interazione al Banco**: Possibilità di spuntare la casella man mano che la busta viene impacchettata o consegnata (con persistenza nello stato locale).
-   - **Chiusura Rapida**: Tasto `✕` in alto a destra e pulsante `Chiudi` in calce.
+### B. Disinstallazione e Sparizione dell'icona su Android (Chrome WebAPK)
+- **Manifest WebAPK non conforme**:
+  - Mancanza dell'attributo fondamentale `"id": "/"`: per Chrome su Android, la mancanza dell'id fa sì che ogni variazione di sessione o cache generi un'istanza diversa, provocando la revoca del pacchetto WebAPK sintetico installato.
+  - **Mancanza delle icone obbligatorie `192x192` e `512x512`**: Il server WebAPK di Google scarta e rifiuta la generazione dell'APK nativo su Android se mancano i formati 192px e 512px (erano presenti solo 256x256 e 180x180, oltre a una richiesta 404 su favicon.png). Durante i cicli periodici di pulizia di Android, l'icona non convalidata viene rimossa dal launcher.
+  - Mancanza di `"scope": "/"` e gestione di `purpose: "any maskable"`.
+- **Disallineamento Service Worker**:
+  - `public/sw.js` e `sw.js` avevano versioni di cache differenti (`v16` vs `v24`), generando conflitti di refresh e rimozioni forzate della cache su mobile.
 
 ---
 
-## 3. Decisioni di Prodotto & Architettura Tecnica
+## 2. Modifiche Dettagliate Pianificate
 
-- **Modalità Dedicata e Diretta**:
-  - Creazione di `window.apriModalElencoBuste(dataYMD, tipoPasto)` che prepara ed espone solo i residenti con `p.busta === true`, formattando il nominativo nella forma canonica `Nome Cognome`.
-- **Integrazione con Filtri Esistenti**:
-  - Il pulsante filtro `🥪 Buste (X)` già presente nella scheda continua a funzionare per filtrare la tabella principale della cuoca.
-- **Formattazione Pulita dei Nomi**:
-  - Estrazione prioritaria dal campo anagrafico residente (`p.nome`), con fallback pulito da email (es. `mario.rossi@...` -> `Mario Rossi`) con rimozione di punti e corretta capitalizzazione.
+### Modifica 1: Rimozione azzeramento permessi e blindatura `haPermessiMaster`
+- **File**: `app.js` e `src/core/auth.js`
+- **Interventi**:
+  1. Rimuovere definitivamente il ramo distruttivo `else if (!uEmail.includes("dotti") && !appState.user.perm_admin)`: i permessi assegnati a un utente non devono **mai** essere revocati a cascata da una sincronizzazione parziale.
+  2. Aggiornare `haPermessiMaster(u)` e la logica di sessione per riconoscere:
+     - `String(u.ruolo || "").toLowerCase().trim() === "master"`
+     - `String(u.ruolo || "").toLowerCase().trim() === "admin"`
+     - `u.perm_admin` (con supporto a booleani, `"TRUE"`, `"true"`, `"SI"`, `"1"`)
+     - `u.perm_mensa`
+     - `u.perm_manutenzione` o `u.notif_manutenzione`
+     - `u.perm_spazi`, `u.notif_spazi`, o `u.is_master_spazi`
+     - Email di Don Andrea Dotti (`donandreadotti@gmail.com`).
+  3. Mantenimento e persistenza permanente in `localStorage` dello stato Master/Admin una volta convalidato.
 
----
+### Modifica 2: Adeguamento Manifest PWA per WebAPK Android
+- **File**: `manifest.json`, `public/manifest.json`, `index.html`
+- **Interventi**:
+  1. Inserire `"id": "/"` e `"scope": "/"`.
+  2. Aggiungere le icone standard WebAPK:
+     - `icon-192.png` (192x192, `any` e `maskable`)
+     - `icon-512.png` (512x512, `any` e `maskable`)
+     - Salvataggio delle risorse grafiche in `public/` e root.
+  3. Risolvere il collegamento a `favicon.png` o `favicon.ico` eliminando errori 404 nella console.
+  4. Impostare `prefer_related_applications: false` e `start_url: "/?source=pwa"`.
 
-## 4. Architettura dei Componenti & Flusso Dati
+### Modifica 3: Allineamento e Stabilità del Service Worker
+- **File**: `public/sw.js`, `sw.js`
+- **Interventi**:
+  1. Unificare `CACHE_VERSION` in un'unica release stabile (es. `newman-v25-stable`).
+  2. Configurare `self.skipWaiting()` e `clients.claim()` in modo che gli aggiornamenti avvengano in background senza invalidare il token o la registrazione PWA del sistema Android.
 
-```
-┌────────────────────────────────────────────────────────────────────────┐
-│                   Vista Cuoca (renderCucinaView)                       │
-│  - Banner Segnalazioni Oggi: [ 🥪 3 BUSTE (clicca per elenco) ]       │
-│  - Scheda Pranzo: Totale 25 (22 sala, [ 3 buste 🥪 ] )                 │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │ Click su riepilogo buste
-                                    ▼
-┌────────────────────────────────────────────────────────────────────────┐
-│             apriModalElencoBuste(dataYMD, tipoPasto)                   │
-├────────────────────────────────────────────────────────────────────────┤
-│  Filtra lista: residenti con pasto.busta === true                      │
-│  Estrae: solo Nome e Cognome formattati                                │
-│  Stato spunta: salvato in newman_cucina_spuntati_${dataYMD}            │
-├────────────────────────────────────────────────────────────────────────┤
-│  Visualizza: Modale ad alto contrasto con lista numerata e spunte      │
-└────────────────────────────────────────────────────────────────────────┘
-```
-
-### Modifiche Previste ai File
-
-1. **`app.js`**:
-   - Aggiunta della funzione `window.apriModalElencoBuste(dataYMD, tipoPasto)` e della chiusura associata.
-   - Aggiornamento del banner *Segnalazioni Cucina di Oggi* in `renderCucinaView`: inclusione del badge cliccabile delle buste quando `countBustePranzo > 0` o `countBusteCena > 0`.
-   - Rendere cliccabile il conteggio delle buste nel riepilogo porzioni della Scheda Pranzo e Scheda Cena.
-   - Creazione o aggancio dinamico del markup modale `modal-buste-prenotate`.
-
-2. **`index.html`**:
-   - Predisposizione della struttura DOM per `#modal-buste-prenotate` con backdrop sfumato, card centrata e area scrollabile, garantendo accessibilità e fruibilità mobile/desktop.
+### Modifica 4: Verifica e Compilazione
+- Eseguire `compile_applet` e `lint_applet` per accertare che non vi siano regressioni o errori di sintassi.
+- Verificare la corretta build di produzione (`npm run build`).
 
 ---
 
-## 5. Piano di Verifica
-
-1. **Test Click da Banner Segnalazioni**:
-   - Selezionare una data con buste (es. martedì o data con buste simulate) e cliccare sul badge delle buste in cima alla Vista Cuoca.
-   - Verificare che il modale si apra istantaneamente mostrando solo la lista di nomi e cognomi essenziali.
-2. **Test Click da Riepilogo Porzioni Pranzo**:
-   - Cliccare sulla scritta `X buste` nella scheda Pranzo e verificare l'apertura del modale.
-3. **Test Spunta Confezionamento**:
-   - Selezionare la checkbox accanto a un nominativo e verificare che rimanga spuntata.
-4. **Test Date Senza Buste vs Con Buste**:
-   - Verificare che in una data con 0 buste il badge non appaia e il conteggio mostri 0 senza errori.
-5. **Compilazione**:
-   - Eseguire `compile_applet` per confermare l'integrità del codice.
+## 3. Risultato Atteso
+- Qualsiasi utente che possieda il ruolo Master/Admin nel foglio o i permessi speciali vedrà **sempre** comparire la stellina nella barra di navigazione, anche dopo riavvii del telefono, chiusure dell'app o momenti di scarsa connettività.
+- L'app su smartphone Android (Chrome) risulterà pienamente conforme agli standard Google WebAPK: l'icona rimarrà saldamente installata nel cassetto delle app e nella Home screen senza disinstallarsi o sparire.

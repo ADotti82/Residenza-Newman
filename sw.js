@@ -16,14 +16,20 @@
  * ============================================================================
  */
 
-const CACHE_VERSION = 'newman-v24-modular-es-architecture';
+const CACHE_VERSION = 'newman-v26-stable-pwa-webapk';
 
 // Asset minimi per la shell offline (pre-caching sicuro con allSettled)
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  '/favicon.png',
   '/favicon.ico',
+  '/icon-192.png',
+  '/icon-512.png',
+  '/icon-maskable-192.png',
+  '/icon-maskable-512.png',
+  '/apple-touch-icon.png',
   '/052a904e-e80d-4afb-82d5-ca5c18ebabda.webp'
 ];
 
