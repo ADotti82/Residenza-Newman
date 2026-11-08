@@ -1,6 +1,6 @@
 {
-  "summary":  "Piano di risoluzione tecnica per: 1) Persistenza e garanzia della stellina di amministrazione per qualsiasi utente con ruolo Master o permessi speciali; 2) Risoluzione della disinstallazione e sparizione automatica dell'app sui dispositivi Android con conformita PWA WebAPK completa, icone 192/512px, id univoco e Service Worker stabile.",
-  "updatedAt":  "2026-11-08T15:09:06.712581673Z",
+  "summary":  "Piano d'azione per risolvere la visualizzazione dei residenti con busta prenotata nella finestra modale al click dal riepilogo della vista cuoca per qualsiasi pasto o giorno.",
+  "updatedAt":  "2026-11-08T18:54:08.460516839Z",
   "requestFeedback":  true,
   "userFacing":  true
 }

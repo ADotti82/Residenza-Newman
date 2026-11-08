@@ -2524,17 +2524,40 @@ function calcolaContatoreMensa(dataStr, tipoPasto) {
   if (isBustaMeal) {
     // I pasti contrassegnati dalla busta sono esclusi dalla presenza automatica di default:
     // vengono contati solo coloro che hanno esplicitamente prenotato la busta (+ eventuali loro ospiti)
-    const prenotatiBusta = prenotazioniPasto.filter(m => m.busta && m.stato_presenza !== "assente" && m.stato_presenza !== "Assente");
+    const prenotatiBusta = prenotazioniPasto.filter(m => {
+      const haBusta = isTruthyVal(m.busta) || m.busta === true || m.stato_presenza === "busta";
+      const isAssente = (m.stato_presenza === "assente" || m.stato_presenza === "Assente");
+      return haBusta && !isAssente;
+    });
     const countBuste = prenotatiBusta.reduce((acc, m) => acc + 1 + (parseInt(m.ospiti, 10) || 0), 0);
     const countAssenti = prenotazioniPasto.filter(m => m.stato_presenza === "assente" || m.stato_presenza === "Assente").length;
-    const countRitardi = prenotatiBusta.filter(m => m.ritardo).length;
+    const countRitardi = prenotatiBusta.filter(m => isTruthyVal(m.ritardo)).length;
+    const ospitiTotali = prenotatiBusta.reduce((acc, m) => acc + (parseInt(m.ospiti, 10) || 0), 0);
+
+    const dettagliPresenti = prenotatiBusta.map(m => {
+      const emailNorm = String(m.email || "").toLowerCase().trim();
+      const u = utentiMensa.find(user => String(user.email || "").toLowerCase().trim() === emailNorm);
+      const nomeRisolto = u?.nome || m.nome || trovaNomeUtente(m.email);
+      const ospiti = Math.max(0, parseInt(m.ospiti, 10) || 0);
+      return {
+        email: m.email,
+        nome: nomeRisolto,
+        busta: true,
+        ritardo: Boolean(isTruthyVal(m.ritardo)),
+        ospiti,
+        note: m.note || "",
+        defaultPresence: false
+      };
+    });
+
     return {
       totale: countBuste,
       inSala: 0,
       buste: countBuste,
       assenti: countAssenti,
       ritardi: countRitardi,
-      ospitiTotali: prenotatiBusta.reduce((acc, m) => acc + (parseInt(m.ospiti, 10) || 0), 0),
+      ospitiTotali: ospitiTotali,
+      dettagliPresenti: dettagliPresenti,
       isBustaGiorno: true
     };
   }
@@ -2557,8 +2580,8 @@ function calcolaContatoreMensa(dataStr, tipoPasto) {
     const emailNorm = String(u.email || "").toLowerCase().trim();
     const pren = prenotazioniMap.get(emailNorm);
     const isAssente = pren && (pren.stato_presenza === "assente" || pren.stato_presenza === "Assente");
-    const haBusta = pren && Boolean(pren.busta);
-    const inRitardo = pren && Boolean(pren.ritardo);
+    const haBusta = pren && (isTruthyVal(pren.busta) || pren.busta === true || pren.stato_presenza === "busta");
+    const inRitardo = pren && Boolean(isTruthyVal(pren.ritardo));
     const ospiti = pren ? Math.max(0, parseInt(pren.ospiti, 10) || 0) : 0;
 
     if (isAssente) {
@@ -2580,16 +2603,25 @@ function calcolaContatoreMensa(dataStr, tipoPasto) {
     const giaIncluso = utentiMensa.some(u => String(u.email || "").toLowerCase().trim() === emailNorm);
     if (!giaIncluso && p.stato_presenza !== "assente" && p.stato_presenza !== "Assente") {
       const ospiti = Math.max(0, parseInt(p.ospiti, 10) || 0);
-      if (p.busta) countBuste += (1 + ospiti);
-      if (p.ritardo) countRitardi++;
+      const haBusta = isTruthyVal(p.busta) || p.busta === true || p.stato_presenza === "busta";
+      if (haBusta) countBuste += (1 + ospiti);
+      if (isTruthyVal(p.ritardo)) countRitardi++;
       ospitiTotali += ospiti;
-      dettagliPresenti.push({ email: p.email, nome: p.nome || p.email.split("@")[0], busta: Boolean(p.busta), ritardo: Boolean(p.ritardo), ospiti, note: p.note || "", defaultPresence: false });
+      dettagliPresenti.push({
+        email: p.email,
+        nome: p.nome || trovaNomeUtente(p.email),
+        busta: Boolean(haBusta),
+        ritardo: Boolean(isTruthyVal(p.ritardo)),
+        ospiti,
+        note: p.note || "",
+        defaultPresence: false
+      });
     }
   });
 
   const basePresenti = utentiMensa.length;
-  const ospitiInSala = ospitiTotali - (prenotazioniPasto.filter(m => m.busta).reduce((s, m) => s + (parseInt(m.ospiti, 10) || 0), 0));
-  const busteResidenti = prenotazioniPasto.filter(m => m.busta && m.stato_presenza !== "assente" && m.stato_presenza !== "Assente").length;
+  const ospitiInSala = ospitiTotali - (prenotazioniPasto.filter(m => (isTruthyVal(m.busta) || m.busta === true || m.stato_presenza === "busta")).reduce((s, m) => s + (parseInt(m.ospiti, 10) || 0), 0));
+  const busteResidenti = prenotazioniPasto.filter(m => (isTruthyVal(m.busta) || m.busta === true || m.stato_presenza === "busta") && m.stato_presenza !== "assente" && m.stato_presenza !== "Assente").length;
   const inSala = Math.max(0, basePresenti - countAssenti - busteResidenti) + Math.max(0, ospitiInSala);
   const totalePasti = inSala + countBuste;
 
@@ -5724,9 +5756,17 @@ window.haPermessiMasterManutenzione = haPermessiMasterManutenzione;
 function trovaNomeUtente(email) {
   if (!email) return "-";
   const em = String(email).toLowerCase().trim();
-  const list = appState.tuttiUtenti || INITIAL_MOCK_DB.utenti || [];
-  const u = list.find(x => String(x.email).toLowerCase().trim() === em);
-  return u ? u.nome : email.split("@")[0];
+  const list = [
+    ...(appState.tuttiUtenti || []),
+    ...(typeof getListaUtentiMensa === "function" ? getListaUtentiMensa() : []),
+    ...(INITIAL_MOCK_DB.utenti || [])
+  ];
+  const u = list.find(x => String(x.email || "").toLowerCase().trim() === em);
+  if (u && u.nome && typeof u.nome === "string" && u.nome.trim()) {
+    return u.nome.trim();
+  }
+  const base = em.split("@")[0].replace(/[._\-+]/g, " ");
+  return base.split(" ").filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 }
 window.trovaNomeUtente = trovaNomeUtente;
 
@@ -9911,9 +9951,52 @@ window.apriModalElencoBuste = function(dataYMD, tipoPasto = "pranzo") {
   const targetDate = dataYMD || appState.cucinaSelectedDate || formatYMD(new Date());
   const statsPasto = calcolaContatoreMensa(targetDate, tipoPasto);
   const prenotati = statsPasto.dettagliPresenti || [];
-  
-  // Filtra residenti che hanno prenotato la busta
-  const residentiBusta = prenotati.filter(p => Boolean(p.busta));
+
+  // Mappa di deduplicazione per catturare chiunque abbia prenotato la busta
+  const residentiBustaMap = new Map();
+
+  // 1. Dalle presenze calcolate del pasto
+  prenotati.forEach(p => {
+    const haBusta = (typeof isTruthyVal === "function" ? isTruthyVal(p.busta) : Boolean(p.busta)) || p.busta === true || p.stato_presenza === "busta";
+    if (haBusta) {
+      const emailKey = String(p.email || "").toLowerCase().trim();
+      const nomeRisolto = p.nome || (typeof trovaNomeUtente === "function" ? trovaNomeUtente(p.email) : (p.email ? p.email.split("@")[0] : ""));
+      residentiBustaMap.set(emailKey || `res_${residentiBustaMap.size}`, {
+        email: p.email || "",
+        nome: nomeRisolto,
+        ospiti: p.ospiti || 0,
+        ritardo: Boolean(p.ritardo),
+        note: p.note || ""
+      });
+    }
+  });
+
+  // 2. Scansione diretta dal registro mensa (appState.mensaBookings) per la data/pasto specifica
+  const dbMensa = appState.mensaBookings || [];
+  dbMensa.forEach(m => {
+    if (formattaDataConfronto(m.data) === targetDate && m.tipo_pasto === tipoPasto) {
+      const isAssente = (m.stato_presenza === "assente" || m.stato_presenza === "Assente");
+      const haBusta = (typeof isTruthyVal === "function" ? isTruthyVal(m.busta) : Boolean(m.busta)) || m.busta === true || m.stato_presenza === "busta";
+      if (haBusta && !isAssente) {
+        const emailKey = String(m.email || "").toLowerCase().trim();
+        if (!residentiBustaMap.has(emailKey)) {
+          const nomeRisolto = m.nome || (typeof trovaNomeUtente === "function" ? trovaNomeUtente(m.email) : (m.email ? m.email.split("@")[0] : ""));
+          residentiBustaMap.set(emailKey || `res_${residentiBustaMap.size}`, {
+            email: m.email || "",
+            nome: nomeRisolto,
+            ospiti: Math.max(0, parseInt(m.ospiti, 10) || 0),
+            ritardo: Boolean(typeof isTruthyVal === "function" ? isTruthyVal(m.ritardo) : m.ritardo),
+            note: m.note || ""
+          });
+        }
+      }
+    }
+  });
+
+  // Array ordinato alfabeticamente per nome
+  const residentiBusta = Array.from(residentiBustaMap.values()).sort((a, b) => {
+    return (a.nome || "").localeCompare(b.nome || "", "it", { sensitivity: "base" });
+  });
 
   let dataEstesa = targetDate;
   try {
@@ -9966,7 +10049,7 @@ window.apriModalElencoBuste = function(dataYMD, tipoPasto = "pranzo") {
         </div>
         <div style="display: flex; flex-direction: column; gap: 8px;">
           ${residentiBusta.map((p, idx) => {
-            const checkKey = `${tipoPasto}_${p.email}`;
+            const checkKey = `${tipoPasto}_${p.email || idx}`;
             const isChecked = Boolean(spuntati[checkKey]);
             
             // Estrazione pulita del SOLO nome e cognome essenziale
@@ -9974,7 +10057,7 @@ window.apriModalElencoBuste = function(dataYMD, tipoPasto = "pranzo") {
             if (p.nome && typeof p.nome === "string" && p.nome.trim()) {
               nomePulito = p.nome.trim();
             } else if (p.email) {
-              const base = p.email.split("@")[0].replace(/[._]/g, " ");
+              const base = p.email.split("@")[0].replace(/[._\-+]/g, " ");
               nomePulito = base.split(" ").filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
             } else {
               nomePulito = "Residente " + (idx + 1);
@@ -9985,11 +10068,16 @@ window.apriModalElencoBuste = function(dataYMD, tipoPasto = "pranzo") {
                 <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
                   <span style="font-size: 14px; font-weight: 800; color: #94a3b8; width: 22px;">${idx + 1}.</span>
                   <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntatoModal('${checkKey}', '${targetDate}')" style="width: 22px; height: 22px; cursor: pointer; accent-color: #ea580c;">
-                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
-                    <span style="font-weight: 800; font-size: 15px; color: #0f172a; text-decoration: ${isChecked ? 'line-through' : 'none'};">
-                      ${escapeHtml(nomePulito)}
-                    </span>
-                    ${isChecked ? `<span class="badge" style="background: #e2e8f0; color: #475569; font-size: 10.5px; font-weight: 700;">✓ Pronta</span>` : ''}
+                  <div style="display: flex; flex-direction: column; gap: 2px;">
+                    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                      <span style="font-weight: 800; font-size: 15px; color: #0f172a; text-decoration: ${isChecked ? 'line-through' : 'none'};">
+                        ${escapeHtml(nomePulito)}
+                      </span>
+                      ${isChecked ? `<span class="badge" style="background: #e2e8f0; color: #475569; font-size: 10.5px; font-weight: 700;">✓ Pronta</span>` : ''}
+                      ${p.ospiti > 0 ? `<span class="badge" style="background: #fef3c7; color: #92400e; font-size: 11px; font-weight: 700;">+${p.ospiti} ${p.ospiti === 1 ? 'ospite' : 'ospiti'}</span>` : ''}
+                      ${p.ritardo ? `<span class="badge" style="background: #fee2e2; color: #991b1b; font-size: 10.5px; font-weight: 700;">⏰ Ritardo</span>` : ''}
+                    </div>
+                    ${p.note ? `<div style="font-size: 11.5px; font-style: italic; color: #7c2d12;">Note: "${escapeHtml(p.note)}"</div>` : ''}
                   </div>
                 </div>
               </div>
@@ -10027,15 +10115,20 @@ window.copiaTestoBusteModal = function() {
     if (p.nome && typeof p.nome === "string" && p.nome.trim()) {
       nomePulito = p.nome.trim();
     } else if (p.email) {
-      const base = p.email.split("@")[0].replace(/[._]/g, " ");
+      const base = p.email.split("@")[0].replace(/[._\-+]/g, " ");
       nomePulito = base.split(" ").filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
     } else {
       nomePulito = "Residente " + (idx + 1);
     }
-    return `${idx + 1}. ${nomePulito}`;
+    let extra = [];
+    if (p.ospiti > 0) extra.push(`+${p.ospiti} ospiti`);
+    if (p.ritardo) extra.push("ritardo");
+    if (p.note) extra.push(`note: "${p.note}"`);
+    return `${idx + 1}. ${nomePulito}${extra.length ? " (" + extra.join(", ") + ")" : ""}`;
   });
 
-  const testo = `BUSTE DA ASPORTO PRENOTATE (${d.dataEstesa})\nTotale: ${d.residenti.length}\n\n` + righe.join("\n");
+  const totPorzioni = d.residenti.reduce((s, p) => s + 1 + (p.ospiti || 0), 0);
+  const testo = `BUSTE DA ASPORTO PRENOTATE (${d.dataEstesa})\nTotale: ${d.residenti.length} residenti (${totPorzioni} porzioni)\n\n` + righe.join("\n");
   if (navigator.clipboard && navigator.clipboard.writeText) {
     navigator.clipboard.writeText(testo)
       .then(() => mostraToast("📋 Elenco nomi buste copiato!", "success"))

@@ -1,68 +1,38 @@
-# Piano d'Azione: Risoluzione Disinstallazione PWA e Ripristino Permanente della Stellina Amministratore
+# Piano d'Azione: Visualizzazione Residenti con Busta Prenotata nella Finestra Modale
 
 ## Obiettivo
-1. **Garantire la presenza continua e non volatile della stellina dell'amministrazione** (`nav-tab-master`) per Don Andrea Dotti e per **qualsiasi utente avente ruolo "Master", "Admin" o deleghe nel foglio presenze**, eliminando i blocchi di codice che ne azzeravano i permessi in locale.
-2. **Risolvere la sparizione e disinstallazione automatica dell'app sui dispositivi Android con Google Chrome**, correggendo le anomalie di conformità WebAPK (mancanza di `id`, assenza delle icone obbligatorie 192x192 e 512x512, disallineamento Service Worker e gestione link canonico).
+Garantire che, cliccando sul riepilogo delle buste nella vista cuoca ("🥪 X BUSTE", "vedi nomi ↗" o dal contatore porzioni), la finestra modale mostri **sempre con certezza assoluta l'elenco nominativo (Nome e Cognome essenziale)** di tutti i residenti che hanno prenotato la busta da asporto, per **qualsiasi data e pasto** (sia pranzi al sacco martedì/giovedì, sia qualsiasi altro giorno feriale o festivo).
 
 ---
 
-## 1. Analisi delle Cause Accertate
-
-### A. Sparizione della Stellina Amministrazione
-- **Cancellazione permessi a runtime (`app.js` e `src/core/auth.js`)**: All'avvio dell'app (`checkAuthAndLoad`) e a ogni sync con il backend (`caricaDatiBackend`), il codice verificava se l'utente era presente nell'array locale. Se non trovato e se l'email non conteneva "dotti", il codice eseguiva:
-  `appState.user.perm_admin = false; appState.user.perm_mensa = false; appState.user.notif_manutenzione = false; appState.user.notif_spazi = false;`
-  sovrascrivendo e azzerando istantaneamente il profilo salvato in `localStorage`.
-- **Riconoscimento restrittivo in `haPermessiMaster()`**: La funzione controllava solo 4 booleani specifici (`perm_admin`, `perm_mensa`, `notif_manutenzione`, `notif_spazi`), ignorando `ruolo === "Master"`, `ruolo === "Admin"`, `is_master_spazi` e i valori testuali restituiti dai fogli Google (`"TRUE"`, `"SI"`, `"1"`).
-
-### B. Disinstallazione e Sparizione dell'icona su Android (Chrome WebAPK)
-- **Manifest WebAPK non conforme**:
-  - Mancanza dell'attributo fondamentale `"id": "/"`: per Chrome su Android, la mancanza dell'id fa sì che ogni variazione di sessione o cache generi un'istanza diversa, provocando la revoca del pacchetto WebAPK sintetico installato.
-  - **Mancanza delle icone obbligatorie `192x192` e `512x512`**: Il server WebAPK di Google scarta e rifiuta la generazione dell'APK nativo su Android se mancano i formati 192px e 512px (erano presenti solo 256x256 e 180x180, oltre a una richiesta 404 su favicon.png). Durante i cicli periodici di pulizia di Android, l'icona non convalidata viene rimossa dal launcher.
-  - Mancanza di `"scope": "/"` e gestione di `purpose: "any maskable"`.
-- **Disallineamento Service Worker**:
-  - `public/sw.js` e `sw.js` avevano versioni di cache differenti (`v16` vs `v24`), generando conflitti di refresh e rimozioni forzate della cache su mobile.
+## 1. Causa Radice Individuata
+1. **Mancanza di `dettagliPresenti` nei pasti con busta (`calcolaContatoreMensa`)**:
+   Quando la data selezionata corrisponde a un pasto con busta di default (come il pranzo di martedì e giovedì), `calcolaContatoreMensa` restituiva l'oggetto statistiche privo della proprietà `dettagliPresenti`. Di conseguenza, `apriModalElencoBuste` riceveva un array indefinito/vuoto (`[]`) e mostrava la schermata di "Nessuna busta prenotata".
+2. **Filtraggio rigido e non normalizzato delle prenotazioni**:
+   Nei giorni ordinari, il controllo `Boolean(p.busta)` falliva nel caso in cui il foglio Google Sheets o il backend restituissero valori testuali (`"TRUE"`, `"true"`, `"SI"`, `"1"` o `stato_presenza: "busta"`).
+3. **Mancato recupero diretto da `appState.mensaBookings`**:
+   La funzione della modale si affidava unicamente all'array sintetico calcolato anziché interrogare anche direttamente il registro prenotazioni salvato per quella data, rischiando di perdere record di residenti che avevano salvato la busta.
 
 ---
 
 ## 2. Modifiche Dettagliate Pianificate
 
-### Modifica 1: Rimozione azzeramento permessi e blindatura `haPermessiMaster`
-- **File**: `app.js` e `src/core/auth.js`
+### Modifica 1: Correzione di `calcolaContatoreMensa` per tutti i giorni
+- **File**: `app.js`
 - **Interventi**:
-  1. Rimuovere definitivamente il ramo distruttivo `else if (!uEmail.includes("dotti") && !appState.user.perm_admin)`: i permessi assegnati a un utente non devono **mai** essere revocati a cascata da una sincronizzazione parziale.
-  2. Aggiornare `haPermessiMaster(u)` e la logica di sessione per riconoscere:
-     - `String(u.ruolo || "").toLowerCase().trim() === "master"`
-     - `String(u.ruolo || "").toLowerCase().trim() === "admin"`
-     - `u.perm_admin` (con supporto a booleani, `"TRUE"`, `"true"`, `"SI"`, `"1"`)
-     - `u.perm_mensa`
-     - `u.perm_manutenzione` o `u.notif_manutenzione`
-     - `u.perm_spazi`, `u.notif_spazi`, o `u.is_master_spazi`
-     - Email di Don Andrea Dotti (`donandreadotti@gmail.com`).
-  3. Mantenimento e persistenza permanente in `localStorage` dello stato Master/Admin una volta convalidato.
+  1. Nel ramo `isBustaMeal` (martedì/giovedì e pasti con pranzo al sacco), costruire e restituire l'array completo `dettagliPresenti` mappando ciascun residente prenotato con `nome`, `email`, `busta: true`, `ospiti` e `note`.
+  2. Utilizzare `isTruthyVal(m.busta)` e considerare anche `m.stato_presenza === "busta"` per riconoscere le prenotazioni busta provenienti da Google Sheets in qualsiasi formato.
 
-### Modifica 2: Adeguamento Manifest PWA per WebAPK Android
-- **File**: `manifest.json`, `public/manifest.json`, `index.html`
+### Modifica 2: Riorganizzazione e Blindatura di `apriModalElencoBuste`
+- **File**: `app.js`
 - **Interventi**:
-  1. Inserire `"id": "/"` e `"scope": "/"`.
-  2. Aggiungere le icone standard WebAPK:
-     - `icon-192.png` (192x192, `any` e `maskable`)
-     - `icon-512.png` (512x512, `any` e `maskable`)
-     - Salvataggio delle risorse grafiche in `public/` e root.
-  3. Risolvere il collegamento a `favicon.png` o `favicon.ico` eliminando errori 404 nella console.
-  4. Impostare `prefer_related_applications: false` e `start_url: "/?source=pwa"`.
+  1. Eseguire una doppia estrazione convergente:
+     - Dalle presenze calcolate del pasto (`statsPasto.dettagliPresenti`).
+     - Direttamente dall'archivio `appState.mensaBookings` filtrando per data, pasto e flag busta (`isTruthyVal(busta) || stato_presenza === "busta"`).
+  2. Deduplicare per email e risolvere sempre il **Nome e Cognome anagrafico** tramite `trovaNomeUtente()` e la lista `utentiMensa`/`tuttiUtenti`.
+  3. Ordinare alfabeticamente per nome.
+  4. Mantenere l'interfaccia pulita ed essenziale: solo nome e cognome, con checkbox di spunta per la preparazione della cuoca e copia veloce negli appunti.
 
-### Modifica 3: Allineamento e Stabilità del Service Worker
-- **File**: `public/sw.js`, `sw.js`
-- **Interventi**:
-  1. Unificare `CACHE_VERSION` in un'unica release stabile (es. `newman-v25-stable`).
-  2. Configurare `self.skipWaiting()` e `clients.claim()` in modo che gli aggiornamenti avvengano in background senza invalidare il token o la registrazione PWA del sistema Android.
-
-### Modifica 4: Verifica e Compilazione
-- Eseguire `compile_applet` e `lint_applet` per accertare che non vi siano regressioni o errori di sintassi.
-- Verificare la corretta build di produzione (`npm run build`).
-
----
-
-## 3. Risultato Atteso
-- Qualsiasi utente che possieda il ruolo Master/Admin nel foglio o i permessi speciali vedrà **sempre** comparire la stellina nella barra di navigazione, anche dopo riavvii del telefono, chiusure dell'app o momenti di scarsa connettività.
-- L'app su smartphone Android (Chrome) risulterà pienamente conforme agli standard Google WebAPK: l'icona rimarrà saldamente installata nel cassetto delle app e nella Home screen senza disinstallarsi o sparire.
+### Modifica 3: Verifica e Compilazione
+- Eseguire `compile_applet` e `lint_applet` per confermare l'assenza di errori sintattici o di build.
+- Verificare la corretta apertura della modale al click su tutti i punti di ingresso del riepilogo cuoca.
