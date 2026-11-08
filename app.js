@@ -9176,32 +9176,35 @@ window.renderCucinaView = function() {
 
         ${haVariazioneOggi ? `<div style="margin-top: 12px; background: #fffbeb; border: 2px dashed #f59e0b; border-radius: 8px; padding: 10px 14px;"><span style="font-weight: 800; color: #b45309; font-size: 13px;">📢 Variazione (${pastoVar.toUpperCase()}):</span><div style="font-size: 14px; font-weight: 700; color: #78350f; margin-top: 2px;">"${escapeHtml(testoVar)}"</div></div>` : ''}
 
-        ${(countRitardiPranzo + countRitardiCena > 0 || countOspitiPranzo + countOspitiCena > 0) ? `
+        ${(countRitardiPranzo + countRitardiCena > 0 || countOspitiPranzo + countOspitiCena > 0 || countBustePranzo + countBusteCena > 0) ? `
           <div style="margin-top: 12px; background: linear-gradient(135deg, #fff7ed 0%, #fef2f2 100%); border: 2px solid #ea580c; border-radius: 10px; padding: 12px 14px; box-shadow: 0 2px 8px rgba(234,88,12,0.12);">
             <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; border-bottom: 1px dashed #fdba74; padding-bottom: 8px; margin-bottom: 8px;">
               <div style="display: flex; align-items: center; gap: 8px;">
                 <span style="font-size: 24px;">⚠️</span>
                 <div>
                   <h3 style="margin: 0; font-size: 14.5px; color: #9a3412; font-weight: 800; text-transform: uppercase;">Segnalazioni Cucina di Oggi</h3>
-                  <div style="font-size: 12px; color: #7c2d12;">Verifica residenti con arrivo posticipato e porzioni ospiti extra</div>
+                  <div style="font-size: 12px; color: #7c2d12;">Verifica residenti con arrivo posticipato, porzioni ospiti extra e buste da asporto</div>
                 </div>
               </div>
               <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                ${(countBustePranzo + countBusteCena > 0) ? `<button type="button" class="badge" onclick="apriModalElencoBuste('${dataFiltroYMD}', 'pranzo')" style="cursor: pointer; background: #ea580c; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; border: none; box-shadow: 0 1px 3px rgba(234,88,12,0.3);" title="Clicca per vedere chi ha prenotato la busta">🥪 ${countBustePranzo + countBusteCena} BUSTE (clicca per elenco) 🔍</button>` : ''}
                 ${(countRitardiPranzo + countRitardiCena > 0) ? `<span class="badge" style="background: #dc2626; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px;">⏰ ${countRitardiPranzo + countRitardiCena} RITARDI (Pranzo: ${countRitardiPranzo}, Cena: ${countRitardiCena})</span>` : ''}
                 ${(countOspitiPranzo + countOspitiCena > 0) ? `<span class="badge" style="background: #d97706; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px;">👥 +${countOspitiPranzo + countOspitiCena} OSPITI (Pranzo: +${countOspitiPranzo}, Cena: +${countOspitiCena})</span>` : ''}
               </div>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 8px; font-size: 12px;">
-              ${(countRitardiPranzo > 0 || countOspitiPranzo > 0) ? `
+              ${(countBustePranzo > 0 || countRitardiPranzo > 0 || countOspitiPranzo > 0) ? `
                 <div style="background: #ffffff; border: 1px solid #fed7aa; border-radius: 6px; padding: 6px 10px;">
                   <strong style="color: #c2410c;">☀️ Pranzo (${orarioPranzoCucina}):</strong>
+                  ${countBustePranzo > 0 ? `<div style="color: #c2410c; margin-top: 2px; font-weight: 700;">🥪 <strong>Buste (${countBustePranzo}):</strong> <button type="button" class="btn-link" onclick="apriModalElencoBuste('${dataFiltroYMD}', 'pranzo')" style="color: #ea580c; font-weight: 800; text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer; font-size: 12px;">Clicca per vedere chi le ha prenotate ↗</button></div>` : ''}
                   ${countRitardiPranzo > 0 ? `<div style="color: #991b1b; margin-top: 2px;">⏰ <strong>Ritardi (${countRitardiPranzo}):</strong> ${listaPranzo.filter(p => p.ritardo).map(p => escapeHtml(p.nome || p.email.split('@')[0])).join(', ')}</div>` : ''}
                   ${countOspitiPranzo > 0 ? `<div style="color: #92400e; margin-top: 2px;">👥 <strong>Ospiti (+${countOspitiPranzo}):</strong> ${listaPranzo.filter(p => p.ospiti > 0).map(p => `${escapeHtml(p.nome || p.email.split('@')[0])} (+${p.ospiti})`).join(', ')}</div>` : ''}
                 </div>
               ` : ''}
-              ${(countRitardiCena > 0 || countOspitiCena > 0) ? `
+              ${(countBusteCena > 0 || countRitardiCena > 0 || countOspitiCena > 0) ? `
                 <div style="background: #ffffff; border: 1px solid #bfdbfe; border-radius: 6px; padding: 6px 10px;">
                   <strong style="color: #1d4ed8;">🌙 Cena (19:30):</strong>
+                  ${countBusteCena > 0 ? `<div style="color: #1d4ed8; margin-top: 2px; font-weight: 700;">🥪 <strong>Buste (${countBusteCena}):</strong> <button type="button" class="btn-link" onclick="apriModalElencoBuste('${dataFiltroYMD}', 'cena')" style="color: #2563eb; font-weight: 800; text-decoration: underline; background: none; border: none; padding: 0; cursor: pointer; font-size: 12px;">Clicca per vedere chi le ha prenotate ↗</button></div>` : ''}
                   ${countRitardiCena > 0 ? `<div style="color: #991b1b; margin-top: 2px;">⏰ <strong>Ritardi (${countRitardiCena}):</strong> ${listaCena.filter(p => p.ritardo).map(p => escapeHtml(p.nome || p.email.split('@')[0])).join(', ')}</div>` : ''}
                   ${countOspitiCena > 0 ? `<div style="color: #1e40af; margin-top: 2px;">👥 <strong>Ospiti (+${countOspitiCena}):</strong> ${listaCena.filter(p => p.ospiti > 0).map(p => `${escapeHtml(p.nome || p.email.split('@')[0])} (+${p.ospiti})`).join(', ')}</div>` : ''}
                 </div>
@@ -9329,7 +9332,7 @@ window.renderCucinaView = function() {
                   ${countOspitiPranzo > 0 ? `<span class="badge" style="background: #d97706; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(217,119,6,0.25);">👥 +${countOspitiPranzo} ${countOspitiPranzo === 1 ? 'OSPITE' : 'OSPITI'}</span>` : ''}
                 </div>
                 <div style="font-size: 12px; color: #7c2d12; font-weight: 600; margin-top: 2px;">
-                  🍲 <strong>${statsPranzo.totale}</strong> porzioni totali (${statsPranzo.inSala} sala, ${statsPranzo.buste} buste)
+                  🍲 <strong>${statsPranzo.totale}</strong> porzioni totali (${statsPranzo.inSala} sala, <button type="button" onclick="apriModalElencoBuste('${dataFiltroYMD}', 'pranzo')" style="cursor: pointer; background: #fff7ed; border: 1px solid #fed7aa; border-radius: 4px; padding: 1px 6px; font-weight: 800; color: #c2410c; display: inline-flex; align-items: center; gap: 3px;" title="Clicca per visualizzare l'elenco nominativo delle buste"><span>🥪 ${statsPranzo.buste} buste</span><span style="font-size: 10px; text-decoration: underline;">vedi nomi ↗</span></button>)
                 </div>
               </div>
             </div>
@@ -9383,7 +9386,7 @@ window.renderCucinaView = function() {
 
           <div class="no-print" style="display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 10px; background: #fff7ed; padding: 6px; border-radius: 6px;">
             <button type="button" class="btn btn-sm ${filterPranzo === 'tutti' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'tutti')" style="padding: 3px 8px; font-size: 11px;">Tutti (${listaPranzo.length})</button>
-            <button type="button" class="btn btn-sm ${filterPranzo === 'busta' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'busta')" style="padding: 3px 8px; font-size: 11px;">🥪 (${countBustePranzo})</button>
+            <button type="button" class="btn btn-sm ${filterPranzo === 'busta' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'busta')" style="padding: 3px 8px; font-size: 11px; ${countBustePranzo > 0 ? 'font-weight: 800; color: #c2410c; border-color: #fdba74;' : ''}">🥪 Buste (${countBustePranzo})</button>
             <button type="button" class="btn btn-sm ${filterPranzo === 'ritardo' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'ritardo')" style="padding: 3px 8px; font-size: 11px; ${countRitardiPranzo > 0 ? 'font-weight: 800; color: #dc2626; border-color: #f87171;' : ''}">⏰ Ritardi (${countRitardiPranzo})</button>
             ${countOspitiPranzo > 0 ? `
               <button type="button" class="btn btn-sm ${filterPranzo === 'ospiti' ? 'btn-primary' : 'btn-outline'}" onclick="filtraCucinaPasto('pranzo', 'ospiti')" style="padding: 3px 8px; font-size: 11px; font-weight: 800; color: #78350f; border-color: #f59e0b;">👥 Ospiti (+${countOspitiPranzo})</button>
@@ -9478,7 +9481,7 @@ window.renderCucinaView = function() {
                   ${countOspitiCena > 0 ? `<span class="badge" style="background: #d97706; color: #ffffff; font-weight: 900; font-size: 11.5px; padding: 3px 8px; border-radius: 6px; box-shadow: 0 1px 3px rgba(217,119,6,0.25);">👥 +${countOspitiCena} ${countOspitiCena === 1 ? 'OSPITE' : 'OSPITI'}</span>` : ''}
                 </div>
                 <div style="font-size: 12px; color: #1e40af; font-weight: 600; margin-top: 2px;">
-                  🍲 <strong>${statsCena.totale}</strong> porzioni totali (${statsCena.inSala} sala, ${statsCena.buste} buste)
+                  🍲 <strong>${statsCena.totale}</strong> porzioni totali (${statsCena.inSala} sala, <button type="button" onclick="apriModalElencoBuste('${dataFiltroYMD}', 'cena')" style="cursor: pointer; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 4px; padding: 1px 6px; font-weight: 800; color: #1d4ed8; display: inline-flex; align-items: center; gap: 3px;" title="Clicca per visualizzare l'elenco nominativo delle buste"><span>🥪 ${statsCena.buste} buste</span><span style="font-size: 10px; text-decoration: underline;">vedi nomi ↗</span></button>)
                 </div>
               </div>
             </div>
@@ -9830,15 +9833,20 @@ window.renderContenutoModalCucina = function() {
   }
 };
 
-window.toggleCucinaSpuntatoModal = function(key) {
-  if (!appState.cucinaModalState) return;
-  const dataYMD = appState.cucinaModalState.dataYMD;
+window.toggleCucinaSpuntatoModal = function(key, customDataYMD) {
+  const dataYMD = customDataYMD || (appState.cucinaModalState && appState.cucinaModalState.dataYMD) || (window._datiBusteModalCorrenti && window._datiBusteModalCorrenti.dataYMD) || appState.cucinaSelectedDate || formatYMD(new Date());
   const storageKey = `newman_cucina_spuntati_${dataYMD}`;
   let spuntati = {};
   try { spuntati = JSON.parse(localStorage.getItem(storageKey) || "{}"); } catch (e) { spuntati = {}; }
   spuntati[key] = !spuntati[key];
   localStorage.setItem(storageKey, JSON.stringify(spuntati));
-  renderContenutoModalCucina();
+  if (appState.cucinaModalState && appState.cucinaModalState.isOpen) {
+    renderContenutoModalCucina();
+  }
+  const modalBuste = document.getElementById("modal-buste-prenotate");
+  if (modalBuste && modalBuste.style.display !== "none" && window._datiBusteModalCorrenti) {
+    window.apriModalElencoBuste(window._datiBusteModalCorrenti.dataYMD, window._datiBusteModalCorrenti.tipoPasto);
+  }
   if (typeof renderCucinaView === "function") renderCucinaView();
 };
 
@@ -9863,6 +9871,153 @@ window.copiaTestoElencoCucinaModal = function() {
 };
 
 window.stampaElencoCucinaModal = function() { window.print(); };
+
+// ----------------------------------------------------------------------------
+// MODAL DEDICATO BUSTE DA ASPORTO (NOMI ESSENZIALI SU CLICK DAL RIEPILOGO)
+// ----------------------------------------------------------------------------
+
+window.apriModalElencoBuste = function(dataYMD, tipoPasto = "pranzo") {
+  window._modalOpenedTimestamp = Date.now();
+  if (!haPermessiMasterMensa()) {
+    mostraToast("Accesso riservato: richiede autorizzazione Master Mensa o Cuoca", "warning");
+    return;
+  }
+  const targetDate = dataYMD || appState.cucinaSelectedDate || formatYMD(new Date());
+  const statsPasto = calcolaContatoreMensa(targetDate, tipoPasto);
+  const prenotati = statsPasto.dettagliPresenti || [];
+  
+  // Filtra residenti che hanno prenotato la busta
+  const residentiBusta = prenotati.filter(p => Boolean(p.busta));
+
+  let dataEstesa = targetDate;
+  try {
+    const d = new Date(targetDate + "T12:00:00");
+    dataEstesa = d.toLocaleDateString("it-IT", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    dataEstesa = dataEstesa.charAt(0).toUpperCase() + dataEstesa.slice(1);
+  } catch (e) {}
+
+  const modal = (typeof window.mostraModaleIstantanea === "function")
+    ? window.mostraModaleIstantanea("modal-buste-prenotate")
+    : document.getElementById("modal-buste-prenotate");
+  if (!modal) return;
+
+  const titoloEl = document.getElementById("modal-buste-titolo");
+  const sottotitoloEl = document.getElementById("modal-buste-sottotitolo");
+  const containerEl = document.getElementById("modal-buste-elenco-container");
+
+  if (titoloEl) {
+    titoloEl.innerHTML = `🥪 Buste da Asporto Prenotate (${tipoPasto === 'pranzo' ? 'Pranzo' : 'Cena'})`;
+  }
+  if (sottotitoloEl) {
+    sottotitoloEl.innerHTML = `📅 <strong>${dataEstesa}</strong> • Totale: <strong>${residentiBusta.length}</strong> ${residentiBusta.length === 1 ? 'busta' : 'buste'}`;
+  }
+
+  let spuntati = {};
+  const storageKey = `newman_cucina_spuntati_${targetDate}`;
+  try { spuntati = JSON.parse(localStorage.getItem(storageKey) || "{}"); } catch (e) { spuntati = {}; }
+
+  window._datiBusteModalCorrenti = {
+    dataYMD: targetDate,
+    dataEstesa,
+    tipoPasto,
+    residenti: residentiBusta
+  };
+
+  if (containerEl) {
+    if (residentiBusta.length === 0) {
+      containerEl.innerHTML = `
+        <div style="text-align: center; padding: 36px 16px; color: #64748b; background: #fff7ed; border-radius: 8px; border: 1px dashed #fed7aa; margin: 10px 0;">
+          <span style="font-size: 38px; display: block; margin-bottom: 8px;">🥪</span>
+          <div style="font-size: 15px; font-weight: 800; color: #9a3412;">Nessuna busta prenotata</div>
+          <div style="font-size: 12.5px; color: #7c2d12; margin-top: 4px;">Per questa data nessun residente ha richiesto il pranzo al sacco da asporto.</div>
+        </div>
+      `;
+    } else {
+      containerEl.innerHTML = `
+        <div style="margin-bottom: 10px; font-size: 12px; color: #7c2d12; background: #fffbeb; padding: 8px 12px; border-radius: 6px; border: 1px solid #fde68a; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px;">
+          <span>🥪 <strong>Elenco Residenti:</strong> solo nome e cognome essenziale.</span>
+          <span style="font-weight: 700; color: #9a3412;">${residentiBusta.length} ${residentiBusta.length === 1 ? 'porzione' : 'porzioni'}</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 8px;">
+          ${residentiBusta.map((p, idx) => {
+            const checkKey = `${tipoPasto}_${p.email}`;
+            const isChecked = Boolean(spuntati[checkKey]);
+            
+            // Estrazione pulita del SOLO nome e cognome essenziale
+            let nomePulito = "";
+            if (p.nome && typeof p.nome === "string" && p.nome.trim()) {
+              nomePulito = p.nome.trim();
+            } else if (p.email) {
+              const base = p.email.split("@")[0].replace(/[._]/g, " ");
+              nomePulito = base.split(" ").filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+            } else {
+              nomePulito = "Residente " + (idx + 1);
+            }
+
+            return `
+              <div style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: ${isChecked ? '#f8fafc' : '#ffffff'}; border: 1.5px solid ${isChecked ? '#cbd5e1' : '#fdba74'}; border-left: 6px solid ${isChecked ? '#94a3b8' : '#ea580c'}; border-radius: 8px; opacity: ${isChecked ? '0.6' : '1'}; transition: all 0.15s ease;">
+                <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                  <span style="font-size: 14px; font-weight: 800; color: #94a3b8; width: 22px;">${idx + 1}.</span>
+                  <input type="checkbox" ${isChecked ? 'checked' : ''} onchange="toggleCucinaSpuntatoModal('${checkKey}', '${targetDate}')" style="width: 22px; height: 22px; cursor: pointer; accent-color: #ea580c;">
+                  <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+                    <span style="font-weight: 800; font-size: 15px; color: #0f172a; text-decoration: ${isChecked ? 'line-through' : 'none'};">
+                      ${escapeHtml(nomePulito)}
+                    </span>
+                    ${isChecked ? `<span class="badge" style="background: #e2e8f0; color: #475569; font-size: 10.5px; font-weight: 700;">✓ Pronta</span>` : ''}
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join("")}
+        </div>
+      `;
+    }
+  }
+
+  modal.style.setProperty("display", "flex", "important");
+  modal.style.setProperty("z-index", "999999", "important");
+  modal.style.setProperty("visibility", "visible", "important");
+  modal.style.setProperty("opacity", "1", "important");
+  modal.style.setProperty("transform", "none", "important");
+};
+
+window.chiudiModalElencoBuste = function() {
+  if (typeof window.chiudiModale === "function") {
+    window.chiudiModale("modal-buste-prenotate");
+  } else {
+    const modal = document.getElementById("modal-buste-prenotate");
+    if (modal) modal.style.display = "none";
+  }
+};
+
+window.copiaTestoBusteModal = function() {
+  const d = window._datiBusteModalCorrenti;
+  if (!d || !d.residenti || d.residenti.length === 0) {
+    mostraToast("Nessun nominativo da copiare", "info");
+    return;
+  }
+  const righe = d.residenti.map((p, idx) => {
+    let nomePulito = "";
+    if (p.nome && typeof p.nome === "string" && p.nome.trim()) {
+      nomePulito = p.nome.trim();
+    } else if (p.email) {
+      const base = p.email.split("@")[0].replace(/[._]/g, " ");
+      nomePulito = base.split(" ").filter(Boolean).map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+    } else {
+      nomePulito = "Residente " + (idx + 1);
+    }
+    return `${idx + 1}. ${nomePulito}`;
+  });
+
+  const testo = `BUSTE DA ASPORTO PRENOTATE (${d.dataEstesa})\nTotale: ${d.residenti.length}\n\n` + righe.join("\n");
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(testo)
+      .then(() => mostraToast("📋 Elenco nomi buste copiato!", "success"))
+      .catch(() => mostraToast("Testo pronto", "info"));
+  } else {
+    mostraToast("Testo pronto", "info");
+  }
+};
 
 // ----------------------------------------------------------------------------
 // TOGGLE RAPIDO BUSTA DA REGISTRO CUCINA (MASTER)

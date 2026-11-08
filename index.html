@@ -1095,6 +1095,7 @@
       #modal-modifica-menu .modal-card,
       #modal-gestione-buste-master .modal-card,
       #modal-elenco-pasti-cucina .modal-card,
+      #modal-buste-prenotate .modal-card,
       #modal-segnala-assenza .modal-card,
       #modal-dettaglio-giorno-assenze .modal-card {
         display: flex !important;
@@ -2636,6 +2637,31 @@
     </div>
   </div>
 
+  <!-- MODAL BUSTE DA ASPORTO PRENOTATE (VISTA CUOCA) -->
+  <div class="modal-overlay" id="modal-buste-prenotate" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalElencoBuste)">
+    <div class="modal-card" style="max-width: 500px; max-height: 90vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
+      <div class="flex-between" style="margin-bottom: 10px; flex-shrink: 0; padding-bottom: 8px; border-bottom: 1px solid #fed7aa;">
+        <div class="flex-align" style="gap: 10px;">
+          <span style="font-size: 28px;">🥪</span>
+          <div>
+            <h3 class="modal-title" id="modal-buste-titolo" style="margin: 0; font-size: 17px; font-weight: 800; color: #9a3412;">Buste da Asporto Prenotate</h3>
+            <span class="text-xs text-muted" id="modal-buste-sottotitolo" style="font-weight: 600; color: #7c2d12;">Data e riepilogo</span>
+          </div>
+        </div>
+        <button type="button" class="btn-icon-head" onclick="chiudiModalElencoBuste()" style="color:#0f172a;" title="Chiudi">✕</button>
+      </div>
+      <div id="modal-buste-elenco-container" style="flex: 1; overflow-y: auto; padding-right: 4px; min-height: 180px; max-height: 55vh;"></div>
+      <div style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #fed7aa; display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-shrink: 0; flex-wrap: wrap;">
+        <button type="button" class="btn btn-sm btn-outline" onclick="copiaTestoBusteModal()" style="font-size: 12px; color: #9a3412; border-color: #fdba74;">
+          📋 Copia Elenco Nomi
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm" onclick="chiudiModalElencoBuste()">
+          Chiudi
+        </button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL INVIO EMAIL AMMINISTRAZIONE (MANUTENZIONE) -->
   <div class="modal-overlay" id="modal-email-amministrazione" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalEmailAmministrazione)">
     <div class="modal-card" style="max-width: 620px; max-height: 90vh; display: flex; flex-direction: column; overflow: hidden; padding: 18px 20px; border-radius: 12px;">
@@ -3812,6 +3838,7 @@
     window.chiudiModalModificaMenu = function() { window.chiudiModale("modal-modifica-menu"); };
     window.chiudiModalGestioneBusteMaster = function() { window.chiudiModale("modal-gestione-buste-master"); };
     window.chiudiModalElencoPastiCucina = function() { window.chiudiModale("modal-elenco-pasti-cucina"); };
+    window.chiudiModalElencoBuste = function() { window.chiudiModale("modal-buste-prenotate"); };
     window.chiudiModalMasterAppuntamento = function() { window.chiudiModale("modal-master-nuovo-appuntamento"); };
     window.chiudiModalSegnalaAssenza = function() { window.chiudiModale("modal-segnala-assenza"); };
     window.chiudiModalConfiguraOrariAmbiente = function() { window.chiudiModale("modal-configura-orari-ambiente"); };

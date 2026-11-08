@@ -1,143 +1,102 @@
-# Revisione Guida App & Orari Rinnovati: Pranzo Weekend alle 13:00 e Limite Cena alle 14:30
+# Visualizzazione Nominativa Buste da Asporto su Click nel Riepilogo Vista Cuoca
 
-Piano di aggiornamento completo dell'applicazione e della **Guida dell'App**, del **Regolamento Mensa** e delle schermate operative (Mensa, Registro Cuoca e Cruscotto Master) per riflettere fedelmente le nuove disposizioni orarie della Residenza Universitaria Card. Newman.
+Predisposizione nella Vista Cuoca (Registro Cucina) della visualizzazione rapida dei residenti che hanno prenotato la busta da asporto, accessibile cliccando direttamente sui contatori di riepilogo (badge segnalazioni in testata e riassunto porzioni del pasto), mostrando unicamente il nome e cognome essenziale di ciascun richiedente in qualsiasi data dell'anno.
 
 ---
 
-### Quadro Orari Ufficiale e Regole di Prenotazione
+### Decisioni Confermate dall'Utente
 
 > [!IMPORTANT]
-> - **Pranzo Feriale (Lunedì – Venerdì)**: Servizio in sala alle ore **14:30**. Termine ultimo prenotazione / disdetta: entro le ore **09:00**.
-> - **Pranzo Weekend (Sabato e Domenica)**: Servizio in sala anticipato alle ore **13:00**. Termine ultimo prenotazione / disdetta: entro le ore **09:00**.
-> - **Cena (Tutti i giorni, Lunedì – Domenica)**: Servizio in sala alle ore **19:30**. Termine ultimo prenotazione / disdetta: entro le ore **14:30** *(sostituisce qualsiasi riferimento obsoleto a ore 18:30 o 17:00)*.
-> - **Pranzo al Sacco (Buste Martedì e Giovedì)**:
->   - Busta del Martedì: prenotazione entro Domenica alle ore 18:00.
->   - Busta del Giovedì: prenotazione entro Martedì alle ore 18:00.
-> - **Ambito Operativo**: Aggiornamento integrale della guida integrata (`modal-guida-app`), del regolamento e contatti, del testo rapido condivisibile, della scheda Mensa residenti, della Vista Cucina (Cuoca) e del cruscotto Master.
+> - **Punto di Attivazione**: L'elenco si apre **cliccando sul riepilogo** dalla Vista Cuoca (dal badge in testata e dalla voce delle porzioni buste nella scheda del pasto).
+> - **Dettagli Visualizzati**: **Solo nome e cognome essenziale** (es. *Mario Rossi*), senza sovraccarico di email, orari tecnici o dati superflui.
+> - **Tempistica di Comparsa**: **Sempre**, in qualsiasi data in cui siano state prenotate una o più buste (non limitato al solo martedì/giovedì).
 
 ---
 
-## 1. Panoramica delle Modifiche alla Guida e all'Interfaccia
+## 1. Panoramica & Concetto Chiave
 
-La discrepanza tra gli orari effettivi di cucina e i testi informativi storici dell'app viene risolta con una riscrittura chiara e coerente di tutte le sezioni di orientamento per i residenti:
-
-1. **Guida Completa dell'App (`#modal-guida-app`)**:
-   - Ristrutturazione della sezione `🍽️ Gestione Mensa & Pasti` con tabella/elenco chiaro di orari di servizio ed esatti orari limite di prenotazione/disdetta.
-   - Esplicitazione della nuova regola per la cena: **prenotazione entro le 14:30** per permettere al personale di cucina di fare gli acquisti e le preparazioni del pomeriggio.
-   - Chiarimento della differenziazione del pranzo: **ore 14:30 Lun–Ven** e **ore 13:00 Sab–Dom**, entrambi con termine di modifica entro le **09:00** del giorno stesso.
-   - Conferma delle regole per pasti al sacco, pasti ospiti e piatti tenuti da parte.
-
-2. **Scheda Mensa Residente (`renderMensaView`)**:
-   - Titolo dinamico del pranzo a seconda del giorno selezionato: `☀️ Pranzo (14:30)` per Lun–Ven e `☀️ Pranzo (13:00)` per Sab–Dom.
-   - Barra riepilogativa dei limiti visibile in testa al calendario:
-     *«Limiti prenotazione: Pranzo entro le 09:00 (servizio 14:30 Lun-Ven, 13:00 Sab-Dom) • Cena entro le 14:30 (servizio 19:30)»*.
-   - Logica di blocco interattivo aggiornata: `isPranzoBloccato` (blocco alle 09:00) e `isCenaBloccata` (blocco alle 14:30).
-
-3. **Guida Utente Rapida Condivisibile (`GUIDA UTENTE RAPIDA` in `app.js`)**:
-   - Aggiornamento del testo preformattato che i residenti possono copiare e incollare nei gruppi chat della residenza, con tutti gli orari rinnovati.
-
-4. **Vista Cuoca & Personale Cucina (`renderCucinaView`)**:
-   - Intestazioni del servizio pranzo con orario corretto (13:00 per Sabato e Domenica, 14:30 per Lunedì–Venerdì).
-   - Selettori dei pasti e variazioni orari con le opzioni coerenti.
+Il personale di cucina, durante la preparazione dei pasti, necessita di una consultazione immediata per confezionare le buste da asporto ed etichettarle nominalmente:
+1. **Accesso con Singolo Click**: Cliccando sul contatore `🥪 X Buste` presente sia nel riepilogo delle segnalazioni in alto sia nel sommario delle porzioni di pasto, si apre istantaneamente il pannello dedicato.
+2. **Semplicità Estrema**: La lista riporta chiaramente la numerazione progressiva, la casella di spunta di avvenuto confezionamento e il **solo nome e cognome** del residente, con caratteri grandi e leggibili anche a distanza o su tablet da banco cucina.
+3. **Copertura Completa**: La funzionalità si attiva dinamicamente per qualsiasi giorno (giorni ordinari di lezioni fuori sede martedì/giovedì, ma anche eventuali richieste straordinarie autorizzate negli altri giorni).
 
 ---
 
 ## 2. Esperienza Utente & Design Visivo
 
-### Nuova Sezione Guida Mensa (`index.html`)
-La guida interna al modale presenterà una scheda leggibile e ordinata:
-- **Orari di Servizio in Sala**:
-  - Pranzo Lun–Ven: **14:30**
-  - Pranzo Sab–Dom: **13:00**
-  - Cena tutti i giorni: **19:30**
-- **Termini Ultimi di Prenotazione / Modifica**:
-  - Pranzo: entro le **09:00** della mattina stessa.
-  - Cena: entro le **14:30** del pomeriggio stesso.
-  - Busta al sacco Martedì: entro **Domenica ore 18:00**.
-  - Busta al sacco Giovedì: entro **Martedì ore 18:00**.
-- **Piatti da parte & Ritardi**: Segnalazione per chi arriva dopo l'orario di inizio servizio con specifica dell'orario presunto.
-
-### Stile Visivo e Coerenza
-- Aderenza rigorosa alla palette bordeaux/navy della Residenza Newman.
-- Nessun badge statico informe o pillola superflua (zero-pill discipline da linee guida di design frontend).
-- Tabelle informative e blocchi con bordi puliti, spaziatura confortevole e tipografia ad alto contrasto.
+### Flusso Cuoca (Schermata Registro Cucina)
+1. **Segnalazioni in Alto (Banner Alert)**:
+   - Se `countBustePranzo > 0`: oltre a eventuali ritardi e ospiti, compare il badge arancione interattivo:
+     `[ 🥪 ${countBustePranzo} BUSTE DA PREPARARE 🔍 ]`
+   - Il cursore a puntatore e l'evidenziazione visiva invitano al tocco.
+2. **Scheda Dettaglio Pranzo / Cena**:
+   - Nella riga di conteggio porzioni:
+     `🍲 Totale porzioni (${inSala} sala, 🥪 ${buste} buste)`: la dicitura `${buste} buste` è resa cliccabile con feedback visivo.
+3. **Pannello Modale Dedicato Buste (`modal-buste-prenotate`)**:
+   - **Intestazione**: Titolo con icona `🥪 Buste da Asporto Prenotate` e data italiana chiara (`📅 Martedì 10 Novembre 2026`).
+   - **Elenco Essenziale**: Elenco pulito e ordinato:
+     `1. ☑ Mario Rossi`
+     `2. ☐ Luigi Bianchi`
+   - **Interazione al Banco**: Possibilità di spuntare la casella man mano che la busta viene impacchettata o consegnata (con persistenza nello stato locale).
+   - **Chiusura Rapida**: Tasto `✕` in alto a destra e pulsante `Chiudi` in calce.
 
 ---
 
-## 3. Architettura Tecnica & File Interessati
+## 3. Decisioni di Prodotto & Architettura Tecnica
+
+- **Modalità Dedicata e Diretta**:
+  - Creazione di `window.apriModalElencoBuste(dataYMD, tipoPasto)` che prepara ed espone solo i residenti con `p.busta === true`, formattando il nominativo nella forma canonica `Nome Cognome`.
+- **Integrazione con Filtri Esistenti**:
+  - Il pulsante filtro `🥪 Buste (X)` già presente nella scheda continua a funzionare per filtrare la tabella principale della cuoca.
+- **Formattazione Pulita dei Nomi**:
+  - Estrazione prioritaria dal campo anagrafico residente (`p.nome`), con fallback pulito da email (es. `mario.rossi@...` -> `Mario Rossi`) con rimozione di punti e corretta capitalizzazione.
+
+---
+
+## 4. Architettura dei Componenti & Flusso Dati
 
 ```
 ┌────────────────────────────────────────────────────────────────────────┐
-│                        Data Selezionata                                │
+│                   Vista Cuoca (renderCucinaView)                       │
+│  - Banner Segnalazioni Oggi: [ 🥪 3 BUSTE (clicca per elenco) ]       │
+│  - Scheda Pranzo: Totale 25 (22 sala, [ 3 buste 🥪 ] )                 │
 └───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-                     ┌──────────────┴──────────────┐
-                     ▼                             ▼
-            [Lunedì – Venerdì]              [Sabato – Domenica]
-            Servizio: 14:30                 Servizio: 13:00
-            Limite: 09:00                   Limite: 09:00
-                     │                             │
-                     └──────────────┬──────────────┘
-                                    │
+                                    │ Click su riepilogo buste
                                     ▼
-                     [Tutti i Giorni (Lun – Dom)]
-                     Cena Servizio: 19:30
-                     Cena Limite: 14:30
-                                    │
-                                    ▼
-┌───────────────────────────────────┴────────────────────────────────────┐
-│                    Funzioni Helper Centralizzate                        │
-│ - getOrarioServizioPranzo(dataTarget) -> "13:00" | "14:30"             │
-│ - getOrariLimitePasti(dataTarget) -> { limitePranzo: "09:00", ... }    │
-│ - isPranzoBloccato(dataSelezionata)                                    │
-│ - isCenaBloccata(dataSelezionata)                                      │
-└───────────────────────────────────┬────────────────────────────────────┘
-                                    │
-        ┌───────────────────────────┼───────────────────────────┐
-        ▼                           ▼                           ▼
-┌───────────────┐           ┌───────────────┐           ┌───────────────┐
-│ Scheda Mensa  │           │ Vista Cuoca   │           │ Guida App &   │
-│ & Limiti Live │           │ & Variazioni  │           │ Regolamento   │
-└───────────────┘           └───────────────┘           └───────────────┘
+┌────────────────────────────────────────────────────────────────────────┐
+│             apriModalElencoBuste(dataYMD, tipoPasto)                   │
+├────────────────────────────────────────────────────────────────────────┤
+│  Filtra lista: residenti con pasto.busta === true                      │
+│  Estrae: solo Nome e Cognome formattati                                │
+│  Stato spunta: salvato in newman_cucina_spuntati_${dataYMD}            │
+├────────────────────────────────────────────────────────────────────────┤
+│  Visualizza: Modale ad alto contrasto con lista numerata e spunte      │
+└────────────────────────────────────────────────────────────────────────┘
 ```
 
-### 1. `index.html`
-- **`#modal-guida-app`** (sezione `#guida-sec-mensa`): riscrittura completa dei testi con le tabelle di orari rinnovati (servizio feriale 14:30, weekend 13:00, cena 19:30, limiti pranzo 09:00 e cena 14:30).
-- **Sezione Residenza / Regolamento / Contatti**: allineamento di qualsiasi menzione oraria pregressa.
-- **Select orario pasti modal cuoca (`#cuoca-modal-pasto`)**: verifica opzioni per riflettere 14:30 e 13:00.
+### Modifiche Previste ai File
 
-### 2. `app.js`
-- **`getOrariLimitePasti(dataTarget)`**:
-  - Restituisce `orarioServizioPranzo: (isWeekend ? "13:00" : "14:30")`.
-  - Imposta formalmente `limitePranzo: cfg.Orario_Limite_Pranzo || "09:00"` sia per feriali che per weekend.
-  - Imposta formalmente `limiteCena: cfg.Orario_Limite_Cena || "14:30"` (scadenza inderogabile ore 14:30).
-- **`isPranzoBloccato(dataSelezionata)` & `isCenaBloccata(dataSelezionata)`**:
-  - Valutazione dell'orario limite (09:00 per pranzo, 14:30 per cena) sul giorno selezionato se coincide con la giornata odierna.
-- **`renderMensaView()`**:
-  - Titolo dinamico `☀️ Pranzo (${orarioPranzo})`.
-  - Aggiornamento della barra riassuntiva "Limiti" con le indicazioni aggiornate.
-- **`renderCucinaView()`**:
-  - Intestazione del pranzo differenziata: `☀️ Pranzo (13:00)` per sabato e domenica, `☀️ Pranzo (14:30)` dal lunedì al venerdì.
-- **`testoGuidaRapida` / `GUIDA UTENTE RAPIDA`**:
-  - Aggiornamento del testo copiabile negli appunti con le nuove regole: cena entro le 14:30, pranzo entro le 09:00 (14:30 feriali, 13:00 weekend).
+1. **`app.js`**:
+   - Aggiunta della funzione `window.apriModalElencoBuste(dataYMD, tipoPasto)` e della chiusura associata.
+   - Aggiornamento del banner *Segnalazioni Cucina di Oggi* in `renderCucinaView`: inclusione del badge cliccabile delle buste quando `countBustePranzo > 0` o `countBusteCena > 0`.
+   - Rendere cliccabile il conteggio delle buste nel riepilogo porzioni della Scheda Pranzo e Scheda Cena.
+   - Creazione o aggancio dinamico del markup modale `modal-buste-prenotate`.
+
+2. **`index.html`**:
+   - Predisposizione della struttura DOM per `#modal-buste-prenotate` con backdrop sfumato, card centrata e area scrollabile, garantendo accessibilità e fruibilità mobile/desktop.
 
 ---
 
-## 4. Piano di Verifica
+## 5. Piano di Verifica
 
-1. **Verifica Guida dell'App**:
-   - Aprire il modale della guida ("Guida Completa") dall'icona del punto interrogativo e navigare sulla scheda "Mensa".
-   - Verificare che il testo indichi esplicitamente:
-     - Pranzo Lun–Ven alle 14:30 (limite ore 09:00).
-     - Pranzo Sab–Dom alle 13:00 (limite ore 09:00).
-     - Cena tutti i giorni alle 19:30 con **prenotazione entro le 14:30**.
-2. **Verifica Scheda Mensa Residente**:
-   - Selezionare un giorno feriale (es. Lunedì o Giovedì): visualizzare `☀️ Pranzo (14:30)`.
-   - Selezionare Sabato o Domenica: visualizzare `☀️ Pranzo (13:00)`.
-   - Verificare il testo della barra limiti in alto.
-3. **Verifica Blocco Modifiche**:
-   - Verificare che per la cena odierna il blocco intervenga alle ore 14:30 e per il pranzo alle ore 09:00.
-4. **Verifica Vista Cuoca**:
-   - Navigare nel registro cuoca per una data di sabato o domenica e verificare l'indicazione `☀️ Pranzo (13:00)`.
-5. **Verifica Compilazione**:
-   - Eseguire `compile_applet` per accertare l'assenza di anomalie di build o sintassi.
+1. **Test Click da Banner Segnalazioni**:
+   - Selezionare una data con buste (es. martedì o data con buste simulate) e cliccare sul badge delle buste in cima alla Vista Cuoca.
+   - Verificare che il modale si apra istantaneamente mostrando solo la lista di nomi e cognomi essenziali.
+2. **Test Click da Riepilogo Porzioni Pranzo**:
+   - Cliccare sulla scritta `X buste` nella scheda Pranzo e verificare l'apertura del modale.
+3. **Test Spunta Confezionamento**:
+   - Selezionare la checkbox accanto a un nominativo e verificare che rimanga spuntata.
+4. **Test Date Senza Buste vs Con Buste**:
+   - Verificare che in una data con 0 buste il badge non appaia e il conteggio mostri 0 senza errori.
+5. **Compilazione**:
+   - Eseguire `compile_applet` per confermare l'integrità del codice.

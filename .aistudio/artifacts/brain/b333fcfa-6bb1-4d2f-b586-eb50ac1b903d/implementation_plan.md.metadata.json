@@ -1,6 +1,6 @@
 {
-  "summary": "Piano di implementazione aggiornato per recepire le nuove indicazioni dell'utente: revisione completa della Guida dell'App, regolamento e messaggi informativi, fissando l'orario limite della cena entro le 14:30 e il pranzo del fine settimana alle 13:00 (con limite alle 09:00).",
-  "updatedAt": "2026-11-04T08:21:53.034588099Z",
-  "requestFeedback": true,
-  "userFacing": true
+  "summary":  "Piano di implementazione per mostrare l'elenco nominativo essenziale (solo nome e cognome) dei residenti che hanno prenotato la busta cliccando direttamente sul riepilogo della Vista Cuoca, attivo per qualsiasi data.",
+  "updatedAt":  "2026-11-08T14:55:23.161437399Z",
+  "requestFeedback":  true,
+  "userFacing":  true
 }
