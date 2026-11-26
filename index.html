@@ -3413,22 +3413,28 @@
 
   <!-- MODAL DETTAGLIO GIORNO ASSENZE -->
   <div class="modal-overlay" id="modal-dettaglio-giorno-assenze" style="display: none;" onclick="gestisciClickBackdrop(event, chiudiModalDettaglioGiornoAssenze)">
-    <div class="modal-card" style="max-width: 520px;" onclick="event.stopPropagation()">
-      <div class="flex-between" style="border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 14px;">
+    <div class="modal-card" style="max-width: 560px; max-height: 90vh; display: flex; flex-direction: column;" onclick="event.stopPropagation()">
+      <div class="flex-between" style="border-bottom: 2px solid #e2e8f0; padding-bottom: 12px; margin-bottom: 12px; flex-shrink: 0;">
         <div>
-          <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6366f1; font-weight: 800;">Registro Presenze &amp; Assenze</span>
+          <span style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #6366f1; font-weight: 800;">Calendario Assenze Master</span>
           <h3 class="modal-title" id="dettaglio-assenze-titolo-data" style="margin: 2px 0 0 0; font-size: 17.5px; color: #1e1b4b;">Assenze del Giorno</h3>
         </div>
         <button type="button" class="btn-icon-head" onclick="chiudiModalDettaglioGiornoAssenze()" style="font-size: 18px; width: 32px; height: 32px; border-radius: 50%; background: #f1f5f9; display: flex; align-items: center; justify-content: center;">✕</button>
       </div>
 
-      <div id="dettaglio-assenze-elenco-body" style="max-height: 55vh; overflow-y: auto; margin-bottom: 16px;">
-        <!-- popolato dinamicamente con l'elenco dei residenti assenti per quella data -->
+      <div style="overflow-y: auto; flex: 1; padding-right: 2px;">
+        <div id="dettaglio-assenze-elenco-body" style="margin-bottom: 14px;">
+          <!-- popolato dinamicamente con l'elenco dei residenti assenti per quella data -->
+        </div>
+
+        <div id="dettaglio-assenze-admin-form-wrap" style="display: none; margin-bottom: 8px;">
+          <!-- popolato dinamicamente per gli amministratori: inserimento diretto assenza utente su questa data -->
+        </div>
       </div>
 
-      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 12px; flex-wrap: wrap; gap: 8px;">
-        <button type="button" class="btn btn-sm btn-primary" id="btn-dettaglio-aggiungi-assenza" onclick="apriModalSegnalaAssenzaDaDettaglio()" style="background: #4f46e5; border-color: #4338ca; font-weight: 700;">
-          ➕ Segnala Assenza per questa data
+      <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 8px; flex-wrap: wrap; gap: 8px; flex-shrink: 0;">
+        <button type="button" class="btn btn-sm btn-outline" id="btn-dettaglio-aggiungi-assenza" onclick="apriModalSegnalaAssenzaDaDettaglio()" style="color: #4f46e5; border-color: #c7d2fe; font-weight: 700;">
+          📆 Modulo Completo / Presets
         </button>
         <button type="button" class="btn btn-sm btn-secondary" onclick="chiudiModalDettaglioGiornoAssenze()" style="font-weight: 600;">
           Chiudi
@@ -3461,8 +3467,19 @@
         }
       });
 
+      const NEWMAN_HTML_BUILD = '2026-11-16-v4';
+      try {
+        const prevBuild = localStorage.getItem('newman_html_build');
+        if (prevBuild !== NEWMAN_HTML_BUILD) {
+          localStorage.setItem('newman_html_build', NEWMAN_HTML_BUILD);
+          if ('caches' in window) {
+            caches.keys().then((keys) => Promise.all(keys.map((k) => caches.delete(k)))).catch(() => {});
+          }
+        }
+      } catch (e) {}
+
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
+        navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' })
           .then((reg) => {
             swRegistration = reg;
             window.newmanSwRegistration = reg;
@@ -3487,7 +3504,7 @@
             // Controlla aggiornamenti subito dopo l'avvio
             setTimeout(() => {
               reg.update().catch(() => {});
-            }, 1000);
+            }, 500);
           })
           .catch((err) => console.log('SW non registrato:', err));
       });
@@ -3787,6 +3804,12 @@
         }
         if (prefillData && prefillData.pasto && typeof window.selezionaSoloPastoAssenza === "function") {
           window.selezionaSoloPastoAssenza(prefillData.pasto);
+        } else {
+          const chkMensa = document.getElementById("assenza-sospendi-mensa");
+          if (chkMensa) chkMensa.checked = true;
+          if (typeof window.selezionaSoloPastoAssenza === "function") {
+            window.selezionaSoloPastoAssenza("entrambi");
+          }
         }
       }
     };
@@ -3908,6 +3931,6 @@
   </script>
 
   <!-- SCRIPT FRONTEND LOGICA (VANILLA JS) -->
-  <script type="module" src="/app.js?v=20261015-v3-modular-es-architecture"></script>
+  <script type="module" src="/app.js?v=20261116-v4-assenze-push"></script>
 </body>
 </html>

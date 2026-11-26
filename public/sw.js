@@ -16,7 +16,7 @@
  * ============================================================================
  */
 
-const CACHE_VERSION = 'newman-v26-stable-pwa-webapk';
+const CACHE_VERSION = 'newman-v28-live-sync';
 
 // Asset minimi per la shell offline (pre-caching sicuro con allSettled)
 const PRECACHE_ASSETS = [
@@ -122,7 +122,7 @@ self.addEventListener('fetch', (event) => {
 
   if (isNavigation) {
     event.respondWith(
-      fetch(new Request(req, { cache: 'no-cache' }))
+      fetch(new Request(req, { cache: 'no-store' }))
         .then((networkRes) => {
           if (networkRes && networkRes.status === 200) {
             const clone = networkRes.clone();
@@ -143,12 +143,12 @@ self.addEventListener('fetch', (event) => {
   }
 
   // STRATEGIA 2: Script JavaScript (.js)
-  // Network-First con cache no-cache per avere sempre la versione fresca se online.
+  // Network-First con cache no-store per avere sempre la versione fresca se online.
   // CRITICO: Non restituire MAI index.html in caso di errore su un file .js!
   const isJavaScript = url.pathname.endsWith('.js');
   if (isJavaScript) {
     event.respondWith(
-      fetch(new Request(req, { cache: 'no-cache' }))
+      fetch(new Request(req, { cache: 'no-store' }))
         .then((networkRes) => {
           if (networkRes && networkRes.status === 200) {
             const clone = networkRes.clone();
@@ -240,10 +240,10 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Residenza Newman';
   const options = {
     body: data.body || '',
-    icon: '/052a904e-e80d-4afb-82d5-ca5c18ebabda.webp',
-    badge: '/052a904e-e80d-4afb-82d5-ca5c18ebabda.webp',
-    vibrate: [100, 50, 100],
-    data: data.url || '/'
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    vibrate: [150, 60, 150],
+    data: data.url || '/#bacheca'
   };
   event.waitUntil(self.registration.showNotification(title, options));
 });
@@ -258,6 +258,9 @@ self.addEventListener('notificationclick', (event) => {
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((windowClients) => {
       for (const client of windowClients) {
         if (client.url && 'focus' in client) {
+          try {
+            client.postMessage({ type: 'NAVIGATE_HASH', url: urlToOpen });
+          } catch (e) {}
           return client.focus();
         }
       }

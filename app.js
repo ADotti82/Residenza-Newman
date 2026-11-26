@@ -249,11 +249,24 @@ window.appState = appState;
 // ----------------------------------------------------------------------------
 // INIZIALIZZAZIONE DELL'APP (BOOTSTRAP UNIVERSALE INFALLIBILE)
 // ----------------------------------------------------------------------------
+const NEWMAN_APP_BUILD_ID = "2026-11-16-v4";
 let appInizializzata = false;
 function avviaApplicazione() {
   if (appInizializzata) return;
   appInizializzata = true;
-  console.log("🚀 Bootstrap Newman App avviato (readyState:", document.readyState, ")");
+  console.log("🚀 Bootstrap Newman App avviato (build:", NEWMAN_APP_BUILD_ID, "readyState:", document.readyState, ")");
+  try {
+    const prevAppBuild = localStorage.getItem("newman_app_build_id");
+    if (prevAppBuild !== NEWMAN_APP_BUILD_ID) {
+      localStorage.setItem("newman_app_build_id", NEWMAN_APP_BUILD_ID);
+      if ("caches" in window) {
+        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).catch(() => {});
+      }
+      if (window.newmanSwRegistration && typeof window.newmanSwRegistration.update === "function") {
+        window.newmanSwRegistration.update().catch(() => {});
+      }
+    }
+  } catch (e) {}
   try {
     initStorage();
   } catch (e) {
@@ -880,10 +893,12 @@ function mockBackendExecution(action, params) {
       const dataFine = formattaDataConfronto(params.data_fine || params.data_inizio);
       const motivo = params.motivo || "Altro";
       const note = params.note || "";
-      const assenteMensa = Boolean(params.assente_mensa);
-      const pasti = (Array.isArray(params.pasti_interessati) && params.pasti_interessati.length > 0)
-        ? params.pasti_interessati
-        : (params.pasti_interessati ? [params.pasti_interessati] : ["pranzo", "cena"]);
+      const assenteMensa = (params.assente_mensa === false || String(params.assente_mensa).toLowerCase() === "false") ? false : true;
+      const pasti = assenteMensa
+        ? ((Array.isArray(params.pasti_interessati) && params.pasti_interessati.length > 0)
+            ? params.pasti_interessati.map(p => String(p).trim().toLowerCase()).filter(Boolean)
+            : (params.pasti_interessati ? [String(params.pasti_interessati).trim().toLowerCase()] : ["pranzo", "cena"]))
+        : [];
       const entryId = params.id || ("ASS_" + Date.now());
 
       const assenzaObj = {
@@ -895,8 +910,8 @@ function mockBackendExecution(action, params) {
         motivo,
         note,
         assente_mensa: assenteMensa,
-        pasti_interessati: pasti,
-        created_at: new Date().toISOString()
+        pasti_interessati: pasti.length > 0 ? pasti : (assenteMensa ? ["pranzo", "cena"] : []),
+        created_at: params.created_at || new Date().toISOString()
       };
 
       const existingIdx = db.assenze.findIndex(a => String(a.id) === String(entryId));
@@ -907,9 +922,10 @@ function mockBackendExecution(action, params) {
       if (assenteMensa) {
         const dStart = new Date(dataInizio + "T12:00:00");
         const dEnd = new Date(dataFine + "T12:00:00");
-        for (let dt = new Date(dStart); dt <= dEnd; dt.setDate(dt.getDate() + 1)) {
+        let dayCount = 0;
+        for (let dt = new Date(dStart); dt <= dEnd && dayCount < 90; dt.setDate(dt.getDate() + 1), dayCount++) {
           const ymd = formatYMD(dt);
-          pasti.forEach(pasto => {
+          (assenzaObj.pasti_interessati || ["pranzo", "cena"]).forEach(pasto => {
             const mIdx = db.mensa.findIndex(m => formattaDataConfronto(m.data) === ymd && m.email.toLowerCase() === email && m.tipo_pasto === pasto);
             const mEntry = {
               id: mIdx !== -1 ? db.mensa[mIdx].id : ("M_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4)),
@@ -921,7 +937,7 @@ function mockBackendExecution(action, params) {
               ospiti: 0,
               stato_presenza: "assente",
               note: "Assenza programmata: " + motivo,
-              timestamp: new Date().toISOString()
+              timestamp: assenzaObj.created_at
             };
             if (mIdx !== -1) db.mensa[mIdx] = { ...db.mensa[mIdx], ...mEntry };
             else db.mensa.push(mEntry);
@@ -939,13 +955,13 @@ function mockBackendExecution(action, params) {
       const target = db.assenze.find(a => String(a.id) === String(id));
       if (target) {
         db.assenze = db.assenze.filter(a => String(a.id) !== String(id));
-        if (ripristinaMensa && target.assente_mensa && db.mensa) {
+        if (ripristinaMensa !== false && target.assente_mensa !== false && db.mensa) {
           const dStart = new Date(target.data_inizio + "T12:00:00");
-          const dEnd = new Date(target.data_fine + "T12:00:00");
+          const dEnd = new Date((target.data_fine || target.data_inizio) + "T12:00:00");
           for (let dt = new Date(dStart); dt <= dEnd; dt.setDate(dt.getDate() + 1)) {
             const ymd = formatYMD(dt);
-            (target.pasti_interessati || ["pranzo", "cena"]).forEach(pasto => {
-              db.mensa = db.mensa.filter(m => !(formattaDataConfronto(m.data) === ymd && m.email.toLowerCase() === target.email.toLowerCase() && m.tipo_pasto === pasto && m.stato_presenza === "assente"));
+            (target.pasti_interessati && target.pasti_interessati.length ? target.pasti_interessati : ["pranzo", "cena"]).forEach(pasto => {
+              db.mensa = db.mensa.filter(m => !(formattaDataConfronto(m.data) === ymd && m.email.toLowerCase() === target.email.toLowerCase() && m.tipo_pasto === pasto && String(m.stato_presenza || "").toLowerCase() === "assente"));
             });
           }
         }
@@ -1023,6 +1039,9 @@ function mockBackendExecution(action, params) {
 
 async function caricaDatiBackend() {
   window.caricaDatiBackend = caricaDatiBackend;
+  if (typeof window.unisciAssenzeConPersistenzaLocale === "function") {
+    appState.assenze = window.unisciAssenzeConPersistenzaLocale(appState.assenze);
+  }
   renderBachecaView();
   renderResidenzaView();
   renderMensaView();
@@ -1043,7 +1062,9 @@ async function caricaDatiBackend() {
           window.verificaENotificaAccoglienzaConfermata(appState.accoglienzaList);
         }
       }
-      if (data.assenze) {
+      if (typeof window.unisciAssenzeConPersistenzaLocale === "function") {
+        appState.assenze = window.unisciAssenzeConPersistenzaLocale(data.assenze);
+      } else if (data.assenze) {
         appState.assenze = data.assenze;
       }
 
@@ -1056,6 +1077,9 @@ async function caricaDatiBackend() {
 
       if (typeof window.pianificaCheckNotificheOre7 === "function") {
         window.pianificaCheckNotificheOre7();
+      }
+      if (typeof window.verificaENotificaComunicazioneDirezione === "function") {
+        window.verificaENotificaComunicazioneDirezione(false);
       }
       if (typeof window.verificaENotificaNovitaMaster === "function") {
         window.verificaENotificaNovitaMaster();
@@ -1072,8 +1096,16 @@ async function caricaDatiBackend() {
       const matched = dbUsers.find(u => String(u.email || "").toLowerCase().trim() === uEmail);
       if (matched) {
         appState.user = { ...appState.user, ...matched };
-        try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
       }
+      // Abilita automaticamente le notifiche push se il permesso browser è già concesso e l'utente non le ha disattivate
+      if ("Notification" in window && Notification.permission === "granted") {
+        const prefLocale = localStorage.getItem("newman_notif_push_" + uEmail);
+        if (prefLocale !== "false" && !appState.user.notif_push) {
+          appState.user.notif_push = true;
+          localStorage.setItem("newman_notif_push_" + uEmail, "true");
+        }
+      }
+      try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
     }
     aggiornaUIUtente();
 
@@ -1721,7 +1753,14 @@ function renderBachecaView() {
             ${pubStrIta ? `<span>📅 Pubblicato: <strong>${escapeHtml(pubStrIta)}</strong></span>` : '<span>📅 Comunicazione attiva</span>'}
             ${scadStrIta ? `<span>·</span><span>⏳ Valido fino al: <strong>${escapeHtml(scadStrIta)}</strong></span>` : ''}
           </div>
-          <span style="font-style: italic; color: #b45309; font-size: 11px;">Residenza Cardinal Newman</span>
+          <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap;">
+            ${("Notification" in window && Notification.permission === "default") ? `
+              <button type="button" class="btn btn-sm" onclick="attivaNotifichePushDirezione()" style="background: #d97706; color: #fff; border: none; font-size: 11px; font-weight: 700; padding: 3px 9px; border-radius: 6px; cursor: pointer;">
+                🔔 Ricevi Notifiche Direzione
+              </button>
+            ` : ''}
+            <span style="font-style: italic; color: #b45309; font-size: 11px;">Residenza Cardinal Newman</span>
+          </div>
         </div>
       </div>
     `;
@@ -1803,7 +1842,7 @@ function renderBachecaView() {
               <div style="display: flex; justify-content: space-between; align-items: center; font-size: 12px; background: #ffffff; padding: 6px 10px; border-radius: 6px; border: 1px solid #e2e8f0; flex-wrap: wrap; gap: 6px;">
                 <div>
                   <strong>${formattaDataItaliana(a.data_inizio)} ➜ ${formattaDataItaliana(a.data_fine || a.data_inizio)}</strong>: ${escapeHtml(a.motivo || 'Assente')}
-                  ${a.assente_mensa ? '<span class="badge" style="background: #fff7ed; color: #9a3412; font-size: 10px; margin-left: 6px;">🍽️ Mensa sospesa</span>' : ''}
+                  ${a.assente_mensa !== false ? '<span class="badge" style="background: #fff7ed; color: #9a3412; font-size: 10px; margin-left: 6px;">🍽️ Mensa sospesa</span>' : ''}
                 </div>
                 <button type="button" class="btn btn-link btn-sm" onclick="cancellaAssenzaUtente('${a.id}')" style="color: #dc2626; font-size: 11px; padding: 0;">Revoca</button>
               </div>
@@ -2189,16 +2228,20 @@ window.salvaMessaggioSupermaster = async function(event) {
       Messaggio_Supermaster: nuovoTesto,
       Messaggio_Supermaster_Titolo: titolo,
       Messaggio_Supermaster_Data_Pubblicazione: dataPub,
-      Messaggio_Supermaster_Data_Scadenza: dataScad
+      Messaggio_Supermaster_Data_Scadenza: dataScad,
+      Messaggio_Supermaster_Aggiornato_At: new Date().toISOString()
     };
     const res = await callApi("aggiornaConfig", payload);
     if (res.success) {
       Object.assign(appState.cachedConfig, payload);
-      mostraToast("✅ Comunicazione aggiornata e pubblicata in Bacheca!", "success");
+      mostraToast("✅ Comunicazione pubblicata in Bacheca (Notifica Push automatica attiva per gli utenti)!", "success");
       chiudiModalMessaggioSupermaster();
       renderBachecaView();
       renderResidenzaView();
       if (document.getElementById("master-dynamic-content")) renderMasterSection();
+      if (typeof window.verificaENotificaComunicazioneDirezione === "function") {
+        window.verificaENotificaComunicazioneDirezione(true);
+      }
     } else mostraToast("Errore: " + (res.error || "Impossibile salvare"), "error");
   } catch (err) { mostraToast("Errore durante il salvataggio", "error"); }
 };
@@ -2508,9 +2551,83 @@ function isPastoBustaGiorno(dataVal, tipoPasto) {
 }
 
 /**
+ * Normalizza un record di assenza (garantisce di default assente_mensa = true e pasti = ["pranzo", "cena"] salvo esplicita deselezione)
+ */
+function normalizzaAssenzaObj(a) {
+  if (!a || typeof a !== "object") return null;
+  const email = String(a.email || "").toLowerCase().trim();
+  const dataInizio = formattaDataConfronto(a.data_inizio);
+  const dataFine = formattaDataConfronto(a.data_fine || a.data_inizio) || dataInizio;
+  const assenteMensa = (a.assente_mensa === false || String(a.assente_mensa).toLowerCase() === "false") ? false : true;
+  let pasti = ["pranzo", "cena"];
+  if (!assenteMensa) {
+    pasti = [];
+  } else if (Array.isArray(a.pasti_interessati) && a.pasti_interessati.length > 0) {
+    pasti = a.pasti_interessati.map(p => String(p).trim().toLowerCase()).filter(Boolean);
+    if (pasti.length === 0) pasti = ["pranzo", "cena"];
+  } else if (typeof a.pasti_interessati === "string" && a.pasti_interessati.trim()) {
+    pasti = a.pasti_interessati.split(",").map(p => p.trim().toLowerCase()).filter(Boolean);
+    if (pasti.length === 0) pasti = ["pranzo", "cena"];
+  }
+  return {
+    ...a,
+    email,
+    nome: a.nome || trovaNomeUtente(email),
+    data_inizio: dataInizio,
+    data_fine: dataFine,
+    assente_mensa: assenteMensa,
+    pasti_interessati: pasti
+  };
+}
+window.normalizzaAssenzaObj = normalizzaAssenzaObj;
+
+/**
+ * Restituisce l'eventuale assenza prolungata attiva per un residente, una data e un tipo pasto.
+ * Di default pranzo e cena sono sempre sospesi salvo esplicita deselezione (assente_mensa === false).
+ */
+function getAssenzaMensaAttiva(dataStr, tipoPasto, userEmail) {
+  if (!dataStr || !userEmail) return null;
+  const emailNorm = String(userEmail).toLowerCase().trim();
+  const pastoNorm = String(tipoPasto || "pranzo").toLowerCase().trim();
+  const list = appState.assenze || [];
+  let matched = null;
+  for (let i = 0; i < list.length; i++) {
+    const a = normalizzaAssenzaObj(list[i]);
+    if (!a || !a.assente_mensa) continue;
+    if (a.email !== emailNorm) continue;
+    if (!a.data_inizio) continue;
+    if (dataStr >= a.data_inizio && dataStr <= (a.data_fine || a.data_inizio)) {
+      if (a.pasti_interessati.includes(pastoNorm)) {
+        matched = a;
+      }
+    }
+  }
+  return matched;
+}
+window.getAssenzaMensaAttiva = getAssenzaMensaAttiva;
+
+/**
+ * Verifica se un'assenza prolungata prevale o meno su una singola prenotazione mensa
+ */
+function verificaOverrideAssenzaSuPrenotazione(pren, assenzaAttiva) {
+  if (!assenzaAttiva) return false;
+  if (!pren) return true;
+  const statoLower = String(pren.stato_presenza || "").toLowerCase();
+  if (statoLower === "assente") return true;
+  // Se l'utente ha esplicitamente confermato/aggiornato la presenza DOPO la registrazione dell'assenza, prevale la scelta puntuale
+  const tPren = pren.timestamp ? new Date(pren.timestamp).getTime() : 0;
+  const tAss = assenzaAttiva.created_at ? new Date(assenzaAttiva.created_at).getTime() : 0;
+  if (tPren > 0 && tAss > 0 && tPren > tAss && statoLower === "presente") {
+    return false;
+  }
+  if (pren._manualOverrideAfterAssenza) return false;
+  return true;
+}
+
+/**
  * Calcola il contatore pasti:
  * - Parte di default con TUTTI i residenti mensa abilitati presenti
- * - Sottrae SOLO chi ha esplicitamente contrassegnato l'assenza
+ * - Sottrae chi ha esplicitamente contrassegnato l'assenza O ha un'assenza prolungata attiva (salvo deselezione)
  * - Esclude dalla regola automatica i pasti contrassegnati dalla busta (es. pranzo martedì/giovedì),
  *   per i quali si contano solo le buste esplicitamente prenotate (+ eventuali loro ospiti)
  * - Somma gli ospiti registrati
@@ -2519,18 +2636,37 @@ function calcolaContatoreMensa(dataStr, tipoPasto) {
   const isBustaMeal = isPastoBustaGiorno(dataStr, tipoPasto);
   const utentiMensa = getListaUtentiMensa();
   const dbMensa = appState.mensaBookings || [];
-  const prenotazioniPasto = dbMensa.filter(m => formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto);
+  const prenotazioniPasto = dbMensa.filter(m => formattaDataConfronto(m.data) === dataStr && String(m.tipo_pasto || "").toLowerCase().trim() === String(tipoPasto || "").toLowerCase().trim());
 
   if (isBustaMeal) {
     // I pasti contrassegnati dalla busta sono esclusi dalla presenza automatica di default:
-    // vengono contati solo coloro che hanno esplicitamente prenotato la busta (+ eventuali loro ospiti)
+    // vengono contati solo coloro che hanno esplicitamente prenotato la busta (+ eventuali loro ospiti) e non sono assenti
     const prenotatiBusta = prenotazioniPasto.filter(m => {
       const haBusta = isTruthyVal(m.busta) || m.busta === true || m.stato_presenza === "busta";
-      const isAssente = (m.stato_presenza === "assente" || m.stato_presenza === "Assente");
-      return haBusta && !isAssente;
+      const isAssenteExplicit = (m.stato_presenza === "assente" || m.stato_presenza === "Assente");
+      const assAttiva = getAssenzaMensaAttiva(dataStr, tipoPasto, m.email);
+      const isAssenteEff = isAssenteExplicit || verificaOverrideAssenzaSuPrenotazione(m, assAttiva);
+      return haBusta && !isAssenteEff;
     });
     const countBuste = prenotatiBusta.reduce((acc, m) => acc + 1 + (parseInt(m.ospiti, 10) || 0), 0);
-    const countAssenti = prenotazioniPasto.filter(m => m.stato_presenza === "assente" || m.stato_presenza === "Assente").length;
+
+    const assentiEmails = new Set();
+    prenotazioniPasto.forEach(m => {
+      const assAttiva = getAssenzaMensaAttiva(dataStr, tipoPasto, m.email);
+      if (m.stato_presenza === "assente" || m.stato_presenza === "Assente" || verificaOverrideAssenzaSuPrenotazione(m, assAttiva)) {
+        if (m.email) assentiEmails.add(String(m.email).toLowerCase().trim());
+      }
+    });
+    (appState.assenze || []).forEach(rawA => {
+      const a = normalizzaAssenzaObj(rawA);
+      if (a && a.assente_mensa && dataStr >= a.data_inizio && dataStr <= (a.data_fine || a.data_inizio) && a.pasti_interessati.includes(tipoPasto)) {
+        const pren = prenotazioniPasto.find(m => String(m.email || "").toLowerCase().trim() === a.email);
+        if (verificaOverrideAssenzaSuPrenotazione(pren, a)) {
+          assentiEmails.add(a.email);
+        }
+      }
+    });
+    const countAssenti = assentiEmails.size;
     const countRitardi = prenotatiBusta.filter(m => isTruthyVal(m.ritardo)).length;
     const ospitiTotali = prenotatiBusta.reduce((acc, m) => acc + (parseInt(m.ospiti, 10) || 0), 0);
 
@@ -2563,11 +2699,12 @@ function calcolaContatoreMensa(dataStr, tipoPasto) {
   }
 
   // Pasti normali in sala (tutti i pranzi regolari e tutte le cene):
-  // Partono di default con TUTTI i residenti presenti!
+  // Partono di default con TUTTI i residenti presenti, sottraendo chi ha segnato assenza o ha assenza prolungata attiva!
   let countAssenti = 0;
   let countBuste = 0;
   let countRitardi = 0;
   let ospitiTotali = 0;
+  let inSalaCount = 0;
 
   const prenotazioniMap = new Map();
   prenotazioniPasto.forEach(p => {
@@ -2579,10 +2716,12 @@ function calcolaContatoreMensa(dataStr, tipoPasto) {
   utentiMensa.forEach(u => {
     const emailNorm = String(u.email || "").toLowerCase().trim();
     const pren = prenotazioniMap.get(emailNorm);
-    const isAssente = pren && (pren.stato_presenza === "assente" || pren.stato_presenza === "Assente");
-    const haBusta = pren && (isTruthyVal(pren.busta) || pren.busta === true || pren.stato_presenza === "busta");
-    const inRitardo = pren && Boolean(isTruthyVal(pren.ritardo));
-    const ospiti = pren ? Math.max(0, parseInt(pren.ospiti, 10) || 0) : 0;
+    const assAttiva = getAssenzaMensaAttiva(dataStr, tipoPasto, emailNorm);
+    const isAssenteExplicit = pren && (pren.stato_presenza === "assente" || pren.stato_presenza === "Assente");
+    const isAssente = Boolean(isAssenteExplicit || verificaOverrideAssenzaSuPrenotazione(pren, assAttiva));
+    const haBusta = !isAssente && pren && (isTruthyVal(pren.busta) || pren.busta === true || pren.stato_presenza === "busta");
+    const inRitardo = !isAssente && pren && Boolean(isTruthyVal(pren.ritardo));
+    const ospiti = (!isAssente && pren) ? Math.max(0, parseInt(pren.ospiti, 10) || 0) : 0;
 
     if (isAssente) {
       countAssenti++;
@@ -2591,20 +2730,27 @@ function calcolaContatoreMensa(dataStr, tipoPasto) {
       ospitiTotali += ospiti;
       dettagliPresenti.push({ ...u, busta: true, ritardo: inRitardo, ospiti, note: pren?.note || "", defaultPresence: false });
     } else {
+      inSalaCount += (1 + ospiti);
       if (inRitardo) countRitardi++;
       ospitiTotali += ospiti;
       dettagliPresenti.push({ ...u, busta: false, ritardo: inRitardo, ospiti, note: pren?.note || "", defaultPresence: !pren });
     }
   });
 
-  // Aggiungi eventuali prenotazioni esterne non nella lista base
+  // Aggiungi eventuali prenotazioni esterne non nella lista base (escludendo chi ha assenza attiva)
   prenotazioniPasto.forEach(p => {
     const emailNorm = String(p.email || "").toLowerCase().trim();
     const giaIncluso = utentiMensa.some(u => String(u.email || "").toLowerCase().trim() === emailNorm);
-    if (!giaIncluso && p.stato_presenza !== "assente" && p.stato_presenza !== "Assente") {
+    const assAttiva = getAssenzaMensaAttiva(dataStr, tipoPasto, emailNorm);
+    const isAssenteEff = (p.stato_presenza === "assente" || p.stato_presenza === "Assente" || verificaOverrideAssenzaSuPrenotazione(p, assAttiva));
+    if (!giaIncluso && !isAssenteEff) {
       const ospiti = Math.max(0, parseInt(p.ospiti, 10) || 0);
       const haBusta = isTruthyVal(p.busta) || p.busta === true || p.stato_presenza === "busta";
-      if (haBusta) countBuste += (1 + ospiti);
+      if (haBusta) {
+        countBuste += (1 + ospiti);
+      } else {
+        inSalaCount += (1 + ospiti);
+      }
       if (isTruthyVal(p.ritardo)) countRitardi++;
       ospitiTotali += ospiti;
       dettagliPresenti.push({
@@ -2619,10 +2765,7 @@ function calcolaContatoreMensa(dataStr, tipoPasto) {
     }
   });
 
-  const basePresenti = utentiMensa.length;
-  const ospitiInSala = ospitiTotali - (prenotazioniPasto.filter(m => (isTruthyVal(m.busta) || m.busta === true || m.stato_presenza === "busta")).reduce((s, m) => s + (parseInt(m.ospiti, 10) || 0), 0));
-  const busteResidenti = prenotazioniPasto.filter(m => (isTruthyVal(m.busta) || m.busta === true || m.stato_presenza === "busta") && m.stato_presenza !== "assente" && m.stato_presenza !== "Assente").length;
-  const inSala = Math.max(0, basePresenti - countAssenti - busteResidenti) + Math.max(0, ospitiInSala);
+  const inSala = Math.max(0, inSalaCount);
   const totalePasti = inSala + countBuste;
 
   return {
@@ -2638,18 +2781,33 @@ function calcolaContatoreMensa(dataStr, tipoPasto) {
 }
 
 /**
- * Ricava lo stato presenza del singolo utente per un pasto
+ * Ricava lo stato presenza del singolo utente per un pasto (integrando assenze prolungate)
  */
 function getStatoPresenzaUtente(dataStr, tipoPasto, userEmail) {
-  if (!userEmail) return { isPresente: false, isAssente: false, isBusta: false, isRitardo: false, ospiti: 0, isDefault: false, note: "" };
+  if (!userEmail) return { isPresente: false, isAssente: false, isBusta: false, isRitardo: false, ospiti: 0, isDefault: false, note: "", fromAssenza: null };
   const emailNorm = userEmail.toLowerCase().trim();
   const pren = (appState.mensaBookings || []).find(m =>
     formattaDataConfronto(m.data) === dataStr &&
-    m.tipo_pasto === tipoPasto &&
-    String(m.email).toLowerCase().trim() === emailNorm
+    String(m.tipo_pasto || "").toLowerCase().trim() === String(tipoPasto || "").toLowerCase().trim() &&
+    String(m.email || "").toLowerCase().trim() === emailNorm
   );
-
+  const assenzaAttiva = getAssenzaMensaAttiva(dataStr, tipoPasto, emailNorm);
   const isBustaMeal = isPastoBustaGiorno(dataStr, tipoPasto);
+
+  // Controllo assenza prolungata attiva (se non sovrascritta da conferma puntuale più recente)
+  if (verificaOverrideAssenzaSuPrenotazione(pren, assenzaAttiva)) {
+    return {
+      pren: pren || null,
+      isPresente: false,
+      isAssente: true,
+      isBusta: false,
+      isRitardo: false,
+      ospiti: 0,
+      note: assenzaAttiva?.motivo ? `Assenza programmata: ${assenzaAttiva.motivo}` : (pren?.note || "Assente"),
+      isDefault: false,
+      fromAssenza: assenzaAttiva || null
+    };
+  }
 
   if (pren) {
     const isAssente = (pren.stato_presenza === "assente" || pren.stato_presenza === "Assente");
@@ -2661,7 +2819,8 @@ function getStatoPresenzaUtente(dataStr, tipoPasto, userEmail) {
       isRitardo: Boolean(pren.ritardo),
       ospiti: Math.max(0, parseInt(pren.ospiti, 10) || 0),
       note: pren.note || "",
-      isDefault: false
+      isDefault: false,
+      fromAssenza: isAssente ? assenzaAttiva : null
     };
   }
 
@@ -2676,7 +2835,8 @@ function getStatoPresenzaUtente(dataStr, tipoPasto, userEmail) {
       isRitardo: false,
       ospiti: 0,
       note: "",
-      isDefault: false
+      isDefault: false,
+      fromAssenza: null
     };
   }
 
@@ -2689,7 +2849,8 @@ function getStatoPresenzaUtente(dataStr, tipoPasto, userEmail) {
     isRitardo: false,
     ospiti: 0,
     note: "",
-    isDefault: true
+    isDefault: true,
+    fromAssenza: null
   };
 }
 
@@ -3062,7 +3223,7 @@ function renderWeeklyScrollView(lunediDate) {
             <div class="weekly-meal-title">
               <span>☀️ Pranzo (${getOrarioServizioPranzo(d)})</span>
               ${statoPranzo.isAssente ? `
-                <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+                <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">${statoPranzo.fromAssenza ? '🧳 Assente (Prolungata)' : '❌ Segnato Assente'}</span>
               ` : (statoPranzo.isPresente ? `
                 <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoPranzo.isDefault ? '<small style="font-weight:600; opacity:0.85;">(Default)</small>' : ''} ${statoPranzo.ospiti > 0 ? `(+${statoPranzo.ospiti} osp.)` : ''} ${statoPranzo.isBusta ? '(Busta)' : ''} ${statoPranzo.isRitardo ? '(Ritardo)' : ''}</span>
               ` : `
@@ -3098,7 +3259,7 @@ function renderWeeklyScrollView(lunediDate) {
                 </div>
               ` : '')}
               ${statoPranzo.isAssente ? `
-                <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+                <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">${statoPranzo.fromAssenza ? `🧳 Assente (${escapeHtml(statoPranzo.fromAssenza.motivo || 'Assenza')})` : '❌ Segnato Assente'}</span>
                 <button type="button" class="btn-quick-cancel" ${bustaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Rimuovi Assenza</button>
               ` : (statoPranzo.isPresente ? `
                 <span class="presence-summary-badge">🥪 Busta Richiesta ${statoPranzo.ospiti > 0 ? `(+${statoPranzo.ospiti})` : ''}</span>
@@ -3110,7 +3271,7 @@ function renderWeeklyScrollView(lunediDate) {
               `)}
             ` : `
               ${statoPranzo.isAssente ? `
-                <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+                <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">${statoPranzo.fromAssenza ? `🧳 Assente (${escapeHtml(statoPranzo.fromAssenza.motivo || 'Assenza')})` : '❌ Segnato Assente'}</span>
                 <button type="button" class="btn-quick-book" style="background: #16a34a; color: #fff; border-color: #16a34a; font-weight: 700;" ${pranzoLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">✓ Torna Presente</button>
               ` : `
                 <span class="presence-summary-badge">✅ Presente ${statoPranzo.isDefault ? '<small>(Default)</small>' : ''} ${statoPranzo.ospiti > 0 ? `(+${statoPranzo.ospiti})` : ''}</span>
@@ -3134,7 +3295,7 @@ function renderWeeklyScrollView(lunediDate) {
             <div class="weekly-meal-title">
               <span>🌙 Cena (19:30)</span>
               ${statoCena.isAssente ? `
-                <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+                <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">${statoCena.fromAssenza ? '🧳 Assente (Prolungata)' : '❌ Segnato Assente'}</span>
               ` : `
                 <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoCena.isDefault ? '<small style="font-weight:600; opacity:0.85;">(Default)</small>' : ''} ${statoCena.ospiti > 0 ? `(+${statoCena.ospiti} osp.)` : ''} ${statoCena.isRitardo ? '(Ritardo)' : ''}</span>
               `}
@@ -3151,7 +3312,7 @@ function renderWeeklyScrollView(lunediDate) {
           </div>
           <div class="booking-inline-controls">
             ${statoCena.isAssente ? `
-              <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+              <span class="presence-summary-badge" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">${statoCena.fromAssenza ? `🧳 Assente (${escapeHtml(statoCena.fromAssenza.motivo || 'Assenza')})` : '❌ Segnato Assente'}</span>
               <button type="button" class="btn-quick-book" style="background: #16a34a; color: #fff; border-color: #16a34a; font-weight: 700;" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">✓ Torna Presente</button>
             ` : `
               <span class="presence-summary-badge">✅ Presente ${statoCena.isDefault ? '<small>(Default)</small>' : ''} ${statoCena.ospiti > 0 ? `(+${statoCena.ospiti})` : ''}</span>
@@ -3231,7 +3392,7 @@ function renderDailyDetailedView(dataSel) {
           </div>
         </div>
         ${statoPranzo.isAssente ? `
-          <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+          <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">${statoPranzo.fromAssenza ? '🧳 Assente (Prolungata)' : '❌ Segnato Assente'}</span>
         ` : (statoPranzo.isPresente ? `
           <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoPranzo.isDefault ? '(Default)' : ''}</span>
         ` : `
@@ -3281,6 +3442,12 @@ function renderDailyDetailedView(dataSel) {
         ${variazionePranzo ? `<div class="cuoca-var-box has-var" style="margin-top: 10px;"><div class="flex-between"><div class="flex-align"><span style="font-size: 18px;">👩‍🍳</span><strong style="color: #92400e; font-size: 13px;">Variazione Pranzo:</strong></div>${isMaster ? `<button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">Modifica</button>` : ''}</div><p style="margin: 6px 0 0 0; font-size: 13px; color: #78350f; line-height: 1.4;">${escapeHtml(variazionePranzo)}</p></div>` : (isMaster ? `<div style="margin-top: 8px; text-align: right;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'pranzo')">👩‍🍳 + Variazione Pranzo</button></div>` : '')}
       </div>
 
+      ${statoPranzo.isAssente && statoPranzo.fromAssenza ? `
+        <div style="margin: 8px 0; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 8px; padding: 8px 12px; font-size: 12px; color: #991b1b;">
+          🧳 <strong>Assenza prolungata attiva:</strong> ${escapeHtml(statoPranzo.fromAssenza.motivo || 'Assente')} (${formattaDataItaliana(statoPranzo.fromAssenza.data_inizio)} ➜ ${formattaDataItaliana(statoPranzo.fromAssenza.data_fine)}). Il pranzo è automaticamente sospeso.
+        </div>
+      ` : ''}
+
       ${(countPranzoInfo.ritardi > 0 || countPranzoInfo.ospitiTotali > 0) ? `
         <div style="margin: 8px 0; background: #fff7ed; border: 1.5px solid #fed7aa; border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
           <div style="font-size: 12px; color: #9a3412;">
@@ -3321,10 +3488,16 @@ function renderDailyDetailedView(dataSel) {
           <button type="submit" class="btn btn-primary" style="flex: 1;" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''}>
             ${statoPranzo.isPresente && !statoPranzo.isDefault ? 'Aggiorna Preferenze' : (isTuesdayOrThursday ? 'Prenota Busta' : 'Conferma Presenza')}
           </button>
-          <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-weight: 700; font-size: 12px;" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">
-            ❌ Assente
-          </button>
-          ${!statoPranzo.isDefault ? `
+          ${statoPranzo.isAssente ? `
+            <button type="button" class="btn btn-secondary" style="background: #16a34a; color: #fff; border-color: #16a34a; font-weight: 700; font-size: 12px;" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">
+              ✓ Torna Presente
+            </button>
+          ` : `
+            <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-weight: 700; font-size: 12px;" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'pranzo')">
+              ❌ Assente
+            </button>
+          `}
+          ${!statoPranzo.isDefault && !statoPranzo.isAssente ? `
             <button type="button" class="btn-quick-cancel" ${(isTuesdayOrThursday ? bustaLocked : pranzoLocked) ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'pranzo')">Ripristina Default</button>
           ` : ''}
         </div>
@@ -3341,7 +3514,7 @@ function renderDailyDetailedView(dataSel) {
           </div>
         </div>
         ${statoCena.isAssente ? `
-          <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">❌ Segnato Assente</span>
+          <span class="meal-status-pill not-booked" style="background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;">${statoCena.fromAssenza ? '🧳 Assente (Prolungata)' : '❌ Segnato Assente'}</span>
         ` : `
           <span class="meal-status-pill booked" style="background: #dcfce7; color: #166534; border: 1px solid #86efac;">✓ Presente ${statoCena.isDefault ? '(Default)' : ''}</span>
         `}
@@ -3359,6 +3532,12 @@ function renderDailyDetailedView(dataSel) {
         </div>
         ${variazioneCena ? `<div class="cuoca-var-box has-var" style="margin-top: 10px;"><div class="flex-between"><div class="flex-align"><span style="font-size: 18px;">👩‍🍳</span><strong style="color: #92400e; font-size: 13px;">Variazione Cena:</strong></div>${isMaster ? `<button type="button" class="btn btn-secondary" style="font-size: 11px; padding: 2px 8px;" onclick="apriModalVariazioneCuoca('${dStr}', 'cena')">Modifica</button>` : ''}</div><p style="margin: 6px 0 0 0; font-size: 13px; color: #78350f; line-height: 1.4;">${escapeHtml(variazioneCena)}</p></div>` : (isMaster ? `<div style="margin-top: 8px; text-align: right;"><button type="button" class="btn-link-cuoca" onclick="apriModalVariazioneCuoca('${dStr}', 'cena')">👩‍🍳 + Variazione Cena</button></div>` : '')}
       </div>
+
+      ${statoCena.isAssente && statoCena.fromAssenza ? `
+        <div style="margin: 8px 0; background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 8px; padding: 8px 12px; font-size: 12px; color: #991b1b;">
+          🧳 <strong>Assenza prolungata attiva:</strong> ${escapeHtml(statoCena.fromAssenza.motivo || 'Assente')} (${formattaDataItaliana(statoCena.fromAssenza.data_inizio)} ➜ ${formattaDataItaliana(statoCena.fromAssenza.data_fine)}). La cena è automaticamente sospesa.
+        </div>
+      ` : ''}
 
       ${(countCenaInfo.ritardi > 0 || countCenaInfo.ospitiTotali > 0) ? `
         <div style="margin: 8px 0; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 8px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px;">
@@ -3394,10 +3573,16 @@ function renderDailyDetailedView(dataSel) {
           <button type="submit" class="btn btn-primary" style="flex: 1;" ${cenaLocked ? 'disabled' : ''}>
             ${statoCena.isPresente && !statoCena.isDefault ? 'Aggiorna Preferenze' : 'Conferma Presenza'}
           </button>
-          <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-weight: 700; font-size: 12px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'cena')">
-            ❌ Assente
-          </button>
-          ${!statoCena.isDefault ? `
+          ${statoCena.isAssente ? `
+            <button type="button" class="btn btn-secondary" style="background: #16a34a; color: #fff; border-color: #16a34a; font-weight: 700; font-size: 12px;" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">
+              ✓ Torna Presente
+            </button>
+          ` : `
+            <button type="button" class="btn btn-secondary" style="color: #dc2626; border-color: #fca5a5; font-weight: 700; font-size: 12px;" ${cenaLocked ? 'disabled' : ''} onclick="quickSegnaAssente('${dStr}', 'cena')">
+              ❌ Assente
+            </button>
+          `}
+          ${!statoCena.isDefault && !statoCena.isAssente ? `
             <button type="button" class="btn-quick-cancel" ${cenaLocked ? 'disabled' : ''} onclick="quickCancelPresenza('${dStr}', 'cena')">Ripristina Default</button>
           ` : ''}
         </div>
@@ -3478,12 +3663,13 @@ window.quickSegnaPresenza = async function(dataStr, tipoPasto, busta, ritardo) {
     mostraToast(`Prenotazione non consentita: ${infoBusta.regolaTesto} Rivolgiti al Master Mensa.`, "warning");
     return;
   }
-  const payload = { data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: Boolean(busta), ritardo: Boolean(ritardo), ospiti: 0, stato_presenza: "presente", note: "" };
+  const nowIso = new Date().toISOString();
+  const payload = { data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: Boolean(busta), ritardo: Boolean(ritardo), ospiti: 0, stato_presenza: "presente", note: "", timestamp: nowIso };
   try {
     const res = await callApi("prenotaMensa", payload);
     if (res.success) {
       const existIdx = appState.mensaBookings.findIndex(m => formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase());
-      const entry = { id: res.id || ("M_" + Date.now()), data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: Boolean(busta), ritardo: Boolean(ritardo), ospiti: 0, stato_presenza: "presente", note: "" };
+      const entry = { id: res.id || ("M_" + Date.now()), data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: Boolean(busta), ritardo: Boolean(ritardo), ospiti: 0, stato_presenza: "presente", note: "", timestamp: nowIso, _manualOverrideAfterAssenza: true };
       if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
       else appState.mensaBookings.push(entry);
       mostraToast(`Presenza a ${tipoPasto} segnata!`, "success");
@@ -3495,12 +3681,13 @@ window.quickSegnaPresenza = async function(dataStr, tipoPasto, busta, ritardo) {
 
 window.quickSegnaAssente = async function(dataStr, tipoPasto) {
   if (!appState.user) { mostraModalAuth(true); return; }
-  const payload = { data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, stato_presenza: "assente", busta: false, ritardo: false, ospiti: 0, note: "Assente comunicato" };
+  const nowIso = new Date().toISOString();
+  const payload = { data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, stato_presenza: "assente", busta: false, ritardo: false, ospiti: 0, note: "Assente comunicato", timestamp: nowIso };
   try {
     const res = await callApi("prenotaMensa", payload);
     if (res.success) {
       const existIdx = appState.mensaBookings.findIndex(m => formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase());
-      const entry = { id: res.id || ("M_" + Date.now()), data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Assente comunicato" };
+      const entry = { id: res.id || ("M_" + Date.now()), data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: false, ritardo: false, ospiti: 0, stato_presenza: "assente", note: "Assente comunicato", timestamp: nowIso };
       if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
       else appState.mensaBookings.push(entry);
       mostraToast(`Assenza a ${tipoPasto} comunicata`, "info");
@@ -3513,10 +3700,17 @@ window.quickSegnaAssente = async function(dataStr, tipoPasto) {
 window.quickCancelPresenza = async function(dataStr, tipoPasto) {
   if (!appState.user) { mostraModalAuth(true); return; }
   try {
+    // Se il pasto è coperto da un'assenza prolungata, segna una presenza esplicita per quel singolo pasto
+    const assAttiva = getAssenzaMensaAttiva(dataStr, tipoPasto, appState.user.email);
+    if (assAttiva) {
+      const isBusta = isPastoBustaGiorno(dataStr, tipoPasto);
+      await window.quickSegnaPresenza(dataStr, tipoPasto, isBusta, false);
+      return;
+    }
     const res = await callApi("cancellaPrenotazioneMensa", { data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto });
     if (res.success) {
       appState.mensaBookings = appState.mensaBookings.filter(m => !(formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase()));
-      mostraToast(`Presenza a ${tipoPasto} cancellata`, "info");
+      mostraToast(`Presenza a ${tipoPasto} ripristinata`, "info");
       renderMensaView();
       if (haPermessiMaster()) caricaDatiMaster();
     } else mostraToast("Errore durante la cancellazione", "error");
@@ -3542,7 +3736,8 @@ window.handlePrenotazioneMensa = async function(event, tipoPasto) {
   const ritardo = document.getElementById(`${tipoPasto}-ritardo`)?.checked || false;
   const note = document.getElementById(`${tipoPasto}-note`)?.value || "";
   const ospiti = Math.max(0, parseInt(document.getElementById(`${tipoPasto}-ospiti`)?.value || "0", 10));
-  const payload = { data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: busta, ritardo: ritardo, ospiti: ospiti, stato_presenza: "presente", note: note };
+  const nowIso = new Date().toISOString();
+  const payload = { data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: busta, ritardo: ritardo, ospiti: ospiti, stato_presenza: "presente", note: note, timestamp: nowIso };
   const btn = event.target.querySelector("button[type='submit']");
   const originalText = btn.innerText;
   btn.disabled = true; btn.innerText = "Salvataggio...";
@@ -3550,7 +3745,7 @@ window.handlePrenotazioneMensa = async function(event, tipoPasto) {
     const res = await callApi("prenotaMensa", payload);
     if (res.success) {
       const existIdx = appState.mensaBookings.findIndex(m => formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto && m.email.toLowerCase() === appState.user.email.toLowerCase());
-      const entry = { id: res.id || ("M_" + Date.now()), data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: Boolean(busta), ritardo: Boolean(ritardo), ospiti: ospiti, stato_presenza: "presente", note: note };
+      const entry = { id: res.id || ("M_" + Date.now()), data: dataStr, email: appState.user.email, tipo_pasto: tipoPasto, busta: Boolean(busta), ritardo: Boolean(ritardo), ospiti: ospiti, stato_presenza: "presente", note: note, timestamp: nowIso, _manualOverrideAfterAssenza: true };
       if (existIdx !== -1) appState.mensaBookings[existIdx] = entry;
       else appState.mensaBookings.push(entry);
       mostraToast(`Presenza ${tipoPasto} confermata!`, "success");
@@ -5821,16 +6016,26 @@ async function caricaDatiMaster() {
       if (res.bacheca) appState.bacheca = res.bacheca;
       if (res.prenotazioniSpazi) appState.prenotazioniSpazi = res.prenotazioniSpazi;
       if (res.accoglienza) appState.accoglienzaList = res.accoglienza;
-      if (res.assenze) appState.assenze = res.assenze;
-
-      // Auto-abilita notif_push se il browser ha già il permesso concesso per i Master
-      if ("Notification" in window && Notification.permission === "granted" && appState.user && !appState.user.notif_push) {
-        appState.user.notif_push = true;
-        localStorage.setItem("newman_notif_push_" + appState.user.email, "true");
-        localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
-        callApi("salvaPreferenzaPush", { email: appState.user.email, notif_push: true }).catch(() => {});
+      if (typeof window.unisciAssenzeConPersistenzaLocale === "function") {
+        appState.assenze = window.unisciAssenzeConPersistenzaLocale(res.assenze);
+      } else if (res.assenze) {
+        appState.assenze = res.assenze;
       }
 
+      // Auto-abilita notif_push se il browser ha già il permesso concesso
+      if ("Notification" in window && Notification.permission === "granted" && appState.user && !appState.user.notif_push) {
+        const prefLocale = localStorage.getItem("newman_notif_push_" + appState.user.email);
+        if (prefLocale !== "false") {
+          appState.user.notif_push = true;
+          localStorage.setItem("newman_notif_push_" + appState.user.email, "true");
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user));
+          callApi("salvaPreferenzaPush", { email: appState.user.email, notif_push: true }).catch(() => {});
+        }
+      }
+
+      if (typeof window.verificaENotificaComunicazioneDirezione === "function") {
+        window.verificaENotificaComunicazioneDirezione(false);
+      }
       if (typeof window.verificaENotificaNovitaMaster === "function") {
         window.verificaENotificaNovitaMaster();
       }
@@ -5882,10 +6087,20 @@ function renderMasterSection() {
   const container = document.getElementById("master-dynamic-content");
   if (!container || !appState.user) return;
 
-  const perm_admin = Boolean(appState.user && appState.user.perm_admin);
-  const perm_mensa = Boolean(appState.user && (appState.user.perm_mensa || appState.user.perm_admin));
-  const perm_manutenzione = Boolean(appState.user && (appState.user.perm_manutenzione || appState.user.perm_admin));
-  const perm_spazi = Boolean(appState.user && (appState.user.perm_spazi || appState.user.perm_admin));
+  const uEm = String(appState.user.email || "").toLowerCase().trim();
+  const uRuolo = String(appState.user.ruolo || "").toLowerCase().trim();
+  const isRuoloMaster = (
+    uEm.includes("dotti") ||
+    uRuolo === "master" ||
+    uRuolo === "admin" ||
+    uRuolo === "direttore" ||
+    uRuolo === "vicedirettore" ||
+    uRuolo === "vice-direttore"
+  );
+  const perm_admin = Boolean(appState.user && (isTruthyVal(appState.user.perm_admin) || isRuoloMaster));
+  const perm_mensa = Boolean(appState.user && (isTruthyVal(appState.user.perm_mensa) || perm_admin));
+  const perm_manutenzione = Boolean(appState.user && (isTruthyVal(appState.user.perm_manutenzione) || isTruthyVal(appState.user.notif_manutenzione) || perm_admin));
+  const perm_spazi = Boolean(appState.user && (isTruthyVal(appState.user.perm_spazi) || isTruthyVal(appState.user.is_master_spazi) || isTruthyVal(appState.user.notif_spazi) || perm_admin));
 
   const tuttiUtenti = appState.tuttiUtenti || [];
   const utentiInAttesa = appState.utentiInAttesa || [];
@@ -5902,6 +6117,8 @@ function renderMasterSection() {
   if (perm_admin) {
     tabsDisponibili.push({ id: "utenti", label: "Residenti & Ruoli", icon: "👤", badge: utentiInAttesa.length, color: "#d97706" });
     tabsDisponibili.push({ id: "accoglienza", label: "Accoglienza & Camere", icon: "🛏️", badge: inAttesaAccoglienza.length, color: "#166534" });
+  }
+  if (perm_admin || perm_mensa) {
     tabsDisponibili.push({ id: "assenze", label: "Calendario Assenze", icon: "📅", badge: getAssenzeAttiveOggi().length, color: "#4f46e5" });
   }
   if (perm_spazi || perm_admin) {
@@ -6347,8 +6564,8 @@ function renderMasterSection() {
     `;
   }
 
-  // SCHEDA CALENDARIO ASSENZE MASTER (SUPERADMIN)
-  if (perm_admin && (isVistaTutto || activeTab === "assenze")) {
+  // SCHEDA CALENDARIO ASSENZE MASTER (SUPERADMIN / MASTER MENSA)
+  if ((perm_admin || perm_mensa) && (isVistaTutto || activeTab === "assenze")) {
     html += generaCalendarioAssenzeMasterHtml();
   }
 
@@ -8521,8 +8738,8 @@ function renderAssenzeProfilo() {
             <div style="font-size: 13px; font-weight: 700; color: #0f172a; margin-bottom: 4px;">
               ${rangeText}
             </div>
-            <div style="font-size: 11.5px; color: ${a.assente_mensa ? '#c2410c' : '#64748b'}; font-weight: 600; margin-bottom: 6px;">
-              ${a.assente_mensa ? `🍽️ Mensa sospesa (${escapeHtml(pasti)})` : '🍽️ Mensa attiva'}
+            <div style="font-size: 11.5px; color: ${a.assente_mensa !== false ? '#c2410c' : '#64748b'}; font-weight: 600; margin-bottom: 6px;">
+              ${a.assente_mensa !== false ? `🍽️ Mensa sospesa (${escapeHtml(pasti)})` : '🍽️ Mensa attiva'}
             </div>
             <div style="display: flex; justify-content: flex-end; border-top: 1px solid #f1f5f9; padding-top: 6px; margin-top: 4px;">
               <button type="button" class="btn btn-outline btn-sm" onclick="cancellaAssenzaDaProfilo('${escapeHtml(a.id)}')" style="font-size: 11px; padding: 3px 8px; color: #dc2626; border-color: #fca5a5; background: #fff; touch-action: manipulation;">
@@ -11056,8 +11273,8 @@ window.inviaNotificaPush = async function(titolo, corpo, url = "/", tag = undefi
       if (reg && typeof reg.showNotification === "function") {
         await reg.showNotification(titolo, {
           body: corpo,
-          icon: "/icon-newman.png",
-          badge: "/icon-newman.png",
+          icon: "/icon-192.png",
+          badge: "/icon-192.png",
           vibrate: [150, 60, 150],
           data: url,
           tag: tag || "newman-notif-" + Date.now(),
@@ -11069,7 +11286,7 @@ window.inviaNotificaPush = async function(titolo, corpo, url = "/", tag = undefi
     // Fallback standard
     new Notification(titolo, {
       body: corpo,
-      icon: "/icon-newman.png",
+      icon: "/icon-192.png",
       tag: tag || "newman-notif-" + Date.now()
     });
     return true;
@@ -11453,10 +11670,228 @@ if (!window._timerCheckNovitaMaster) {
   }, 45000);
 }
 
+// ----------------------------------------------------------------------------
+// NOTIFICHE PUSH AUTOMATICHE COMUNICAZIONI DELLA DIREZIONE (TUTTI GLI UTENTI)
+// ----------------------------------------------------------------------------
+
+function isComunicazioneDirezioneAttiva(cfg) {
+  if (!cfg) return false;
+  const testo = String(cfg.Messaggio_Supermaster || "").trim();
+  if (!testo) return false;
+  const oggiYmd = formatYMD(new Date());
+  const pubRaw = String(cfg.Messaggio_Supermaster_Data_Pubblicazione || "").split("T")[0].trim();
+  const scadRaw = String(cfg.Messaggio_Supermaster_Data_Scadenza || "").split("T")[0].trim();
+  if (pubRaw && oggiYmd < pubRaw) return false;
+  if (scadRaw && oggiYmd > scadRaw) return false;
+  return true;
+}
+
+function calcolaFirmaComunicazioneDirezione(cfg) {
+  if (!cfg) return "";
+  const titolo = String(cfg.Messaggio_Supermaster_Titolo || "Comunicazione della Direzione").trim();
+  const testo = String(cfg.Messaggio_Supermaster || "").trim();
+  const pub = String(cfg.Messaggio_Supermaster_Data_Pubblicazione || "").split("T")[0].trim();
+  const scad = String(cfg.Messaggio_Supermaster_Data_Scadenza || "").split("T")[0].trim();
+  const aggAt = String(cfg.Messaggio_Supermaster_Aggiornato_At || "").trim();
+  const baseStr = `${titolo}||${testo}||${pub}||${scad}||${aggAt}`;
+  // Hash semplice e deterministico (compatibile anche per tag notifica)
+  let hash = 0;
+  for (let i = 0; i < baseStr.length; i++) {
+    hash = ((hash << 5) - hash + baseStr.charCodeAt(i)) | 0;
+  }
+  return "dir_" + Math.abs(hash).toString(36) + "_" + baseStr.length;
+}
+
+window.verificaENotificaComunicazioneDirezione = async function(forza = false) {
+  const cfg = appState.cachedConfig || {};
+  if (!isComunicazioneDirezioneAttiva(cfg)) return false;
+
+  const sig = calcolaFirmaComunicazioneDirezione(cfg);
+  if (!sig) return false;
+
+  const storageKey = "newman_last_direzione_push_sig";
+  const lastSig = localStorage.getItem(storageKey);
+
+  if (!forza && lastSig === sig) {
+    return false;
+  }
+
+  localStorage.setItem(storageKey, sig);
+
+  const titolo = String(cfg.Messaggio_Supermaster_Titolo || "Comunicazione della Direzione").trim();
+  const testoCompleto = String(cfg.Messaggio_Supermaster || "").trim();
+  const previewBody = testoCompleto.length > 150 ? (testoCompleto.slice(0, 147) + "...") : testoCompleto;
+
+  // Notifica in-app discreta se un aggiornamento arriva durante una sessione già aperta
+  if (!forza && lastSig !== null && lastSig !== sig && typeof mostraToast === "function") {
+    mostraToast(`📢 Nuova Comunicazione Direzione: ${titolo}`, "info");
+  }
+
+  if (!("Notification" in window) || Notification.permission !== "granted") {
+    return false;
+  }
+
+  const email = String(appState.user?.email || "ospite").toLowerCase().trim();
+  const prefLocale = localStorage.getItem("newman_notif_push_" + email);
+  if (prefLocale === "false") {
+    return false;
+  }
+
+  if (appState.user && !appState.user.notif_push) {
+    appState.user.notif_push = true;
+    localStorage.setItem("newman_notif_push_" + email, "true");
+    try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
+  }
+
+  return await inviaNotificaPush(
+    `📢 ${titolo}`,
+    previewBody,
+    "/#bacheca",
+    "direzione-" + sig
+  );
+};
+
+window.attivaNotifichePushDirezione = async function() {
+  if (!("Notification" in window)) {
+    mostraToast("⚠️ Il tuo browser non supporta le notifiche push", "warning");
+    return;
+  }
+  try {
+    let perm = Notification.permission;
+    if (perm === "denied") {
+      mostraToast("⚠️ Permesso notifiche bloccato dal browser. Sbloccalo dalle impostazioni del sito.", "warning");
+      if (typeof aggiornaStatoUIPushNotifiche === "function") aggiornaStatoUIPushNotifiche();
+      return;
+    }
+    if (perm !== "granted") {
+      perm = await Notification.requestPermission();
+    }
+    if (perm !== "granted") {
+      mostraToast("Permesso notifiche non concesso", "info");
+      if (typeof aggiornaStatoUIPushNotifiche === "function") aggiornaStatoUIPushNotifiche();
+      return;
+    }
+
+    const email = String(appState.user?.email || "ospite").toLowerCase().trim();
+    if (appState.user) {
+      appState.user.notif_push = true;
+      localStorage.setItem("newman_notif_push_" + email, "true");
+      try { localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(appState.user)); } catch (e) {}
+      try {
+        await callApi("salvaPreferenzaPush", { email: appState.user.email, notif_push: true });
+      } catch (e) {}
+    }
+
+    if (typeof aggiornaStatoUIPushNotifiche === "function") aggiornaStatoUIPushNotifiche();
+    mostraToast("🔔 Notifiche Push Direzione attivate!", "success");
+
+    const haMsgAttivo = isComunicazioneDirezioneAttiva(appState.cachedConfig || {});
+    if (haMsgAttivo) {
+      await window.verificaENotificaComunicazioneDirezione(true);
+    } else {
+      await inviaNotificaPush(
+        "🔔 Notifiche Direzione Attivate",
+        "Riceverai automaticamente una notifica push ad ogni nuova comunicazione della Direzione.",
+        "/#bacheca",
+        "direzione-push-enabled"
+      );
+    }
+
+    if (appState.currentTab === "info") renderBachecaView();
+  } catch (err) {
+    console.warn("Errore attivazione push Direzione:", err);
+    mostraToast("Errore durante l'attivazione delle notifiche", "error");
+  }
+};
+
+window.controllaAggiornamentiDirezioneSilenzioso = async function() {
+  if (!appState.user) return;
+  const now = Date.now();
+  if (window._lastSilentDirSyncTs && (now - window._lastSilentDirSyncTs) < 20000) {
+    return;
+  }
+  window._lastSilentDirSyncTs = now;
+
+  try {
+    const data = await callApi("getInfoData");
+    if (!data || !data.success) return;
+
+    const prevSig = calcolaFirmaComunicazioneDirezione(appState.cachedConfig || {});
+    if (data.config) appState.cachedConfig = data.config;
+    if (data.bacheca) appState.bacheca = data.bacheca;
+    if (data.prenotazioniSpazi) appState.prenotazioniSpazi = data.prenotazioniSpazi;
+    if (data.prenotazioniMensa) appState.mensaBookings = data.prenotazioniMensa;
+    if (data.accoglienza) {
+      appState.accoglienzaList = data.accoglienza;
+      if (typeof window.verificaENotificaAccoglienzaConfermata === "function") {
+        window.verificaENotificaAccoglienzaConfermata(appState.accoglienzaList);
+      }
+    }
+    if (typeof window.unisciAssenzeConPersistenzaLocale === "function") {
+      appState.assenze = window.unisciAssenzeConPersistenzaLocale(data.assenze);
+    } else if (data.assenze) {
+      appState.assenze = data.assenze;
+    }
+
+    const newSig = calcolaFirmaComunicazioneDirezione(appState.cachedConfig || {});
+    await window.verificaENotificaComunicazioneDirezione(false);
+
+    if (prevSig !== newSig && appState.currentTab === "info" && typeof renderBachecaView === "function") {
+      renderBachecaView();
+    } else if (appState.currentTab === "mensa" && typeof renderMensaView === "function") {
+      renderMensaView();
+    }
+  } catch (e) {
+    // Sync silenzioso: nessun disturbo in caso di rete offline
+  }
+};
+
+if (!window._timerCheckComunicazioneDirezione) {
+  window._timerCheckComunicazioneDirezione = setInterval(() => {
+    if (appState.user && typeof window.controllaAggiornamentiDirezioneSilenzioso === "function") {
+      window.controllaAggiornamentiDirezioneSilenzioso();
+    }
+  }, 90000);
+}
+
+function gestisciNavigazioneDaHash(rawUrl) {
+  if (!rawUrl || typeof switchTab !== "function") return;
+  const str = String(rawUrl).toLowerCase();
+  let targetTab = null;
+  if (str.includes("#bacheca") || str.includes("#info")) targetTab = "info";
+  else if (str.includes("#mensa")) targetTab = "mensa";
+  else if (str.includes("#accoglienza")) targetTab = "accoglienza";
+  else if (str.includes("#spazi")) targetTab = "spazi";
+  else if (str.includes("#manutenzione")) targetTab = "manutenzione";
+  else if (str.includes("#master")) targetTab = "master";
+  else if (str.includes("#cucina")) targetTab = "cucina";
+  if (targetTab) {
+    switchTab(targetTab);
+  }
+}
+
+if ("serviceWorker" in navigator && !window._swNavListenerBound) {
+  window._swNavListenerBound = true;
+  navigator.serviceWorker.addEventListener("message", (event) => {
+    if (event.data && event.data.type === "NAVIGATE_HASH") {
+      gestisciNavigazioneDaHash(event.data.url || window.location.hash);
+    }
+  });
+}
+
+if (window.location.hash) {
+  setTimeout(() => gestisciNavigazioneDaHash(window.location.hash), 350);
+}
+
 document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "visible" && typeof haPermessiMaster === "function" && haPermessiMaster()) {
-    if (typeof window.verificaENotificaNovitaMaster === "function") {
-      window.verificaENotificaNovitaMaster();
+  if (document.visibilityState === "visible") {
+    if (typeof haPermessiMaster === "function" && haPermessiMaster()) {
+      if (typeof window.verificaENotificaNovitaMaster === "function") {
+        window.verificaENotificaNovitaMaster();
+      }
+    }
+    if (appState.user && typeof window.controllaAggiornamentiDirezioneSilenzioso === "function") {
+      window.controllaAggiornamentiDirezioneSilenzioso();
     }
   }
 });
@@ -12305,10 +12740,12 @@ function calcolaPastiSospesiNelMese(meseDate) {
   const endMeseYmd = formatYMD(new Date(y, m + 1, 0));
 
   let pastiTotali = 0;
-  list.forEach(a => {
-    if (!a.assente_mensa) return;
-    const aStart = formattaDataConfronto(a.data_inizio);
-    const aEnd = formattaDataConfronto(a.data_fine || a.data_inizio);
+  list.forEach(rawA => {
+    const a = normalizzaAssenzaObj(rawA);
+    if (!a || !a.assente_mensa) return;
+    const aStart = a.data_inizio;
+    const aEnd = a.data_fine || a.data_inizio;
+    if (!aStart) return;
     const effStart = aStart > startMeseYmd ? aStart : startMeseYmd;
     const effEnd = aEnd < endMeseYmd ? aEnd : endMeseYmd;
     if (effStart <= effEnd) {
@@ -12321,6 +12758,286 @@ function calcolaPastiSospesiNelMese(meseDate) {
   });
   return pastiTotali;
 }
+
+// ----------------------------------------------------------------------------
+// PERSISTENZA LOCALE ASSENZE & SINCRONIZZAZIONE REALE CON FOGLIO MENSA GAS
+// ----------------------------------------------------------------------------
+
+const KEY_REVOKED_ASSENZE_IDS = "newman_revoked_assenze_ids";
+
+function getRevokedAssenzeIdsSet() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(KEY_REVOKED_ASSENZE_IDS) || "[]");
+    return new Set(Array.isArray(raw) ? raw.map(String) : []);
+  } catch (e) {
+    return new Set();
+  }
+}
+
+function aggiungiRevokedAssenzaId(id) {
+  if (!id) return;
+  try {
+    const set = getRevokedAssenzeIdsSet();
+    set.add(String(id));
+    localStorage.setItem(KEY_REVOKED_ASSENZE_IDS, JSON.stringify(Array.from(set).slice(-200)));
+  } catch (e) {}
+}
+
+function rimuoviRevokedAssenzaId(id) {
+  if (!id) return;
+  try {
+    const set = getRevokedAssenzeIdsSet();
+    if (set.delete(String(id))) {
+      localStorage.setItem(KEY_REVOKED_ASSENZE_IDS, JSON.stringify(Array.from(set)));
+    }
+  } catch (e) {}
+}
+
+function salvaAssenzaLocalDB(assenzaObj) {
+  const norm = normalizzaAssenzaObj(assenzaObj);
+  if (!norm) return null;
+  if (!norm.id) norm.id = "ASS_" + Date.now();
+  rimuoviRevokedAssenzaId(norm.id);
+
+  try {
+    const db = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || "{}");
+    if (!Array.isArray(db.assenze)) db.assenze = [];
+    const idx = db.assenze.findIndex(x => x && String(x.id) === String(norm.id));
+    if (idx !== -1) db.assenze[idx] = norm;
+    else db.assenze.push(norm);
+    localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+  } catch (e) {}
+  return norm;
+}
+
+function rimuoviAssenzaLocalDB(id) {
+  if (!id) return;
+  aggiungiRevokedAssenzaId(id);
+  try {
+    const db = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || "{}");
+    let target = null;
+    if (Array.isArray(db.assenze)) {
+      target = db.assenze.find(a => a && String(a.id) === String(id)) || null;
+      db.assenze = db.assenze.filter(a => a && String(a.id) !== String(id));
+    }
+    if (target && Array.isArray(db.mensa)) {
+      const targetNorm = normalizzaAssenzaObj(target);
+      if (targetNorm && targetNorm.assente_mensa && targetNorm.data_inizio) {
+        const dStart = targetNorm.data_inizio;
+        const dEnd = targetNorm.data_fine || targetNorm.data_inizio;
+        const pastiSet = new Set(targetNorm.pasti_interessati || ["pranzo", "cena"]);
+        db.mensa = db.mensa.filter(m => {
+          if (!m) return false;
+          const mData = formattaDataConfronto(m.data);
+          const mEmail = String(m.email || "").toLowerCase().trim();
+          const mPasto = String(m.tipo_pasto || "").toLowerCase().trim();
+          return !(mEmail === targetNorm.email && mData >= dStart && mData <= dEnd && pastiSet.has(mPasto) && m.stato_presenza === "assente");
+        });
+      }
+    }
+    localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+  } catch (e) {}
+}
+
+window.unisciAssenzeConPersistenzaLocale = function(remoteAssenze) {
+  const revokedSet = getRevokedAssenzeIdsSet();
+  const byId = new Map();
+
+  let localAssenze = [];
+  try {
+    const db = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || "{}");
+    if (Array.isArray(db.assenze)) localAssenze = db.assenze;
+  } catch (e) {}
+
+  const aggiungi = (rawItem) => {
+    const norm = normalizzaAssenzaObj(rawItem);
+    if (!norm || !norm.email || !norm.data_inizio) return;
+    const itemId = String(norm.id || `${norm.email}_${norm.data_inizio}_${norm.data_fine}`);
+    if (revokedSet.has(itemId)) return;
+    norm.id = itemId;
+    byId.set(itemId, norm);
+  };
+
+  if (Array.isArray(localAssenze)) localAssenze.forEach(aggiungi);
+  if (Array.isArray(remoteAssenze)) remoteAssenze.forEach(aggiungi);
+
+  const merged = Array.from(byId.values()).sort((a, b) => String(b.data_inizio).localeCompare(String(a.data_inizio)));
+
+  // Mantiene LOCAL_DB allineato con il merge per evitare perdite offline/reload
+  try {
+    const db = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || "{}");
+    db.assenze = merged;
+    localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+  } catch (e) {}
+
+  return merged;
+};
+
+window.getListaCompletaResidentiSelect = function() {
+  const fonti = [
+    ...(Array.isArray(appState.tuttiUtenti) ? appState.tuttiUtenti : []),
+    ...(typeof getListaUtentiMensa === "function" ? getListaUtentiMensa() : []),
+    ...(Array.isArray(INITIAL_MOCK_DB?.utenti) ? INITIAL_MOCK_DB.utenti : [])
+  ];
+  const byEmail = new Map();
+  fonti.forEach(u => {
+    if (!u || !u.email) return;
+    const email = String(u.email).toLowerCase().trim();
+    if (!email) return;
+    if (String(u.stato || "").toLowerCase() === "rifiutato") return;
+    if (!byEmail.has(email)) {
+      byEmail.set(email, {
+        ...u,
+        email,
+        nome: u.nome || trovaNomeUtente(email) || email.split("@")[0]
+      });
+    } else {
+      const prev = byEmail.get(email);
+      if (!prev.nome && u.nome) prev.nome = u.nome;
+    }
+  });
+  return Array.from(byEmail.values()).sort((a, b) => String(a.nome || a.email).localeCompare(String(b.nome || b.email), "it"));
+};
+
+async function sincronizzaMensaConGASPerAssenza(email, dataInizio, dataFine, pasti, motivo, modo = "sospendi") {
+  if (!email || !dataInizio) return;
+  const emailNorm = String(email).toLowerCase().trim();
+  const dStart = new Date(dataInizio + "T12:00:00");
+  const dEnd = new Date((dataFine || dataInizio) + "T12:00:00");
+  if (isNaN(dStart.getTime()) || isNaN(dEnd.getTime()) || dEnd < dStart) return;
+
+  const pastiArr = (Array.isArray(pasti) && pasti.length > 0) ? pasti : ["pranzo", "cena"];
+  const maxGiorni = 60;
+  let giorniCount = 0;
+
+  for (let dt = new Date(dStart); dt <= dEnd && giorniCount < maxGiorni; dt.setDate(dt.getDate() + 1)) {
+    giorniCount++;
+    const ymd = formatYMD(dt);
+    for (const pasto of pastiArr) {
+      const pastoNorm = String(pasto).toLowerCase().trim();
+      if (modo === "sospendi") {
+        const entryPayload = {
+          data: ymd,
+          email: emailNorm,
+          tipo_pasto: pastoNorm,
+          busta: false,
+          ritardo: false,
+          ospiti: 0,
+          stato_presenza: "assente",
+          bypassTimeLock: true,
+          note: "Assenza programmata: " + (motivo || "Assente")
+        };
+        // Aggiorna appState.mensaBookings immediatamente
+        if (!appState.mensaBookings) appState.mensaBookings = [];
+        const mIdx = appState.mensaBookings.findIndex(m => m && formattaDataConfronto(m.data) === ymd && String(m.email || "").toLowerCase().trim() === emailNorm && String(m.tipo_pasto).toLowerCase().trim() === pastoNorm);
+        const mergedEntry = {
+          id: mIdx !== -1 ? appState.mensaBookings[mIdx].id : ("M_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4)),
+          ...entryPayload,
+          timestamp: new Date().toISOString()
+        };
+        if (mIdx !== -1) appState.mensaBookings[mIdx] = { ...appState.mensaBookings[mIdx], ...mergedEntry };
+        else appState.mensaBookings.push(mergedEntry);
+
+        try {
+          await callApi("prenotaMensa", entryPayload);
+        } catch (e) {}
+      } else {
+        // Ripristina
+        if (appState.mensaBookings) {
+          appState.mensaBookings = appState.mensaBookings.filter(m => !(
+            m &&
+            formattaDataConfronto(m.data) === ymd &&
+            String(m.email || "").toLowerCase().trim() === emailNorm &&
+            String(m.tipo_pasto).toLowerCase().trim() === pastoNorm &&
+            m.stato_presenza === "assente"
+          ));
+        }
+        try {
+          await callApi("cancellaPrenotazioneMensa", { data: ymd, email: emailNorm, tipo_pasto: pastoNorm });
+        } catch (e) {}
+      }
+    }
+  }
+}
+
+async function eseguiSalvataggioAssenza(rawPayload) {
+  const emailNorm = String(rawPayload?.email || "").toLowerCase().trim();
+  const dataInizio = formattaDataConfronto(rawPayload?.data_inizio);
+  const dataFine = formattaDataConfronto(rawPayload?.data_fine || dataInizio) || dataInizio;
+  const sospendiMensa = (rawPayload?.assente_mensa === false) ? false : true;
+  let pasti = Array.isArray(rawPayload?.pasti_interessati) ? rawPayload.pasti_interessati.filter(Boolean) : [];
+  if (sospendiMensa && pasti.length === 0) pasti = ["pranzo", "cena"];
+  if (!sospendiMensa) pasti = [];
+
+  const payload = {
+    email: emailNorm,
+    nome: rawPayload?.nome || trovaNomeUtente(emailNorm) || emailNorm,
+    data_inizio: dataInizio,
+    data_fine: dataFine,
+    motivo: rawPayload?.motivo || "Altro",
+    note: rawPayload?.note || "",
+    assente_mensa: sospendiMensa,
+    pasti_interessati: pasti
+  };
+
+  let res = null;
+  let usedRemoteAssenze = false;
+  try {
+    res = await callApi("registraAssenza", payload);
+    if (res && res.success) usedRemoteAssenze = true;
+  } catch (e) {
+    res = null;
+  }
+
+  // Fallback trasparente su DB locale + sincronizzazione prenotazioni Mensa su GAS
+  // (essenziale se il Google Apps Script remoto non ha ancora l'azione registraAssenza)
+  if (!res || !res.success) {
+    res = mockBackendExecution("registraAssenza", payload);
+    usedRemoteAssenze = false;
+  }
+
+  if (!res || !res.success) {
+    return { success: false, error: res?.error || "Impossibile salvare l'assenza" };
+  }
+
+  if (!appState.assenze) appState.assenze = [];
+  const rawCreated = res.assenza || {
+    id: res.id || ("ASS_" + Date.now()),
+    ...payload,
+    created_at: new Date().toISOString()
+  };
+  const assenzaObj = salvaAssenzaLocalDB(rawCreated) || normalizzaAssenzaObj(rawCreated) || rawCreated;
+
+  const idx = appState.assenze.findIndex(a => a && String(a.id) === String(assenzaObj.id));
+  if (idx !== -1) appState.assenze[idx] = assenzaObj;
+  else appState.assenze.push(assenzaObj);
+
+  if (usedRemoteAssenze && Array.isArray(res.mensa)) {
+    appState.mensaBookings = res.mensa;
+    try {
+      const db = JSON.parse(localStorage.getItem(STORAGE_KEYS.LOCAL_DB) || "{}");
+      db.mensa = res.mensa;
+      localStorage.setItem(STORAGE_KEYS.LOCAL_DB, JSON.stringify(db));
+    } catch (e) {}
+  } else if (assenzaObj.assente_mensa) {
+    await sincronizzaMensaConGASPerAssenza(
+      assenzaObj.email,
+      assenzaObj.data_inizio,
+      assenzaObj.data_fine,
+      assenzaObj.pasti_interessati,
+      assenzaObj.motivo,
+      "sospendi"
+    );
+  }
+
+  // Ricalcola vista complessiva con merge locale
+  if (typeof window.unisciAssenzeConPersistenzaLocale === "function") {
+    appState.assenze = window.unisciAssenzeConPersistenzaLocale(appState.assenze);
+  }
+
+  return { success: true, assenza: assenzaObj };
+}
+window.eseguiSalvataggioAssenza = eseguiSalvataggioAssenza;
 
 window.cambiaMeseAssenzeMaster = function(step) {
   if (!appState.calendarioAssenzeMese) appState.calendarioAssenzeMese = new Date();
@@ -12404,14 +13121,15 @@ function generaCalendarioAssenzeMasterHtml() {
         });
       }
       if (soloMensa) {
-        assenzeGiorno = assenzeGiorno.filter(a => a.assente_mensa);
+        assenzeGiorno = assenzeGiorno.filter(a => (normalizzaAssenzaObj(a) || a).assente_mensa !== false);
       }
 
       let badgesHtml = "";
       const maxVisibili = 3;
-      assenzeGiorno.slice(0, maxVisibili).forEach(a => {
+      assenzeGiorno.slice(0, maxVisibili).forEach(rawA => {
+        const a = normalizzaAssenzaObj(rawA) || rawA;
         const nomeDisp = a.nome || trovaNomeUtente(a.email) || a.email.split("@")[0];
-        const isMensa = a.assente_mensa;
+        const isMensa = a.assente_mensa !== false;
         badgesHtml += `
           <div class="cal-assenze-badge ${isMensa ? 'badge-mensa-sospesa' : ''}" title="${escapeHtml(nomeDisp)} - ${escapeHtml(a.motivo || 'Assente')}${isMensa ? ' (Mensa Sospesa)' : ''}">
             <span style="overflow: hidden; text-overflow: ellipsis;">${escapeHtml(nomeDisp)}</span>
@@ -12591,11 +13309,13 @@ function generaCalendarioAssenzeMasterHtml() {
                 </tr>
               </thead>
               <tbody>
-                ${tutteAssenze.map(a => {
+                ${tutteAssenze.map(rawA => {
+                  const a = normalizzaAssenzaObj(rawA) || rawA;
                   const nome = a.nome || trovaNomeUtente(a.email) || a.email;
                   const startFmt = formattaDataItaliana(a.data_inizio);
                   const endFmt = formattaDataItaliana(a.data_fine || a.data_inizio);
                   const isSingle = (a.data_inizio === a.data_fine || !a.data_fine);
+                  const isMensa = a.assente_mensa !== false;
                   const pasti = (a.pasti_interessati && a.pasti_interessati.length) ? a.pasti_interessati.join(', ') : 'pranzo, cena';
 
                   return `
@@ -12616,7 +13336,7 @@ function generaCalendarioAssenzeMasterHtml() {
                         ${escapeHtml(a.note || '-')}
                       </td>
                       <td style="padding: 9px 10px; white-space: nowrap;">
-                        ${a.assente_mensa ? `
+                        ${isMensa ? `
                           <span class="badge" style="background: #fff7ed; color: #9a3412; border: 1px solid #fed7aa; font-weight: 800; font-size: 11px;">
                             🍽️ Sospesa (${escapeHtml(pasti)})
                           </span>
@@ -12769,7 +13489,9 @@ function apriModalSegnalaAssenza(prefillData = {}) {
 
     if ((isMaster || !appState.user) && selectUtente) {
       if (groupUtente) groupUtente.style.display = "block";
-      const sorgente = (appState.tuttiUtenti && appState.tuttiUtenti.length > 0) ? appState.tuttiUtenti : (INITIAL_MOCK_DB.utenti || []);
+      const sorgente = typeof window.getListaCompletaResidentiSelect === "function"
+        ? window.getListaCompletaResidentiSelect()
+        : ((appState.tuttiUtenti && appState.tuttiUtenti.length > 0) ? appState.tuttiUtenti : (INITIAL_MOCK_DB.utenti || []));
       const escapeFn = typeof escapeHtml === "function" ? escapeHtml : (s) => String(s);
       selectUtente.innerHTML = sorgente.map(u => {
         const email = String(u.email || "").toLowerCase().trim();
@@ -12905,8 +13627,13 @@ function aggiornaOpzioniMensaPerUtenteSelezionato() {
 
   let isUtenteMensa = true;
   if (targetEmail) {
-    const u = (appState.tuttiUtenti || []).find(x => String(x.email).toLowerCase() === targetEmail.toLowerCase());
-    if (u && u.is_utente_mensa !== undefined) isUtenteMensa = Boolean(u.is_utente_mensa);
+    const sorgenteUtenti = typeof window.getListaCompletaResidentiSelect === "function"
+      ? window.getListaCompletaResidentiSelect()
+      : (appState.tuttiUtenti || []);
+    const u = sorgenteUtenti.find(x => String(x.email || "").toLowerCase().trim() === String(targetEmail).toLowerCase().trim());
+    if (u && u.is_utente_mensa !== undefined && u.is_utente_mensa !== null && String(u.is_utente_mensa).trim() !== "") {
+      isUtenteMensa = isTruthyVal(u.is_utente_mensa);
+    }
   }
 
   const boxMensa = document.getElementById("assenza-box-mensa");
@@ -12990,55 +13717,9 @@ window.handleSalvaSegnalazioneAssenza = async function(event) {
   }
 
   try {
-    const res = await callApi("registraAssenza", payload);
-    if (res && res.success) {
-      if (!appState.assenze) appState.assenze = [];
-      const assenzaObj = res.assenza || {
-        id: res.id || ("ASS_" + Date.now()),
-        email,
-        nome,
-        data_inizio: dataInizio,
-        data_fine: dataFine,
-        motivo,
-        note,
-        assente_mensa: sospendiMensa,
-        pasti_interessati: pasti,
-        created_at: new Date().toISOString()
-      };
-
-      const idx = appState.assenze.findIndex(a => a && String(a.id) === String(assenzaObj.id));
-      if (idx !== -1) appState.assenze[idx] = assenzaObj;
-      else appState.assenze.push(assenzaObj);
-
-      if (res.mensa) {
-        appState.mensaBookings = res.mensa;
-      } else if (sospendiMensa) {
-        if (!appState.mensaBookings) appState.mensaBookings = [];
-        const dStart = new Date(dataInizio + "T12:00:00");
-        const dEnd = new Date(dataFine + "T12:00:00");
-        for (let dt = new Date(dStart); dt <= dEnd; dt.setDate(dt.getDate() + 1)) {
-          const ymd = (typeof formatYMD === "function") ? formatYMD(dt) : dt.toISOString().slice(0, 10);
-          pasti.forEach(pasto => {
-            const mIdx = appState.mensaBookings.findIndex(m => m && formattaDataConfronto(m.data) === ymd && String(m.email).toLowerCase() === email.toLowerCase() && m.tipo_pasto === pasto);
-            const mEntry = {
-              id: mIdx !== -1 ? appState.mensaBookings[mIdx].id : ("M_" + Date.now() + "_" + Math.random().toString(36).substr(2, 4)),
-              data: ymd,
-              email,
-              tipo_pasto: pasto,
-              busta: false,
-              ritardo: false,
-              ospiti: 0,
-              stato_presenza: "assente",
-              note: "Assenza programmata: " + motivo,
-              timestamp: new Date().toISOString()
-            };
-            if (mIdx !== -1) appState.mensaBookings[mIdx] = { ...appState.mensaBookings[mIdx], ...mEntry };
-            else appState.mensaBookings.push(mEntry);
-          });
-        }
-      }
-
-      console.log("✅ [Assenze] Assenza salvata con successo:", assenzaObj);
+    const risultato = await eseguiSalvataggioAssenza(payload);
+    if (risultato && risultato.success) {
+      console.log("✅ [Assenze] Assenza salvata con successo:", risultato.assenza);
       mostraToast(sospendiMensa ? "Assenza registrata e pasti in mensa sospesi! 🍽️" : "Assenza registrata con successo!", "success");
       chiudiModalSegnalaAssenza();
 
@@ -13046,9 +13727,10 @@ window.handleSalvaSegnalazioneAssenza = async function(event) {
       if (typeof caricaDatiMaster === "function" && haPermessiMaster()) caricaDatiMaster();
       if (typeof renderMasterSection === "function") renderMasterSection();
       if (typeof renderMensaView === "function") renderMensaView();
+      if (typeof renderCucinaView === "function") renderCucinaView();
       if (typeof renderBachecaView === "function") renderBachecaView();
     } else {
-      mostraToast("Errore: " + (res?.error || "Impossibile salvare l'assenza"), "error");
+      mostraToast("Errore: " + (risultato?.error || "Impossibile salvare l'assenza"), "error");
     }
   } catch (err) {
     console.error(err);
@@ -13061,6 +13743,104 @@ window.handleSalvaSegnalazioneAssenza = async function(event) {
   }
 };
 
+window.onToggleModalitaPeriodoDettaglioAssenza = function(isPeriodo, ymdStr) {
+  const wrapFine = document.getElementById("dettaglio-assenza-fine-wrap");
+  const inpFine = document.getElementById("dettaglio-assenza-data-fine");
+  if (wrapFine) wrapFine.style.display = isPeriodo ? "block" : "none";
+  if (inpFine && (!isPeriodo || !inpFine.value || inpFine.value < ymdStr)) {
+    inpFine.value = ymdStr;
+  }
+};
+
+window.onToggleMensaDettaglioAssenza = function(checked) {
+  const wrap = document.getElementById("dettaglio-assenza-pasti-wrap");
+  if (wrap) wrap.style.display = checked ? "flex" : "none";
+};
+
+window.handleSalvaAssenzaDaCalendarioMaster = async function(event, ymdStr) {
+  if (event) event.preventDefault();
+  if (typeof haPermessiMaster === "function" && !haPermessiMaster()) {
+    mostraToast("Accesso riservato agli amministratori", "error");
+    return;
+  }
+
+  const email = String(document.getElementById("dettaglio-assenza-utente")?.value || "").toLowerCase().trim();
+  if (!email) {
+    mostraToast("Seleziona un residente", "warning");
+    return;
+  }
+
+  const modalita = document.querySelector('input[name="dettaglio_assenza_tipo"]:checked')?.value || "singolo";
+  const dataInizio = ymdStr;
+  const dataFine = modalita === "periodo"
+    ? (document.getElementById("dettaglio-assenza-data-fine")?.value || ymdStr)
+    : ymdStr;
+
+  if (dataFine < dataInizio) {
+    mostraToast("La data di fine non può precedere il giorno selezionato", "warning");
+    return;
+  }
+
+  const motivo = document.getElementById("dettaglio-assenza-motivo")?.value || "Altro";
+  const note = document.getElementById("dettaglio-assenza-note")?.value || "";
+  const sospendiMensa = Boolean(document.getElementById("dettaglio-assenza-sospendi-mensa")?.checked);
+
+  const pasti = [];
+  if (sospendiMensa) {
+    if (document.getElementById("dettaglio-assenza-pranzo")?.checked) pasti.push("pranzo");
+    if (document.getElementById("dettaglio-assenza-cena")?.checked) pasti.push("cena");
+    if (pasti.length === 0) {
+      mostraToast("Seleziona almeno un pasto da sospendere oppure deseleziona la sospensione Mensa", "warning");
+      return;
+    }
+  }
+
+  const btn = document.getElementById("btn-dettaglio-admin-salva-assenza");
+  if (btn) {
+    btn.disabled = true;
+    btn.innerText = "Salvataggio...";
+  }
+
+  try {
+    const nome = trovaNomeUtente(email) || email;
+    const res = await eseguiSalvataggioAssenza({
+      email,
+      nome,
+      data_inizio: dataInizio,
+      data_fine: dataFine,
+      motivo,
+      note,
+      assente_mensa: sospendiMensa,
+      pasti_interessati: pasti
+    });
+
+    if (res && res.success) {
+      mostraToast(
+        sospendiMensa
+          ? `✅ Assenza inserita per ${nome} (Pranzo/Cena sospesi)`
+          : `✅ Assenza inserita per ${nome}`,
+        "success"
+      );
+      if (typeof window.renderAssenzeProfilo === "function") window.renderAssenzeProfilo();
+      if (typeof renderMasterSection === "function") renderMasterSection();
+      if (typeof renderMensaView === "function") renderMensaView();
+      if (typeof renderCucinaView === "function") renderCucinaView();
+      if (typeof renderBachecaView === "function") renderBachecaView();
+      apriDettaglioGiornoAssenze(ymdStr);
+    } else {
+      mostraToast("Errore: " + (res?.error || "Salvataggio fallito"), "error");
+    }
+  } catch (err) {
+    console.error(err);
+    mostraToast("Errore durante il salvataggio dell'assenza", "error");
+  } finally {
+    if (btn) {
+      btn.disabled = false;
+      btn.innerText = "💾 Inserisci Assenza Utente";
+    }
+  }
+};
+
 window.apriDettaglioGiornoAssenze = function(ymdStr) {
   window._modalOpenedTimestamp = Date.now();
   if (!ymdStr) return;
@@ -13069,7 +13849,16 @@ window.apriDettaglioGiornoAssenze = function(ymdStr) {
   const modal = document.getElementById("modal-dettaglio-giorno-assenze");
   const titoloEl = document.getElementById("dettaglio-assenze-titolo-data");
   const bodyEl = document.getElementById("dettaglio-assenze-elenco-body");
+  let adminFormWrap = document.getElementById("dettaglio-assenze-admin-form-wrap");
   if (!modal || !titoloEl || !bodyEl) return;
+
+  // Resilienza DOM: crea dinamicamente il contenitore del form admin se non ancora presente
+  if (!adminFormWrap && bodyEl.parentNode) {
+    adminFormWrap = document.createElement("div");
+    adminFormWrap.id = "dettaglio-assenze-admin-form-wrap";
+    adminFormWrap.style.marginBottom = "10px";
+    bodyEl.parentNode.insertBefore(adminFormWrap, bodyEl);
+  }
 
   const dataFmt = formattaDataItaliana(ymdStr);
   const assenze = getAssenzePerData(ymdStr);
@@ -13079,10 +13868,10 @@ window.apriDettaglioGiornoAssenze = function(ymdStr) {
 
   if (assenze.length === 0) {
     bodyEl.innerHTML = `
-      <div style="background: #f0fdf4; border: 1.5px dashed #86efac; border-radius: 8px; padding: 24px; text-align: center;">
-        <div style="font-size: 28px; margin-bottom: 6px;">🟢</div>
-        <strong style="color: #166534; font-size: 15px;">Nessuna assenza segnalata per questa data</strong>
-        <p style="margin: 4px 0 0 0; font-size: 12.5px; color: #15803d;">
+      <div style="background: #f0fdf4; border: 1.5px dashed #86efac; border-radius: 8px; padding: 14px 16px; text-align: center;">
+        <div style="font-size: 24px; margin-bottom: 4px;">🟢</div>
+        <strong style="color: #166534; font-size: 14px;">Nessuna assenza segnalata per questa data</strong>
+        <p style="margin: 4px 0 0 0; font-size: 12px; color: #15803d;">
           Tutti i residenti sono considerati regolarmente presenti in Residenza e a Mensa.
         </p>
       </div>
@@ -13090,12 +13879,14 @@ window.apriDettaglioGiornoAssenze = function(ymdStr) {
   } else {
     bodyEl.innerHTML = `
       <div style="display: flex; flex-direction: column; gap: 10px;">
-        ${assenze.map(a => {
+        ${assenze.map(rawA => {
+          const a = normalizzaAssenzaObj(rawA) || rawA;
           const nome = a.nome || trovaNomeUtente(a.email) || a.email;
           const startFmt = formattaDataItaliana(a.data_inizio);
           const endFmt = formattaDataItaliana(a.data_fine || a.data_inizio);
           const isSingle = (a.data_inizio === a.data_fine || !a.data_fine);
           const canDelete = isMaster || (appState.user && appState.user.email.toLowerCase() === String(a.email).toLowerCase());
+          const isMensa = a.assente_mensa !== false;
           const pasti = (a.pasti_interessati && a.pasti_interessati.length) ? a.pasti_interessati.join(', ') : 'pranzo, cena';
 
           return `
@@ -13124,11 +13915,11 @@ window.apriDettaglioGiornoAssenze = function(ymdStr) {
               ` : ''}
 
               <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; border-top: 1px solid #e2e8f0; padding-top: 8px; margin-top: 6px;">
-                <div style="font-size: 12px; font-weight: 700; color: ${a.assente_mensa ? '#c2410c' : '#64748b'};">
-                  ${a.assente_mensa ? `🍽️ Mensa: <strong>Sospesa (${escapeHtml(pasti)})</strong>` : '🍽️ Mensa: Non sospesa'}
+                <div style="font-size: 12px; font-weight: 700; color: ${isMensa ? '#c2410c' : '#64748b'};">
+                  ${isMensa ? `🍽️ Mensa: <strong>Sospesa (${escapeHtml(pasti)})</strong>` : '🍽️ Mensa: Non sospesa'}
                 </div>
                 ${canDelete ? `
-                  <button type="button" class="btn btn-outline btn-sm" onclick="cancellaAssenzaUtente('${a.id}')" style="font-size: 11px; padding: 3px 8px; color: #dc2626; border-color: #fca5a5; background: #fff;">
+                  <button type="button" class="btn btn-outline btn-sm" onclick="cancellaAssenzaUtente('${escapeHtml(a.id)}')" style="font-size: 11px; padding: 3px 8px; color: #dc2626; border-color: #fca5a5; background: #fff;">
                     🗑️ Revoca Assenza
                   </button>
                 ` : ''}
@@ -13138,6 +13929,98 @@ window.apriDettaglioGiornoAssenze = function(ymdStr) {
         }).join("")}
       </div>
     `;
+  }
+
+  if (adminFormWrap) {
+    if (isMaster) {
+      // Sposta il modulo subito dopo l'intestazione (sopra eventuali elenchi lunghi) così sia sempre visibile
+      if (bodyEl.parentNode && adminFormWrap.nextSibling !== bodyEl) {
+        bodyEl.parentNode.insertBefore(adminFormWrap, bodyEl);
+      }
+      const elencoResidenti = window.getListaCompletaResidentiSelect();
+      const optionsHtml = elencoResidenti.map(u => {
+        const em = escapeHtml(u.email);
+        const nm = escapeHtml(u.nome || u.email);
+        return `<option value="${em}">${nm} (${em})</option>`;
+      }).join("");
+
+      adminFormWrap.style.display = "block";
+      adminFormWrap.style.marginBottom = "12px";
+      adminFormWrap.innerHTML = `
+        <form onsubmit="handleSalvaAssenzaDaCalendarioMaster(event, '${ymdStr}')" style="background: #eef2ff; border: 1.5px solid #c7d2fe; border-radius: 10px; padding: 12px 14px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px;">
+            <strong style="font-size: 13.5px; color: #1e1b4b;">➕ Inserisci Assenza Utente per il ${escapeHtml(dataFmt)}</strong>
+            <span style="font-size: 10.5px; font-weight: 700; color: #4338ca; background: #fff; padding: 2px 7px; border-radius: 6px; border: 1px solid #c7d2fe;">Admin</span>
+          </div>
+
+          <div style="display: flex; flex-direction: column; gap: 9px;">
+            <div>
+              <label style="display: block; font-size: 11.5px; font-weight: 700; color: #312e81; margin-bottom: 3px;">Residente:</label>
+              <select id="dettaglio-assenza-utente" class="input-text" style="width: 100%; padding: 7px 9px; font-size: 12.5px; background: #fff;" required>
+                ${optionsHtml}
+              </select>
+            </div>
+
+            <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap; font-size: 12px; color: #1e1b4b;">
+              <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 700;">
+                <input type="radio" name="dettaglio_assenza_tipo" value="singolo" checked onchange="onToggleModalitaPeriodoDettaglioAssenza(false, '${ymdStr}')">
+                <span>Giorno singolo (${escapeHtml(dataFmt)})</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 5px; cursor: pointer; font-weight: 700;">
+                <input type="radio" name="dettaglio_assenza_tipo" value="periodo" onchange="onToggleModalitaPeriodoDettaglioAssenza(true, '${ymdStr}')">
+                <span>Periodo prolungato</span>
+              </label>
+            </div>
+
+            <div id="dettaglio-assenza-fine-wrap" style="display: none;">
+              <label style="display: block; font-size: 11.5px; font-weight: 700; color: #312e81; margin-bottom: 3px;">Fino al (incluso):</label>
+              <input type="date" id="dettaglio-assenza-data-fine" class="input-text" value="${ymdStr}" min="${ymdStr}" style="width: 100%; padding: 6px 9px; font-size: 12.5px; background: #fff;">
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px;">
+              <div>
+                <label style="display: block; font-size: 11.5px; font-weight: 700; color: #312e81; margin-bottom: 3px;">Motivo:</label>
+                <select id="dettaglio-assenza-motivo" class="input-text" style="width: 100%; padding: 6px 8px; font-size: 12px; background: #fff;">
+                  <option value="Famiglia / Ritorno a casa">Famiglia / Ritorno a casa</option>
+                  <option value="Stage / Studio fuori sede">Stage / Studio fuori sede</option>
+                  <option value="Gita / Viaggio">Gita / Viaggio</option>
+                  <option value="Motivi Personali / Salute">Motivi Personali / Salute</option>
+                  <option value="Altro">Altro</option>
+                </select>
+              </div>
+              <div>
+                <label style="display: block; font-size: 11.5px; font-weight: 700; color: #312e81; margin-bottom: 3px;">Note (opz.):</label>
+                <input type="text" id="dettaglio-assenza-note" class="input-text" placeholder="Es. rientro serale..." style="width: 100%; padding: 6px 8px; font-size: 12px; background: #fff;">
+              </div>
+            </div>
+
+            <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 8px; padding: 8px 10px;">
+              <label style="display: flex; align-items: center; gap: 7px; font-size: 12px; font-weight: 800; color: #9a3412; cursor: pointer;">
+                <input type="checkbox" id="dettaglio-assenza-sospendi-mensa" checked onchange="onToggleMensaDettaglioAssenza(this.checked)" style="accent-color: #ea580c; width: 15px; height: 15px;">
+                <span>🍽️ Sospendi automaticamente in Mensa (salvo deselezione)</span>
+              </label>
+              <div id="dettaglio-assenza-pasti-wrap" style="display: flex; gap: 14px; margin-top: 6px; padding-left: 22px; font-size: 12px; font-weight: 700; color: #7c2d12;">
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                  <input type="checkbox" id="dettaglio-assenza-pranzo" checked style="accent-color: #ea580c;">
+                  <span>☀️ Pranzo</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 5px; cursor: pointer;">
+                  <input type="checkbox" id="dettaglio-assenza-cena" checked style="accent-color: #ea580c;">
+                  <span>🌙 Cena</span>
+                </label>
+              </div>
+            </div>
+
+            <button type="submit" id="btn-dettaglio-admin-salva-assenza" class="btn btn-primary btn-sm" style="background: #4f46e5; border-color: #4338ca; font-weight: 800; padding: 8px 14px; width: 100%;">
+              💾 Inserisci Assenza Utente
+            </button>
+          </div>
+        </form>
+      `;
+    } else {
+      adminFormWrap.style.display = "none";
+      adminFormWrap.innerHTML = "";
+    }
   }
 
   if (typeof window.mostraModaleIstantanea === "function") {
@@ -13171,7 +14054,6 @@ window.chiudiModalDettaglioGiornoAssenze = function() {
 };
 window.apriModalDettaglioGiornoAssenze = window.apriDettaglioGiornoAssenze;
 window._realApriModalDettaglioGiornoAssenze = window.apriDettaglioGiornoAssenze;
-window._realApriDettaglioGiornoAssenze = window.apriDettaglioGiornoAssenze;
 
 window.apriModalSegnalaAssenzaDaDettaglio = function() {
   const dt = appState.dettaglioGiornoAssenzeData;
@@ -13183,40 +14065,59 @@ window.cancellaAssenzaUtente = async function(id) {
   if (!id) return;
   if (!confirm("Sei sicuro di voler revocare questa assenza? Se i pasti in mensa erano stati sospesi, verranno ripristinati.")) return;
 
+  const targetRaw = (appState.assenze || []).find(a => a && String(a.id) === String(id));
+  const targetAssenza = targetRaw ? (normalizzaAssenzaObj(targetRaw) || targetRaw) : null;
+
   try {
-    const res = await callApi("cancellaAssenza", { id, ripristinaMensa: true });
-    if (res && res.success) {
-      const targetAssenza = (appState.assenze || []).find(a => String(a.id) === String(id));
-      if (appState.assenze) {
-        appState.assenze = appState.assenze.filter(a => String(a.id) !== String(id));
-      }
-      if (targetAssenza && targetAssenza.assente_mensa && appState.mensaBookings) {
-        const dStart = new Date(targetAssenza.data_inizio + "T12:00:00");
-        const dEnd = new Date(targetAssenza.data_fine + "T12:00:00");
-        for (let dt = new Date(dStart); dt <= dEnd; dt.setDate(dt.getDate() + 1)) {
-          const ymd = (typeof formatYMD === "function") ? formatYMD(dt) : dt.toISOString().slice(0, 10);
-          (targetAssenza.pasti_interessati || ["pranzo", "cena"]).forEach(pasto => {
-            appState.mensaBookings = appState.mensaBookings.filter(m => !(formattaDataConfronto(m.data) === ymd && String(m.email).toLowerCase() === String(targetAssenza.email).toLowerCase() && m.tipo_pasto === pasto && m.stato_presenza === "assente"));
-          });
-        }
-      }
-      mostraToast("Assenza revocata con successo! Pasti in mensa ripristinati.", "success");
-
-      if (appState.dettaglioGiornoAssenzeData) {
-        const stillOpen = document.getElementById("modal-dettaglio-giorno-assenze");
-        if (stillOpen && stillOpen.style.display !== "none") {
-          apriDettaglioGiornoAssenze(appState.dettaglioGiornoAssenzeData);
-        }
-      }
-
-      if (typeof window.renderAssenzeProfilo === "function") window.renderAssenzeProfilo();
-      if (typeof caricaDatiMaster === "function" && haPermessiMaster()) caricaDatiMaster();
-      if (typeof renderMasterSection === "function") renderMasterSection();
-      if (typeof renderMensaView === "function") renderMensaView();
-      if (typeof renderBachecaView === "function") renderBachecaView();
-    } else {
-      mostraToast("Errore: " + (res?.error || "Impossibile revocare l'assenza"), "error");
+    let res = null;
+    let usedRemoteAssenze = false;
+    try {
+      res = await callApi("cancellaAssenza", { id, ripristinaMensa: true });
+      if (res && res.success) usedRemoteAssenze = true;
+    } catch (e) {
+      res = null;
     }
+
+    if (!res || !res.success) {
+      res = mockBackendExecution("cancellaAssenza", { id, ripristinaMensa: true });
+      usedRemoteAssenze = false;
+    }
+
+    rimuoviAssenzaLocalDB(id);
+    if (appState.assenze) {
+      appState.assenze = appState.assenze.filter(a => a && String(a.id) !== String(id));
+    }
+
+    if (targetAssenza && targetAssenza.assente_mensa !== false) {
+      if (usedRemoteAssenze && Array.isArray(res?.mensa)) {
+        appState.mensaBookings = res.mensa;
+      } else {
+        await sincronizzaMensaConGASPerAssenza(
+          targetAssenza.email,
+          targetAssenza.data_inizio,
+          targetAssenza.data_fine || targetAssenza.data_inizio,
+          targetAssenza.pasti_interessati || ["pranzo", "cena"],
+          targetAssenza.motivo,
+          "ripristina"
+        );
+      }
+    }
+
+    mostraToast("Assenza revocata con successo! Pasti in mensa ripristinati.", "success");
+
+    if (appState.dettaglioGiornoAssenzeData) {
+      const stillOpen = document.getElementById("modal-dettaglio-giorno-assenze");
+      if (stillOpen && stillOpen.style.display !== "none") {
+        apriDettaglioGiornoAssenze(appState.dettaglioGiornoAssenzeData);
+      }
+    }
+
+    if (typeof window.renderAssenzeProfilo === "function") window.renderAssenzeProfilo();
+    if (typeof caricaDatiMaster === "function" && haPermessiMaster()) caricaDatiMaster();
+    if (typeof renderMasterSection === "function") renderMasterSection();
+    if (typeof renderMensaView === "function") renderMensaView();
+    if (typeof renderCucinaView === "function") renderCucinaView();
+    if (typeof renderBachecaView === "function") renderBachecaView();
   } catch (err) {
     console.error(err);
     mostraToast("Errore durante la revoca dell'assenza", "error");
