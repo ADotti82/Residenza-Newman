@@ -4,30 +4,50 @@
  * ============================================================================
  */
 
-import { appState } from "../../core/state.js";
+import { appState as moduleAppState } from "../../core/state.js";
 import { formatYMD } from "../../core/utils.js";
-import { calcolaContatoreMensa } from "../mensa/mensa.service.js";
+import { calcolaContatoreMensa as fallbackCalcolaContatoreMensa } from "../mensa/mensa.service.js";
+
+function getActiveAppState() {
+  if (typeof window !== "undefined" && window.appState) {
+    return window.appState;
+  }
+  return moduleAppState;
+}
+
+function getCalcolaContatoreMensa() {
+  if (typeof window !== "undefined" && typeof window._appCalcolaContatoreMensa === "function") {
+    return window._appCalcolaContatoreMensa;
+  }
+  if (typeof window !== "undefined" && typeof window.calcolaContatoreMensa === "function") {
+    return window.calcolaContatoreMensa;
+  }
+  return fallbackCalcolaContatoreMensa;
+}
 
 /**
  * Calcola la lista dei prossimi giorni con conteggi distinti di pranzi, cene,
- * ritardi e ospiti per la dashboard cucina.
+ * ritardi, ospiti, buste e assenti per la dashboard cucina.
  */
 export function calcolaProssimiGiorniCucina(dataRiferimento = new Date(), numGiorni = 5, dataSelezionataYMD = "") {
   const result = [];
   const baseDate = dataRiferimento instanceof Date ? new Date(dataRiferimento) : new Date();
+  const calcolaFn = getCalcolaContatoreMensa();
 
   for (let i = 0; i < numGiorni; i++) {
     const d = new Date(baseDate);
     d.setDate(d.getDate() + i);
     const ymd = formatYMD(d);
-    const sP = calcolaContatoreMensa(ymd, "pranzo");
-    const sC = calcolaContatoreMensa(ymd, "cena");
+    const sP = calcolaFn(ymd, "pranzo");
+    const sC = calcolaFn(ymd, "cena");
 
     result.push({
       ymd,
       label: d.toLocaleDateString("it-IT", { weekday: "short", day: "numeric", month: "numeric" }),
       pranzo: sP.totale,
       cena: sC.totale,
+      assentiPranzo: sP.assenti || 0,
+      assentiCena: sC.assenti || 0,
       ritardiPranzo: sP.ritardi || 0,
       ospitiPranzo: sP.ospitiTotali || 0,
       bustePranzo: sP.buste || 0,
@@ -59,7 +79,8 @@ export function filtraListaPresenzeCucina(lista, filtro) {
  */
 export function toggleCucinaSpuntato(key, dataKey = "") {
   try {
-    const targetDate = dataKey || appState.cucinaSelectedDate || formatYMD(new Date());
+    const st = getActiveAppState();
+    const targetDate = dataKey || st.cucinaSelectedDate || formatYMD(new Date());
     const storageKey = `newman_cucina_spuntati_${targetDate}`;
     const spuntati = JSON.parse(localStorage.getItem(storageKey) || "{}");
     spuntati[key] = !spuntati[key];

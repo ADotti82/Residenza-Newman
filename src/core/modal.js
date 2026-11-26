@@ -32,6 +32,11 @@ export function mostraModaleIstantanea(modalOrId) {
   const m = typeof modalOrId === "string" ? document.getElementById(modalOrId) : modalOrId;
   if (!m) return null;
 
+  // Assicura che la modale sia sempre montata direttamente sotto <body> per evitare che contenitori nascosti la blocchino
+  if (m.parentNode !== document.body) {
+    document.body.appendChild(m);
+  }
+
   // Chiudi preventivamente tutte le altre modali aperte per evitare conflitti visivi o sovrapposizioni
   document.querySelectorAll(".modal-overlay").forEach(other => {
     if (other !== m && (other.classList.contains("open") || other.style.display === "flex")) {

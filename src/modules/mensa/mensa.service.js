@@ -4,40 +4,39 @@
  * ============================================================================
  */
 
-import { MENU_ANCHOR_DATE, INITIAL_MOCK_DB, STORAGE_KEYS } from "../../core/config.js";
-import { appState } from "../../core/state.js";
-import { formattaDataConfronto, formatYMD } from "../../core/utils.js";
+import { appState as moduleAppState } from "../../core/state.js";
+import { INITIAL_MOCK_DB } from "../../core/config.js";
+import { formattaDataConfronto, isTruthyVal } from "../../core/utils.js";
 
-export function getSettimanaMenu(dataTarget) {
-  const dTarget = new Date(dataTarget.getFullYear(), dataTarget.getMonth(), dataTarget.getDate());
-  const dAnchor = new Date(MENU_ANCHOR_DATE.getFullYear(), MENU_ANCHOR_DATE.getMonth(), MENU_ANCHOR_DATE.getDate());
-  const diffMs = dTarget.getTime() - dAnchor.getTime();
-  const diffWeeks = Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000));
-  let isSettimana2 = Math.abs(diffWeeks) % 2 === 0;
-  const isInvertito = appState.cachedConfig?.Inverti_Ciclo_Menu === "true" || localStorage.getItem("newman_inverti_menu") === "true";
-  if (isInvertito) isSettimana2 = !isSettimana2;
-  return isSettimana2 ? "settimana2" : "settimana1";
+function getActiveAppState() {
+  if (typeof window !== "undefined" && window.appState) {
+    return window.appState;
+  }
+  return moduleAppState;
 }
 
-export function getNomeGiorno(data) {
-  const giorni = ["domenica", "lunedi", "martedi", "mercoledi", "giovedi", "venerdi", "sabato"];
-  return giorni[data.getDay()];
-}
-
+/**
+ * Ritorna l'elenco dei residenti con diritto di mensa (Stato Approvato e is_utente_mensa !== false)
+ */
 export function getListaUtentiMensa() {
-  const list = (appState.tuttiUtenti && appState.tuttiUtenti.length > 0)
-    ? appState.tuttiUtenti
+  const st = getActiveAppState();
+  const list = (st.tuttiUtenti && st.tuttiUtenti.length > 0)
+    ? st.tuttiUtenti
     : (INITIAL_MOCK_DB.utenti || []);
-  let result = list.filter(u => u.stato === "Approvato" && u.is_utente_mensa !== false);
-  if (appState.user && appState.user.stato === "Approvato" && appState.user.is_utente_mensa !== false) {
-    const userEmail = appState.user.email.toLowerCase().trim();
-    if (!result.some(u => String(u.email || "").toLowerCase().trim() === userEmail)) {
-      result.push(appState.user);
+  const result = list.filter(u => u.stato === "Approvato" && u.is_utente_mensa !== false);
+  if (st.user && st.user.stato === "Approvato" && st.user.is_utente_mensa !== false) {
+    const userEmail = String(st.user.email || "").toLowerCase().trim();
+    if (userEmail && !result.some(u => String(u.email || "").toLowerCase().trim() === userEmail)) {
+      result.push(st.user);
     }
   }
   return result;
 }
 
+/**
+ * Controlla se il pasto è contrassegnato dalla busta (pranzo al sacco).
+ * Di norma martedì e giovedì a pranzo.
+ */
 export function isPastoBustaGiorno(dataVal, tipoPasto) {
   if (String(tipoPasto || "").trim().toLowerCase() !== "pranzo") return false;
   let d;
@@ -47,39 +46,148 @@ export function isPastoBustaGiorno(dataVal, tipoPasto) {
     d = new Date(s + "T12:00:00");
   }
   const day = d.getDay();
-  if (day === 2 || day === 4) return true; // martedì o giovedì
-
-  try {
-    const cicloSettimana = getSettimanaMenu(d);
-    const giornoKey = getNomeGiorno(d);
-    const menuStorage = localStorage.getItem(STORAGE_KEYS.MENU_14_GIORNI);
-    const menuObj = menuStorage ? JSON.parse(menuStorage) : null;
-    const menuGiorno = menuObj?.[cicloSettimana]?.[giornoKey]?.pranzo;
-    if (menuGiorno && (menuGiorno.opzioneBustaDisponibile || menuGiorno.busta)) {
-      return true;
-    }
-  } catch (e) {}
-  return false;
+  return (day === 2 || day === 4);
 }
 
+/**
+ * Trova il nome leggibile di un residente tramite email
+ */
+export function trovaNomeUtente(email) {
+  if (!email) return "Residente";
+  const st = getActiveAppState();
+  const emailLow = String(email).toLowerCase().trim();
+  const u = (st.tuttiUtenti || []).find(x => String(x.email || "").toLowerCase().trim() === emailLow)
+    || (INITIAL_MOCK_DB.utenti || []).find(x => String(x.email || "").toLowerCase().trim() === emailLow);
+  if (u && u.nome) return u.nome;
+  const base = emailLow.split("@")[0].replace(/\./g, " ");
+  return base.charAt(0).toUpperCase() + base.slice(1);
+}
+
+function getAssenzaMensaAttivaLocale(dataStr, tipoPasto, userEmail) {
+  if (typeof window !== "undefined" && typeof window.getAssenzaMensaAttiva === "function") {
+    return window.getAssenzaMensaAttiva(dataStr, tipoPasto, userEmail);
+  }
+  if (!dataStr || !userEmail) return null;
+  const st = getActiveAppState();
+  const emailNorm = String(userEmail).toLowerCase().trim();
+  const pastoNorm = String(tipoPasto || "pranzo").toLowerCase().trim();
+  const list = st.assenze || [];
+  let matched = null;
+  for (let i = 0; i < list.length; i++) {
+    const raw = list[i];
+    if (!raw || typeof raw !== "object") continue;
+    const assenteMensa = (raw.assente_mensa === false || String(raw.assente_mensa).toLowerCase() === "false") ? false : true;
+    if (!assenteMensa) continue;
+    if (String(raw.email || "").toLowerCase().trim() !== emailNorm) continue;
+    const dInizio = formattaDataConfronto(raw.data_inizio);
+    const dFine = formattaDataConfronto(raw.data_fine || raw.data_inizio) || dInizio;
+    if (!dInizio) continue;
+    let pasti = ["pranzo", "cena"];
+    if (Array.isArray(raw.pasti_interessati) && raw.pasti_interessati.length > 0) {
+      pasti = raw.pasti_interessati.map(p => String(p).trim().toLowerCase()).filter(Boolean);
+    } else if (typeof raw.pasti_interessati === "string" && raw.pasti_interessati.trim()) {
+      pasti = raw.pasti_interessati.split(",").map(p => p.trim().toLowerCase()).filter(Boolean);
+    }
+    if (dataStr >= dInizio && dataStr <= dFine && pasti.includes(pastoNorm)) {
+      matched = raw;
+    }
+  }
+  return matched;
+}
+
+function verificaAssenzaOverrideLocale(pren, assenzaAttiva) {
+  if (!assenzaAttiva) return false;
+  if (!pren) return true;
+  const statoLower = String(pren.stato_presenza || "").toLowerCase();
+  if (statoLower === "assente") return true;
+  if (pren._manualOverrideAfterAssenza) return false;
+  const tPren = pren.timestamp ? new Date(pren.timestamp).getTime() : 0;
+  const tAss = assenzaAttiva.created_at ? new Date(assenzaAttiva.created_at).getTime() : 0;
+  if (tPren > 0 && tAss > 0 && tPren > tAss && statoLower === "presente") {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Calcola il contatore pasti integrando le assenze prolungate e delegando al motore
+ * unificato di app.js quando disponibile.
+ */
 export function calcolaContatoreMensa(dataStr, tipoPasto) {
+  if (typeof window !== "undefined" && typeof window._appCalcolaContatoreMensa === "function") {
+    return window._appCalcolaContatoreMensa(dataStr, tipoPasto);
+  }
+
+  const st = getActiveAppState();
   const isBustaMeal = isPastoBustaGiorno(dataStr, tipoPasto);
   const utentiMensa = getListaUtentiMensa();
-  const dbMensa = appState.mensaBookings || [];
-  const prenotazioniPasto = dbMensa.filter(m => formattaDataConfronto(m.data) === dataStr && m.tipo_pasto === tipoPasto);
+  const dbMensa = st.mensaBookings || [];
+  const tipoNorm = String(tipoPasto || "").toLowerCase().trim();
+  const prenotazioniPasto = dbMensa.filter(
+    m => formattaDataConfronto(m.data) === dataStr && String(m.tipo_pasto || "").toLowerCase().trim() === tipoNorm
+  );
 
   if (isBustaMeal) {
-    const prenotatiBusta = prenotazioniPasto.filter(m => m.busta && m.stato_presenza !== "assente" && m.stato_presenza !== "Assente");
+    const prenotatiBusta = prenotazioniPasto.filter(m => {
+      const haBusta = isTruthyVal(m.busta) || m.busta === true || m.stato_presenza === "busta";
+      const isAssExplicit = (m.stato_presenza === "assente" || m.stato_presenza === "Assente");
+      const assAttiva = getAssenzaMensaAttivaLocale(dataStr, tipoNorm, m.email);
+      const isAssEff = isAssExplicit || verificaAssenzaOverrideLocale(m, assAttiva);
+      return haBusta && !isAssEff;
+    });
     const countBuste = prenotatiBusta.reduce((acc, m) => acc + 1 + (parseInt(m.ospiti, 10) || 0), 0);
-    const countAssenti = prenotazioniPasto.filter(m => m.stato_presenza === "assente" || m.stato_presenza === "Assente").length;
-    const countRitardi = prenotatiBusta.filter(m => m.ritardo).length;
+    const assentiMap = new Map();
+
+    prenotazioniPasto.forEach(m => {
+      const emailNorm = String(m.email || "").toLowerCase().trim();
+      const assAttiva = getAssenzaMensaAttivaLocale(dataStr, tipoNorm, emailNorm);
+      if (m.stato_presenza === "assente" || m.stato_presenza === "Assente" || verificaAssenzaOverrideLocale(m, assAttiva)) {
+        if (emailNorm) {
+          assentiMap.set(emailNorm, {
+            email: emailNorm,
+            nome: trovaNomeUtente(emailNorm),
+            motivo: assAttiva?.motivo || m.note || "Assente",
+            fromAssenza: Boolean(assAttiva)
+          });
+        }
+      }
+    });
+
+    (st.assenze || []).forEach(raw => {
+      const emailNorm = String(raw?.email || "").toLowerCase().trim();
+      if (!emailNorm || assentiMap.has(emailNorm)) return;
+      const assAttiva = getAssenzaMensaAttivaLocale(dataStr, tipoNorm, emailNorm);
+      if (!assAttiva) return;
+      const pren = prenotazioniPasto.find(m => String(m.email || "").toLowerCase().trim() === emailNorm);
+      if (verificaAssenzaOverrideLocale(pren, assAttiva)) {
+        assentiMap.set(emailNorm, {
+          email: emailNorm,
+          nome: raw.nome || trovaNomeUtente(emailNorm),
+          motivo: assAttiva.motivo || "Assenza prolungata",
+          fromAssenza: true
+        });
+      }
+    });
+
+    const dettagliPresenti = prenotatiBusta.map(m => ({
+      email: m.email,
+      nome: m.nome || trovaNomeUtente(m.email),
+      busta: true,
+      ritardo: Boolean(isTruthyVal(m.ritardo)),
+      ospiti: Math.max(0, parseInt(m.ospiti, 10) || 0),
+      note: m.note || "",
+      defaultPresence: false
+    }));
+
     return {
       totale: countBuste,
       inSala: 0,
       buste: countBuste,
-      assenti: countAssenti,
-      ritardi: countRitardi,
+      assenti: assentiMap.size,
+      ritardi: prenotatiBusta.filter(m => isTruthyVal(m.ritardo)).length,
       ospitiTotali: prenotatiBusta.reduce((acc, m) => acc + (parseInt(m.ospiti, 10) || 0), 0),
+      dettagliPresenti,
+      dettagliAssenti: Array.from(assentiMap.values()),
       isBustaGiorno: true
     };
   }
@@ -88,69 +196,67 @@ export function calcolaContatoreMensa(dataStr, tipoPasto) {
   let countBuste = 0;
   let countRitardi = 0;
   let ospitiTotali = 0;
+  let inSalaCount = 0;
 
   const prenotazioniMap = new Map();
   prenotazioniPasto.forEach(p => {
-    if (p.email) prenotazioniMap.set(p.email.toLowerCase().trim(), p);
+    if (p.email) prenotazioniMap.set(String(p.email).toLowerCase().trim(), p);
   });
 
   const dettagliPresenti = [];
+  const dettagliAssenti = [];
 
   utentiMensa.forEach(u => {
     const emailNorm = String(u.email || "").toLowerCase().trim();
     const pren = prenotazioniMap.get(emailNorm);
-    const isAssente = pren && (pren.stato_presenza === "assente" || pren.stato_presenza === "Assente");
-    const haBusta = pren && Boolean(pren.busta);
-    const inRitardo = pren && Boolean(pren.ritardo);
-    const ospiti = pren ? Math.max(0, parseInt(pren.ospiti, 10) || 0) : 0;
+    const assAttiva = getAssenzaMensaAttivaLocale(dataStr, tipoNorm, emailNorm);
+    const isAssExplicit = pren && (pren.stato_presenza === "assente" || pren.stato_presenza === "Assente");
+    const isAssente = Boolean(isAssExplicit || verificaAssenzaOverrideLocale(pren, assAttiva));
+    const haBusta = !isAssente && pren && (isTruthyVal(pren.busta) || pren.busta === true || pren.stato_presenza === "busta");
+    const inRitardo = !isAssente && pren && Boolean(isTruthyVal(pren.ritardo));
+    const ospiti = (!isAssente && pren) ? Math.max(0, parseInt(pren.ospiti, 10) || 0) : 0;
 
     if (isAssente) {
       countAssenti++;
+      dettagliAssenti.push({
+        email: emailNorm,
+        nome: u.nome || trovaNomeUtente(emailNorm),
+        motivo: assAttiva?.motivo || pren?.note || "Assente",
+        fromAssenza: Boolean(assAttiva)
+      });
     } else if (haBusta) {
       countBuste += (1 + ospiti);
       ospitiTotali += ospiti;
       dettagliPresenti.push({ ...u, busta: true, ritardo: inRitardo, ospiti, note: pren?.note || "", defaultPresence: false });
     } else {
+      inSalaCount += (1 + ospiti);
       if (inRitardo) countRitardi++;
       ospitiTotali += ospiti;
       dettagliPresenti.push({ ...u, busta: false, ritardo: inRitardo, ospiti, note: pren?.note || "", defaultPresence: !pren });
     }
   });
 
-  prenotazioniPasto.forEach(p => {
-    const emailNorm = String(p.email || "").toLowerCase().trim();
-    const giaIncluso = utentiMensa.some(u => String(u.email || "").toLowerCase().trim() === emailNorm);
-    if (!giaIncluso && p.stato_presenza !== "assente" && p.stato_presenza !== "Assente") {
-      const ospiti = Math.max(0, parseInt(p.ospiti, 10) || 0);
-      if (p.busta) countBuste += (1 + ospiti);
-      if (p.ritardo) countRitardi++;
-      ospitiTotali += ospiti;
-      dettagliPresenti.push({ email: p.email, nome: p.nome || p.email.split("@")[0], busta: Boolean(p.busta), ritardo: Boolean(p.ritardo), ospiti, note: p.note || "", defaultPresence: false });
-    }
-  });
-
-  const basePresenti = utentiMensa.length;
-  const ospitiInSala = ospitiTotali - (prenotazioniPasto.filter(m => m.busta).reduce((s, m) => s + (parseInt(m.ospiti, 10) || 0), 0));
-  const busteResidenti = prenotazioniPasto.filter(m => m.busta && m.stato_presenza !== "assente" && m.stato_presenza !== "Assente").length;
-  const inSala = Math.max(0, basePresenti - countAssenti - busteResidenti) + Math.max(0, ospitiInSala);
+  const inSala = Math.max(0, inSalaCount);
   const totalePasti = inSala + countBuste;
 
   return {
     totale: totalePasti,
-    inSala: inSala,
+    inSala,
     buste: countBuste,
     assenti: countAssenti,
     ritardi: countRitardi,
-    ospitiTotali: ospitiTotali,
-    dettagliPresenti: dettagliPresenti,
+    ospitiTotali,
+    dettagliPresenti,
+    dettagliAssenti,
     isBustaGiorno: false
   };
 }
 
 if (typeof window !== "undefined") {
-  window.getSettimanaMenu = getSettimanaMenu;
-  window.getNomeGiorno = getNomeGiorno;
-  window.getListaUtentiMensa = getListaUtentiMensa;
-  window.isPastoBustaGiorno = isPastoBustaGiorno;
-  window.calcolaContatoreMensa = calcolaContatoreMensa;
+  window.getListaUtentiMensa = window.getListaUtentiMensa || getListaUtentiMensa;
+  window.isPastoBustaGiorno = window.isPastoBustaGiorno || isPastoBustaGiorno;
+  window.trovaNomeUtente = window.trovaNomeUtente || trovaNomeUtente;
+  if (!window.calcolaContatoreMensa) {
+    window.calcolaContatoreMensa = calcolaContatoreMensa;
+  }
 }

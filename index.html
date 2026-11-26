@@ -904,12 +904,13 @@
     .quick-logins-box { margin-top: 18px; padding: 12px; background: var(--surface-alt); border-radius: var(--radius-md); font-size: 12px; }
     .quick-btn-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
     .quick-login-btn { background: #ffffff; border: 1px solid var(--border-dark); padding: 4px 8px; border-radius: 14px; font-size: 11px; cursor: pointer; }
-    .toast-container { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 1000000 !important; display: flex; flex-direction: column; gap: 8px; width: 90%; max-width: 380px; pointer-events: none; }
+    .toast-container { position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 2000000 !important; display: flex; flex-direction: column; gap: 8px; width: 90%; max-width: 380px; pointer-events: none; }
     .toast { padding: 10px 16px; border-radius: var(--radius-md); font-size: 13px; font-weight: 600; color: #ffffff; box-shadow: var(--shadow-md); display: flex; align-items: center; justify-content: space-between; pointer-events: auto; }
-    .toast-info { background-color: var(--primary); }
-    .toast-success { background-color: var(--success); }
-    .toast-warning { background-color: var(--warning); }
-    .toast-error { background-color: var(--danger); }
+    .toast-info { background-color: #14213d; color: #ffffff; }
+    .toast-success { background-color: #16a34a; color: #ffffff; }
+    .toast-warning { background-color: #b45309; color: #ffffff; }
+    .toast-error { background-color: #dc2626; color: #ffffff; }
+    [data-theme="dark"] .toast-info { background-color: #1e3a8a; color: #ffffff; border: 1px solid #3b82f6; }
     .toast-fade-out { opacity: 0; transform: translateY(-8px); transition: all 0.3s ease; }
     .text-muted { color: var(--text-muted); }
     .text-sm { font-size: 12px; }
@@ -1789,6 +1790,8 @@
         <div id="push-perm-warning" style="display: none; margin-top: 8px; font-size: 11px; color: #dc2626;">
           ⚠️ I permessi di notifica sono bloccati nel tuo browser. Per attivarle, modificali nelle impostazioni del sito.
         </div>
+      </div>
+
       <!-- GUIDA E INSTALLAZIONE PWA (ANDROID & IPHONE) -->
       <div style="margin-bottom: 16px; background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: var(--radius-md); padding: 12px 14px;">
         <div class="flex-between" style="margin-bottom: 6px;">
@@ -3242,7 +3245,7 @@
           </div>
           <div class="form-group" style="margin: 0; display: none;" id="wrap-assenza-data-fine">
             <label for="assenza-data-fine" id="lbl-assenza-data-fine" style="font-size: 12px; font-weight: 700; color: #1e293b; display: block; margin-bottom: 4px;">Data Fine:</label>
-            <input type="date" id="assenza-data-fine" class="input-text" required onchange="onCambioDataFineAssenza(this.value)" style="padding: 8px 10px; font-size: 13px;">
+            <input type="date" id="assenza-data-fine" class="input-text" onchange="onCambioDataFineAssenza(this.value)" style="padding: 8px 10px; font-size: 13px;">
           </div>
         </div>
 
@@ -3467,7 +3470,7 @@
         }
       });
 
-      const NEWMAN_HTML_BUILD = '2026-11-16-v4';
+      const NEWMAN_HTML_BUILD = '2026-11-26-v6';
       try {
         const prevBuild = localStorage.getItem('newman_html_build');
         if (prevBuild !== NEWMAN_HTML_BUILD) {
@@ -3696,17 +3699,17 @@
       const m = typeof modalOrId === "string" ? document.getElementById(modalOrId) : modalOrId;
       if (!m) return null;
 
+      // Assicura che la modale sia sempre montata direttamente sotto <body> per evitare che contenitori nascosti la blocchino
+      if (m.parentNode !== document.body) {
+        document.body.appendChild(m);
+      }
+
       // Chiudi preventivamente tutte le altre modali aperte per evitare conflitti visivi o sovrapposizioni
       document.querySelectorAll(".modal-overlay").forEach(other => {
         if (other !== m && (other.classList.contains("open") || other.style.display === "flex")) {
           window.chiudiModale(other);
         }
       });
-
-      // Assicura che la modale sia agganciata al DOM senza distaccarla se già presente (evita drop di touch events)
-      if (!m.parentNode) {
-        document.body.appendChild(m);
-      }
 
       m.classList.add("open");
       m.style.setProperty("display", "flex", "important");
@@ -3931,6 +3934,6 @@
   </script>
 
   <!-- SCRIPT FRONTEND LOGICA (VANILLA JS) -->
-  <script type="module" src="/app.js?v=20261116-v4-assenze-push"></script>
+  <script type="module" src="/app.js?v=20261126-v6-modal-fix"></script>
 </body>
 </html>

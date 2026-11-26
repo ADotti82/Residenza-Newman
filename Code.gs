@@ -285,6 +285,24 @@ function setupDatabase() {
     ]);
   }
 
+  // 9. Foglio Assenze (Assenze Prolungate Residenti & Sincronizzazione Mensa)
+  let sAssenze = ss.getSheetByName(SHEET_ASSENZE);
+  if (!sAssenze) {
+    sAssenze = ss.insertSheet(SHEET_ASSENZE);
+    sAssenze.appendRow([
+      "ID",
+      "Email",
+      "Nome",
+      "Data_Inizio",
+      "Data_Fine",
+      "Motivo",
+      "Note",
+      "Assente_Mensa",
+      "Pasti_Interessati",
+      "Created_At"
+    ]);
+  }
+
   return "Setup completato con successo!";
 }
 
@@ -1425,6 +1443,10 @@ function getInfoData() {
       Pasto_Variazione: config["Pasto_Variazione"] || "entrambi",
       Variazioni_Per_Data: config["Variazioni_Per_Data"] || "",
       Messaggio_Supermaster: config["Messaggio_Supermaster"] || "Cari residenti, benvenuti nel portale digitale della Residenza Newman. Per qualsiasi necessità o urgenza la Direzione è a vostra disposizione.",
+      Messaggio_Supermaster_Titolo: config["Messaggio_Supermaster_Titolo"] || "",
+      Messaggio_Supermaster_Data_Pubblicazione: config["Messaggio_Supermaster_Data_Pubblicazione"] || "",
+      Messaggio_Supermaster_Data_Scadenza: config["Messaggio_Supermaster_Data_Scadenza"] || "",
+      Messaggio_Supermaster_Aggiornato_At: config["Messaggio_Supermaster_Aggiornato_At"] || "",
       Info_Regolamento: config["Info_Regolamento"] || "REGOLAMENTO INTERNO DELLA RESIDENZA CARDINAL NEWMAN\n1. VITA COMUNITARIA: Il clima di studio, preghiera e fraternità è alla base della convivenza.\n2. ORARI DI SILENZIO: Dalle ore 23:00 alle ore 07:30 del mattino è richiesto il silenzio assoluto nei corridoi e nelle aree comuni.\n3. MENSA COMUNITARIA:\n   • Pranzo alle 14:30 (prenotazioni aperte fino alle 13:30, 1h prima).\n   • Cena alle 19:30 (prenotazioni aperte fino alle 18:30, 1h prima).\n   • Martedì e Giovedì a pranzo: sono previsti i classici di busta (pranzo al sacco da asporto).\n4. PRENOTAZIONE SPAZI:\n   • Gli unici spazi soggetti a prenotazione sono la Chiesa / Cappella e la Sala TV.\n   • Gli slot sono di 30 minuti. Non serve conferma preventiva.\n5. MANUTENZIONE: Segnalare tempestivamente qualsiasi anomalia nell'apposita sezione Guasti.",
       Info_Contatti: config["Info_Contatti"] || "CONTATTI E RECAPITI DELLA RESIDENZA:\n• Portineria / Accoglienza: Tel. +39 06 87654321 (Int. 101) - Attiva 07:00 - 22:30\n• Direzione Generale: direzione@residenzanewman.org (Int. 102)\n• Emergenze Notturne Custode: +39 333 1122334\n• Economato & Servizio Mensa: mensa@residenzanewman.org\n• Assistenza Tecnica Manutenzione: manutenzione@residenzanewman.org",
       Nome_Camera_1: config["Nome_Camera_1"] || "Camera 1 - Newman",
@@ -1436,7 +1458,7 @@ function getInfoData() {
     prenotazioniMensa: prenotazioniMensa,
     bacheca: bacheca,
     accoglienza: accoglienza,
-    assenze: gestisciGetAssenzeRaw()
+    assenze: leggiAssenzeGAS(ss)
   });
 }
 
@@ -1655,8 +1677,8 @@ function gestisciGetBootstrap(payload) {
     prenotazioniMensa: prenotazioniMensa,
     bacheca: bacheca,
     accoglienza: accoglienza,
+    assenze: leggiAssenzeGAS(ss),
     menuBase: menuBase,
-    assenze: gestisciGetAssenzeRaw(),
     isMaster: isMaster
   };
 
@@ -1883,7 +1905,7 @@ function getMasterData(emailRichiedente) {
     guasti: guasti,
     prenotazioniSpazi: prenotazioniSpazi,
     accoglienza: accoglienza,
-    assenze: gestisciGetAssenzeRaw(),
+    assenze: leggiAssenzeGAS(ss),
     config: config
   });
 }
@@ -2654,6 +2676,19 @@ function calcolaContatoreMensaDefaultGAS(dataTarget, tipoPasto) {
     }
   }
 
+  // Assenze prolungate attive per targetDataStr e targetPastoNorm
+  const assenzeAttiveMap = {};
+  const tutteAssenzeGAS = leggiAssenzeGAS(ss);
+  tutteAssenzeGAS.forEach(function(a) {
+    if (a.assente_mensa === false) return;
+    if (targetDataStr >= a.data_inizio && targetDataStr <= a.data_fine) {
+      const pasti = (a.pasti_interessati && a.pasti_interessati.length > 0) ? a.pasti_interessati : ["pranzo", "cena"];
+      if (pasti.indexOf(targetPastoNorm) !== -1) {
+        assenzeAttiveMap[String(a.email || "").toLowerCase()] = a;
+      }
+    }
+  });
+
   // Se pasto contrassegnato dalla busta (es. pranzo martedì/giovedì)
   if (isBustaMeal) {
     let totBuste = 0;
@@ -2661,17 +2696,26 @@ function calcolaContatoreMensaDefaultGAS(dataTarget, tipoPasto) {
     let totRitardi = 0;
     let totAssenti = 0;
     const listaBuste = [];
+    const assentiSeen = {};
 
     Object.keys(prenotazioniMap).forEach(function(email) {
       const p = prenotazioniMap[email];
-      const isAss = (p.stato_presenza === "assente" || p.stato_presenza === "Assente");
+      const hasAssenzaProl = Boolean(assenzeAttiveMap[email]);
+      const isAss = (p.stato_presenza === "assente" || p.stato_presenza === "Assente") || (hasAssenzaProl && p.stato_presenza !== "presente" && p.stato_presenza !== "Presente");
       if (isAss) {
         totAssenti++;
+        assentiSeen[email] = true;
       } else if (p.busta) {
         totBuste += (1 + p.ospiti);
         totOspiti += p.ospiti;
         if (p.ritardo) totRitardi++;
         listaBuste.push({ email: email, ospiti: p.ospiti, ritardo: p.ritardo, note: p.note });
+      }
+    });
+
+    Object.keys(assenzeAttiveMap).forEach(function(email) {
+      if (!assentiSeen[email] && !prenotazioniMap[email]) {
+        totAssenti++;
       }
     });
 
@@ -2699,10 +2743,12 @@ function calcolaContatoreMensaDefaultGAS(dataTarget, tipoPasto) {
 
   residentiMensa.forEach(function(u) {
     const p = prenotazioniMap[u.email];
-    const isAss = p && (p.stato_presenza === "assente" || p.stato_presenza === "Assente");
-    const haBusta = p && Boolean(p.busta);
-    const inRit = p && Boolean(p.ritardo);
-    const numOsp = p ? p.ospiti : 0;
+    const assProl = assenzeAttiveMap[u.email];
+    const isExplicitAss = p && (p.stato_presenza === "assente" || p.stato_presenza === "Assente");
+    const isAss = isExplicitAss || Boolean(assProl && (!p || (p.stato_presenza !== "presente" && p.stato_presenza !== "Presente")));
+    const haBusta = !isAss && p && Boolean(p.busta);
+    const inRit = !isAss && p && Boolean(p.ritardo);
+    const numOsp = (!isAss && p) ? p.ospiti : 0;
 
     if (isAss) {
       countAssenti++;
@@ -2871,130 +2917,136 @@ function eseguiNotificheMattinaOre7() {
   }
 }
 
-// ----------------------------------------------------------------------------
-// GESTIONE ASSENZE PROGRAMMATE & SINCRONIZZAZIONE MENSA
-// ----------------------------------------------------------------------------
-
-function getOrCreateSheetAssenze(ss) {
-  let sheet = ss.getSheetByName(SHEET_ASSENZE);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_ASSENZE);
-    sheet.appendRow([
-      "ID",
-      "Email",
-      "Nome",
-      "Data_Inizio",
-      "Data_Fine",
-      "Motivo",
-      "Note",
-      "Assente_Mensa",
-      "Pasti_Interessati",
-      "Data_Creazione"
-    ]);
-  }
-  return sheet;
-}
-
-function gestisciGetAssenzeRaw() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const sAssenze = ss.getSheetByName(SHEET_ASSENZE);
-  const list = [];
-  if (!sAssenze) return list;
-
-  const rows = sAssenze.getDataRange().getValues();
+/**
+ * ============================================================================
+ * GESTIONE ASSENZE PROLUNGATE & SINCRONIZZAZIONE MENSA
+ * ============================================================================
+ */
+function leggiAssenzeGAS(ss) {
+  const sheet = (ss || SpreadsheetApp.getActiveSpreadsheet()).getSheetByName(SHEET_ASSENZE);
+  const lista = [];
+  if (!sheet) return lista;
+  const rows = sheet.getDataRange().getValues();
   for (let i = 1; i < rows.length; i++) {
-    const row = rows[i];
-    if (row[0]) {
-      let pasti = ["pranzo", "cena"];
+    if (!rows[i][0] && !rows[i][1]) continue;
+    const rawAssMensa = rows[i][7];
+    const assenteMensa = (rawAssMensa === false || String(rawAssMensa).toLowerCase() === "false") ? false : true;
+    const rawPasti = String(rows[i][8] || "").trim();
+    let pasti = ["pranzo", "cena"];
+    if (rawPasti) {
       try {
-        if (row[8]) {
-          pasti = String(row[8]).split(",").map(p => p.trim());
-        }
-      } catch (e) {}
-
-      list.push({
-        id: String(row[0]),
-        email: String(row[1] || "").toLowerCase(),
-        nome: String(row[2] || ""),
-        data_inizio: formattaDataGAS(row[3]),
-        data_fine: formattaDataGAS(row[4] || row[3]),
-        motivo: String(row[5] || "Altro"),
-        note: String(row[6] || ""),
-        assente_mensa: Boolean(row[7] === true || String(row[7]).toLowerCase() === "true" || row[7] === 1),
-        pasti_interessati: pasti,
-        created_at: String(row[9] || "")
-      });
+        if (rawPasti.indexOf("[") === 0) pasti = JSON.parse(rawPasti);
+        else pasti = rawPasti.split(",").map(function(x) { return x.trim().toLowerCase(); }).filter(Boolean);
+      } catch (e) {
+        pasti = rawPasti.split(",").map(function(x) { return x.trim().toLowerCase(); }).filter(Boolean);
+      }
+      if (!pasti || pasti.length === 0) pasti = ["pranzo", "cena"];
     }
+    const dInizio = formattaDataGAS(rows[i][3]);
+    const dFine = formattaDataGAS(rows[i][4]) || dInizio;
+    lista.push({
+      id: String(rows[i][0] || ""),
+      email: String(rows[i][1] || "").trim().toLowerCase(),
+      nome: String(rows[i][2] || "").trim(),
+      data_inizio: dInizio,
+      data_fine: dFine,
+      motivo: String(rows[i][5] || "Altro"),
+      note: String(rows[i][6] || ""),
+      assente_mensa: assenteMensa,
+      pasti_interessati: pasti,
+      created_at: rows[i][9] ? String(rows[i][9]) : ""
+    });
   }
-  return list;
+  return lista;
 }
 
 function gestisciGetAssenze() {
-  try {
-    const list = gestisciGetAssenzeRaw();
-    return rispostaJSON({ success: true, assenze: list });
-  } catch (err) {
-    return rispostaJSON({ success: false, error: err.toString() });
-  }
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  return rispostaJSON({ success: true, assenze: leggiAssenzeGAS(ss) });
 }
 
 function gestisciRegistraAssenza(payload) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = getOrCreateSheetAssenze(ss);
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  let sAssenze = ss.getSheetByName(SHEET_ASSENZE);
+  if (!sAssenze) {
+    sAssenze = ss.insertSheet(SHEET_ASSENZE);
+    sAssenze.appendRow(["ID", "Email", "Nome", "Data_Inizio", "Data_Fine", "Motivo", "Note", "Assente_Mensa", "Pasti_Interessati", "Created_At"]);
+  }
 
-    const email = String(payload.email || "").trim().toLowerCase();
-    const nome = String(payload.nome || "").trim();
-    const dataInizio = formattaDataGAS(payload.data_inizio);
-    const dataFine = formattaDataGAS(payload.data_fine || payload.data_inizio);
-    const motivo = String(payload.motivo || "Altro");
-    const note = String(payload.note || "");
-    const assenteMensa = Boolean(payload.assente_mensa);
-    const pasti = (Array.isArray(payload.pasti_interessati) && payload.pasti_interessati.length > 0)
-      ? payload.pasti_interessati
-      : (payload.pasti_interessati ? [payload.pasti_interessati] : ["pranzo", "cena"]);
-    const id = payload.id || ("ASS_" + Date.now());
-    const dataCreazione = new Date().toISOString();
+  const email = String(payload.email || "").trim().toLowerCase();
+  const nome = String(payload.nome || "").trim();
+  const dataInizio = formattaDataGAS(payload.data_inizio);
+  const dataFine = formattaDataGAS(payload.data_fine || payload.data_inizio) || dataInizio;
+  const motivo = String(payload.motivo || "Altro");
+  const note = String(payload.note || "");
+  const assenteMensa = (payload.assente_mensa === false || String(payload.assente_mensa).toLowerCase() === "false") ? false : true;
+  let pasti = ["pranzo", "cena"];
+  if (Array.isArray(payload.pasti_interessati) && payload.pasti_interessati.length > 0) {
+    pasti = payload.pasti_interessati.map(function(x) { return String(x).trim().toLowerCase(); }).filter(Boolean);
+  } else if (typeof payload.pasti_interessati === "string" && payload.pasti_interessati.trim()) {
+    pasti = payload.pasti_interessati.split(",").map(function(x) { return x.trim().toLowerCase(); }).filter(Boolean);
+  }
+  if (!assenteMensa) pasti = [];
+  if (assenteMensa && pasti.length === 0) pasti = ["pranzo", "cena"];
 
-    sheet.appendRow([
-      id,
-      email,
-      nome,
-      dataInizio,
-      dataFine,
-      motivo,
-      note,
-      assenteMensa,
-      pasti.join(","),
-      dataCreazione
-    ]);
+  if (!email || !dataInizio) {
+    return rispostaJSON({ success: false, error: "Email e data inizio obbligatorie" });
+  }
 
-    if (assenteMensa) {
-      const sMensa = ss.getSheetByName(SHEET_MENSA);
-      if (sMensa) {
-        const d1 = new Date(dataInizio + "T12:00:00");
-        const d2 = new Date(dataFine + "T12:00:00");
-        for (let dt = new Date(d1); dt <= d2; dt.setDate(dt.getDate() + 1)) {
-          const ymd = formattaDataGAS(dt);
-          pasti.forEach(pasto => {
-            gestisciPrenotazioneMensa({
-              data: ymd,
-              email: email,
-              tipo_pasto: pasto,
-              busta: false,
-              ritardo: false,
-              ospiti: 0,
-              stato_presenza: "assente",
-              bypassTimeLock: true,
-              note: "Assenza programmata: " + motivo
-            });
-          });
-        }
-      }
+  const entryId = String(payload.id || generaId("ASS"));
+  const createdAt = new Date().toISOString();
+
+  const rows = sAssenze.getDataRange().getValues();
+  let updated = false;
+  for (let i = 1; i < rows.length; i++) {
+    if (String(rows[i][0]) === entryId) {
+      sAssenze.getRange(i + 1, 2, 1, 9).setValues([[email, nome, dataInizio, dataFine, motivo, note, assenteMensa, pasti.join(", "), createdAt]]);
+      updated = true;
+      break;
     }
+  }
+  if (!updated) {
+    sAssenze.appendRow([entryId, email, nome, dataInizio, dataFine, motivo, note, assenteMensa, pasti.join(", "), createdAt]);
+  }
 
-    const assenzaObj = {
-      id: id,
+  // Sincronizzazione automatica sul foglio Mensa
+  if (assenteMensa) {
+    let sMensa = ss.getSheetByName(SHEET_MENSA);
+    if (!sMensa) {
+      sMensa = ss.insertSheet(SHEET_MENSA);
+      sMensa.appendRow(["ID", "Data", "Email", "Tipo_Pasto", "Busta", "Ritardo", "Note", "Timestamp", "Ospiti", "Stato_Presenza"]);
+    }
+    const mensaRows = sMensa.getDataRange().getValues();
+    const dStart = new Date(dataInizio + "T12:00:00");
+    const dEnd = new Date(dataFine + "T12:00:00");
+    let dayCount = 0;
+    for (let dt = new Date(dStart); dt <= dEnd && dayCount < 90; dt.setDate(dt.getDate() + 1), dayCount++) {
+      const ymd = Utilities.formatDate(dt, Session.getScriptTimeZone() || "GMT+1", "yyyy-MM-dd");
+      pasti.forEach(function(pasto) {
+        let foundRow = -1;
+        for (let r = 1; r < mensaRows.length; r++) {
+          if (formattaDataGAS(mensaRows[r][1]) === ymd &&
+              String(mensaRows[r][2] || "").trim().toLowerCase() === email &&
+              String(mensaRows[r][3] || "").trim().toLowerCase() === pasto) {
+            foundRow = r + 1;
+            break;
+          }
+        }
+        const notaAssenza = "Assenza programmata: " + motivo;
+        if (foundRow !== -1) {
+          sMensa.getRange(foundRow, 5, 1, 6).setValues([[false, false, notaAssenza, createdAt, 0, "assente"]]);
+        } else {
+          sMensa.appendRow([generaId("MENSA"), ymd, email, pasto, false, false, notaAssenza, createdAt, 0, "assente"]);
+        }
+      });
+    }
+  }
+
+  return rispostaJSON({
+    success: true,
+    id: entryId,
+    assenza: {
+      id: entryId,
       email: email,
       nome: nome,
       data_inizio: dataInizio,
@@ -3003,76 +3055,59 @@ function gestisciRegistraAssenza(payload) {
       note: note,
       assente_mensa: assenteMensa,
       pasti_interessati: pasti,
-      created_at: dataCreazione
-    };
-
-    return rispostaJSON({
-      success: true,
-      id: id,
-      assenza: assenzaObj,
-      message: "Assenza registrata con successo!"
-    });
-  } catch (err) {
-    return rispostaJSON({ success: false, error: err.toString() });
-  }
+      created_at: createdAt
+    }
+  });
 }
 
 function gestisciCancellaAssenza(payload) {
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = ss.getSheetByName(SHEET_ASSENZE);
-    if (!sheet) return rispostaJSON({ success: false, error: "Foglio Assenze non trovato" });
+  const ss = SpreadsheetApp.getActiveSpreadsheet();
+  const sAssenze = ss.getSheetByName(SHEET_ASSENZE);
+  const id = String((payload && payload.id) || "");
+  const ripristinaMensa = !payload || payload.ripristinaMensa !== false;
+  if (!id) return rispostaJSON({ success: false, error: "ID assenza mancante" });
 
-    const id = String(payload.id || "");
-    const rows = sheet.getDataRange().getValues();
-    let rowIdx = -1;
-    let target = null;
-
-    for (let i = 1; i < rows.length; i++) {
+  let removedObj = null;
+  if (sAssenze) {
+    const rows = sAssenze.getDataRange().getValues();
+    for (let i = rows.length - 1; i >= 1; i--) {
       if (String(rows[i][0]) === id) {
-        rowIdx = i + 1;
-        target = {
-          email: String(rows[i][1] || "").toLowerCase(),
+        const rawPasti = String(rows[i][8] || "").trim();
+        let pasti = rawPasti ? rawPasti.split(",").map(function(x) { return x.trim().toLowerCase(); }).filter(Boolean) : ["pranzo", "cena"];
+        if (pasti.length === 0) pasti = ["pranzo", "cena"];
+        removedObj = {
+          email: String(rows[i][1] || "").trim().toLowerCase(),
           data_inizio: formattaDataGAS(rows[i][3]),
-          data_fine: formattaDataGAS(rows[i][4] || rows[i][3]),
-          assente_mensa: Boolean(rows[i][7] === true || String(rows[i][7]).toLowerCase() === "true"),
-          pasti: String(rows[i][8] || "pranzo,cena").split(",").map(p => p.trim())
+          data_fine: formattaDataGAS(rows[i][4]) || formattaDataGAS(rows[i][3]),
+          assente_mensa: (rows[i][7] === false || String(rows[i][7]).toLowerCase() === "false") ? false : true,
+          pasti_interessati: pasti
         };
-        break;
+        sAssenze.deleteRow(i + 1);
       }
     }
+  }
 
-    if (rowIdx !== -1) {
-      sheet.deleteRow(rowIdx);
-
-      if (payload.ripristinaMensa && target && target.assente_mensa) {
-        const sMensa = ss.getSheetByName(SHEET_MENSA);
-        if (sMensa) {
-          const mRows = sMensa.getDataRange().getValues();
-          const d1 = new Date(target.data_inizio + "T12:00:00");
-          const d2 = new Date(target.data_fine + "T12:00:00");
-          for (let dt = new Date(d1); dt <= d2; dt.setDate(dt.getDate() + 1)) {
-            const ymd = formattaDataGAS(dt);
-            for (let m = mRows.length - 1; m >= 1; m--) {
-              const rData = formattaDataGAS(mRows[m][0]);
-              const rEmail = String(mRows[m][1] || "").toLowerCase();
-              const rPasto = String(mRows[m][2] || "").toLowerCase();
-              const rStato = String(mRows[m][6] || "").toLowerCase();
-              if (rData === ymd && rEmail === target.email && target.pasti.includes(rPasto) && rStato === "assente") {
-                sMensa.deleteRow(m + 1);
-              }
-            }
-          }
+  if (removedObj && ripristinaMensa && removedObj.assente_mensa) {
+    const sMensa = ss.getSheetByName(SHEET_MENSA);
+    if (sMensa) {
+      const mRows = sMensa.getDataRange().getValues();
+      for (let r = mRows.length - 1; r >= 1; r--) {
+        const mDate = formattaDataGAS(mRows[r][1]);
+        const mEmail = String(mRows[r][2] || "").trim().toLowerCase();
+        const mPasto = String(mRows[r][3] || "").trim().toLowerCase();
+        const mStato = String(mRows[r][9] || "").trim().toLowerCase();
+        if (mEmail === removedObj.email &&
+            mDate >= removedObj.data_inizio &&
+            mDate <= removedObj.data_fine &&
+            removedObj.pasti_interessati.indexOf(mPasto) !== -1 &&
+            mStato === "assente") {
+          sMensa.deleteRow(r + 1);
         }
       }
-
-      return rispostaJSON({ success: true, message: "Assenza revocata con successo!" });
     }
-
-    return rispostaJSON({ success: false, error: "Assenza non trovata" });
-  } catch (err) {
-    return rispostaJSON({ success: false, error: err.toString() });
   }
+
+  return rispostaJSON({ success: true, message: "Assenza revocata con successo" });
 }
 
 

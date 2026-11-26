@@ -16,7 +16,7 @@
  * ============================================================================
  */
 
-const CACHE_VERSION = 'newman-v28-live-sync';
+const CACHE_VERSION = 'newman-v30-modal-fix';
 
 // Asset minimi per la shell offline (pre-caching sicuro con allSettled)
 const PRECACHE_ASSETS = [
@@ -110,8 +110,8 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // REGOLA D: Bypassa gli endpoint di sviluppo Vite / HMR / internal modules
-  if (url.pathname.startsWith('/@') || url.pathname.includes('node_modules')) {
+  // REGOLA D: Bypassa gli endpoint di sviluppo Vite / HMR / internal modules e API proxy
+  if (url.pathname.startsWith('/@') || url.pathname.startsWith('/api/') || url.pathname.includes('node_modules')) {
     return;
   }
 

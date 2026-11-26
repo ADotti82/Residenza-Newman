@@ -84,3 +84,13 @@ export function getNomeCamera(camNum, config = null) {
   return cfg[`Nome_Camera_${camNum}`] || `Camera ${camNum}`;
 }
 
+export function isTruthyVal(v) {
+  if (v === true || v === 1) return true;
+  if (typeof v === "string") {
+    const s = v.trim().toLowerCase();
+    return s === "true" || s === "1" || s === "si" || s === "sì" || s === "yes";
+  }
+  return false;
+}
+
+
